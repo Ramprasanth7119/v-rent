@@ -498,164 +498,160 @@ function MapSearchPage() {
       {/* ══════════ LEFT PANEL ══════════ */}
       <div className="order-2 lg:order-1 w-full lg:w-[380px] xl:w-[420px] flex flex-col flex-1 lg:flex-none h-[55vh] lg:h-full border-t lg:border-t-0 lg:border-r border-border bg-card text-left overflow-hidden">
 
-        {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-border space-y-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
-              <Compass className="h-4 w-4 text-brand-gold" />
-              Map Explorer
-            </h2>
-            <Badge variant="gold" className="text-[9px] font-black tabular-nums">
-              {filteredListings.length} matches
-            </Badge>
-          </div>
-
-          {/* View toggle */}
-          <div className="flex border border-border rounded-xl bg-background p-1">
-            <button
-              onClick={() => {
-                setViewMode('google');
-                setMapMounted(false);
-                mapInstanceRef.current = null;
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
-                viewMode === 'google' ? 'bg-brand-gold text-brand-navy shadow-sm' : 'text-neutral-500 hover:text-foreground'
-              }`}
-            >
-              <MapIcon className="h-3.5 w-3.5" /> Google Maps
-            </button>
-            <button
-              onClick={() => setViewMode('svg')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
-                viewMode === 'svg' ? 'bg-brand-gold text-brand-navy shadow-sm' : 'text-neutral-500 hover:text-foreground'
-              }`}
-            >
-              <LayoutList className="h-3.5 w-3.5" /> SVG Heatmap
-            </button>
-          </div>
-
-          {/* Pins Toggle Button */}
-          <button
-            onClick={() => setShowPins(prev => !prev)}
-            className={`w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border cursor-pointer flex items-center justify-center gap-1.5 ${
-              showPins 
-                ? 'bg-brand-navy border-brand-navy text-white dark:bg-brand-gold dark:border-brand-gold dark:text-brand-navy shadow-sm' 
-                : 'bg-card border-border hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-500'
-            }`}
-          >
-            <MapPin className="h-3.5 w-3.5" />
-            {showPins ? 'Hide Property Pins' : 'Show Property Pins'}
-          </button>
-
-          {/* Filters */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase text-neutral-400 tracking-widest block">Type</label>
-              <select
-                value={selectedType}
-                onChange={e => setSelectedType(e.target.value)}
-                className="w-full text-[10px] font-bold rounded-lg border border-border bg-card px-2 py-1.5 text-foreground focus:outline-none focus:border-brand-gold cursor-pointer"
-              >
-                <option value="All">All</option>
-                <option value="Condo">Condo</option>
-                <option value="HDB">HDB</option>
-                <option value="Landed">Landed</option>
-                <option value="EC">EC</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase text-neutral-400 tracking-widest block">Max Price</label>
-              <select
-                value={maxPrice}
-                onChange={e => setMaxPrice(Number(e.target.value))}
-                className="w-full text-[10px] font-bold rounded-lg border border-border bg-card px-2 py-1.5 text-foreground focus:outline-none focus:border-brand-gold cursor-pointer"
-              >
-                <option value={15000000}>Any</option>
-                <option value={8000000}>≤ S$8M</option>
-                <option value={4000000}>≤ S$4M</option>
-                <option value={2000000}>≤ S$2M</option>
-                <option value={1000000}>≤ S$1M</option>
-                <option value={600000}>≤ S$600K</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[8px] font-black uppercase text-neutral-400 tracking-widest block">Min Beds</label>
-              <select
-                value={minBeds}
-                onChange={e => setMinBeds(Number(e.target.value))}
-                className="w-full text-[10px] font-bold rounded-lg border border-border bg-card px-2 py-1.5 text-foreground focus:outline-none focus:border-brand-gold cursor-pointer"
-              >
-                <option value={0}>Any</option>
-                <option value={1}>1+</option>
-                <option value={2}>2+</option>
-                <option value={3}>3+</option>
-                <option value={4}>4+</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Lasso Stats Card */}
-          {enclosedArea !== null && (
-            <div className="rounded-xl border border-brand-gold/30 bg-brand-navy-dark text-white p-4 space-y-3 animate-in fade-in duration-200">
-              <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-brand-gold animate-pulse" />
-                  <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Lasso Selection</span>
-                </div>
-                <button
-                  onClick={clearLasso}
-                  className="text-[9px] font-black text-neutral-400 hover:text-white uppercase tracking-wider cursor-pointer flex items-center gap-1"
-                >
-                  <Trash2 className="h-3 w-3" /> Clear
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-[8px] text-neutral-500 uppercase font-black block">Area</span>
-                  <span className="font-bold text-white font-mono">{enclosedArea.toFixed(2)} km²</span>
-                </div>
-                <div>
-                  <span className="text-[8px] text-neutral-500 uppercase font-black block">Matches</span>
-                  <span className="font-bold text-brand-gold font-mono">{filteredListings.length} listings</span>
-                </div>
-                <div>
-                  <span className="text-[8px] text-neutral-500 uppercase font-black block">Avg PSF</span>
-                  <span className="font-bold text-white font-mono">S${Math.round(avgPsf)}</span>
-                </div>
-                <div>
-                  <span className="text-[8px] text-neutral-500 uppercase font-black block">Near MRT</span>
-                  <span className="font-bold text-emerald-400 font-mono">{transitPct}%</span>
-                </div>
-              </div>
-              <div className="border-t border-neutral-800 pt-2 flex justify-between items-baseline">
-                <span className="text-[8px] text-neutral-400 uppercase font-black">Avg Price</span>
-                <span className="text-sm font-black text-brand-gold">
-                  {avgPrice >= 1_000_000 ? `S$${(avgPrice / 1_000_000).toFixed(2)}M` : `S$${Math.round(avgPrice).toLocaleString()}`}
-                </span>
-              </div>
-              {debugText && (
-                <pre className="text-[8px] text-neutral-400 font-mono mt-2 pt-2 border-t border-neutral-800 whitespace-pre-wrap">
-                  {debugText}
-                </pre>
-              )}
-            </div>
-          )}
-
-          {/* Draw instructions (only google mode, no lasso yet) */}
-          {viewMode === 'google' && !enclosedArea && (
-            <div className="flex items-start gap-2 p-3 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
-              <Sparkles className="h-3.5 w-3.5 text-brand-gold flex-shrink-0 mt-0.5 animate-pulse" />
-              <p className="text-[10px] text-neutral-500 leading-relaxed">
-                Click the <span className="font-black text-brand-gold">polygon icon</span> at the top-center of the map to draw a custom search boundary. Listings inside update in real-time.
-              </p>
-            </div>
-          )}
+        {/* Compact sticky header — always visible */}
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0 bg-card z-10">
+          <h2 className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+            <Compass className="h-4 w-4 text-brand-gold" />
+            Map Explorer
+          </h2>
+          <Badge variant="gold" className="text-[9px] font-black tabular-nums">
+            {filteredListings.length} matches
+          </Badge>
         </div>
 
-        {/* Listings Feed */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {/* Scrollable content — everything scrolls together */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* Controls section */}
+          <div className="px-4 pt-4 pb-3 space-y-3">
+
+            {/* View toggle */}
+            <div className="flex border border-border rounded-xl bg-background p-1">
+              <button
+                onClick={() => {
+                  setViewMode('google');
+                  setMapMounted(false);
+                  mapInstanceRef.current = null;
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                  viewMode === 'google' ? 'bg-brand-gold text-brand-navy shadow-sm' : 'text-neutral-500 hover:text-foreground'
+                }`}
+              >
+                <MapIcon className="h-3.5 w-3.5" /> Google Maps
+              </button>
+              <button
+                onClick={() => setViewMode('svg')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
+                  viewMode === 'svg' ? 'bg-brand-gold text-brand-navy shadow-sm' : 'text-neutral-500 hover:text-foreground'
+                }`}
+              >
+                <LayoutList className="h-3.5 w-3.5" /> SVG Heatmap
+              </button>
+            </div>
+
+            {/* Pins Toggle Button */}
+            <button
+              onClick={() => setShowPins(prev => !prev)}
+              className={`w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border cursor-pointer flex items-center justify-center gap-1.5 ${
+                showPins 
+                  ? 'bg-brand-navy border-brand-navy text-white dark:bg-brand-gold dark:border-brand-gold dark:text-brand-navy shadow-sm' 
+                  : 'bg-card border-border hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-500'
+              }`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              {showPins ? 'Hide Property Pins' : 'Show Property Pins'}
+            </button>
+
+            {/* Filters */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase text-neutral-400 tracking-widest block">Type</label>
+                <select
+                  value={selectedType}
+                  onChange={e => setSelectedType(e.target.value)}
+                  className="w-full text-[10px] font-bold rounded-lg border border-border bg-card px-2 py-1.5 text-foreground focus:outline-none focus:border-brand-gold cursor-pointer"
+                >
+                  <option value="All">All</option>
+                  <option value="Condo">Condo</option>
+                  <option value="HDB">HDB</option>
+                  <option value="Landed">Landed</option>
+                  <option value="EC">EC</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase text-neutral-400 tracking-widest block">Max Price</label>
+                <select
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(Number(e.target.value))}
+                  className="w-full text-[10px] font-bold rounded-lg border border-border bg-card px-2 py-1.5 text-foreground focus:outline-none focus:border-brand-gold cursor-pointer"
+                >
+                  <option value={15000000}>Any</option>
+                  <option value={8000000}>≤ S$8M</option>
+                  <option value={4000000}>≤ S$4M</option>
+                  <option value={2000000}>≤ S$2M</option>
+                  <option value={1000000}>≤ S$1M</option>
+                  <option value={600000}>≤ S$600K</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[8px] font-black uppercase text-neutral-400 tracking-widest block">Min Beds</label>
+                <select
+                  value={minBeds}
+                  onChange={e => setMinBeds(Number(e.target.value))}
+                  className="w-full text-[10px] font-bold rounded-lg border border-border bg-card px-2 py-1.5 text-foreground focus:outline-none focus:border-brand-gold cursor-pointer"
+                >
+                  <option value={0}>Any</option>
+                  <option value={1}>1+</option>
+                  <option value={2}>2+</option>
+                  <option value={3}>3+</option>
+                  <option value={4}>4+</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Compact Lasso Stats — inline strip instead of full card */}
+            {enclosedArea !== null && (
+              <div className="rounded-xl border border-brand-gold/30 bg-brand-navy-dark text-white p-3 space-y-2 animate-in fade-in duration-200">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-brand-gold" />
+                    <span className="text-[8px] font-black text-brand-gold uppercase tracking-widest">Lasso Selection</span>
+                  </div>
+                  <button
+                    onClick={clearLasso}
+                    className="text-[8px] font-black text-neutral-400 hover:text-white uppercase tracking-wider cursor-pointer flex items-center gap-1"
+                  >
+                    <Trash2 className="h-2.5 w-2.5" /> Clear
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-[10px]">
+                  <div>
+                    <span className="text-[7px] text-neutral-500 uppercase font-black block">Area</span>
+                    <span className="font-bold text-white font-mono">{enclosedArea.toFixed(1)}km²</span>
+                  </div>
+                  <div>
+                    <span className="text-[7px] text-neutral-500 uppercase font-black block">Matches</span>
+                    <span className="font-bold text-brand-gold font-mono">{filteredListings.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-[7px] text-neutral-500 uppercase font-black block">Avg PSF</span>
+                    <span className="font-bold text-white font-mono">S${Math.round(avgPsf)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[7px] text-neutral-500 uppercase font-black block">Avg Price</span>
+                    <span className="font-bold text-brand-gold font-mono">
+                      {avgPrice >= 1_000_000 ? `S$${(avgPrice / 1_000_000).toFixed(1)}M` : `S$${Math.round(avgPrice).toLocaleString('en-US')}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Draw instructions (only google mode, no lasso yet) */}
+            {viewMode === 'google' && !enclosedArea && (
+              <div className="flex items-start gap-2 p-3 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
+                <Sparkles className="h-3.5 w-3.5 text-brand-gold flex-shrink-0 mt-0.5 animate-pulse" />
+                <p className="text-[10px] text-neutral-500 leading-relaxed">
+                  Click the <span className="font-black text-brand-gold">polygon icon</span> at the top-center of the map to draw a custom search boundary. Listings inside update in real-time.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Listings Feed — flows naturally below controls */}
+          <div className="px-4 pb-4 space-y-3">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-24 rounded-xl bg-neutral-100 dark:bg-neutral-900 animate-pulse border border-border" />
@@ -682,6 +678,8 @@ function MapSearchPage() {
               </div>
             ))
           )}
+        </div>
+        {/* end: scrollable content wrapper */}
         </div>
       </div>
 
