@@ -131,7 +131,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   // Redirect to correct dashboard when persona changes
   React.useEffect(() => {
     if (persona === 'consumer') {
-      if (['/agent', '/agency', '/investor', '/admin', '/vault', '/advisor'].some(p => pathname.startsWith(p))) {
+      if (['/agent', '/agency', '/investor', '/admin'].some(p => pathname.startsWith(p))) {
         router.push('/');
       }
     } else if (persona === 'agent') {

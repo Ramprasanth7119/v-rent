@@ -272,8 +272,8 @@ export default function PropertyDetailPage() {
     <div className="space-y-10 pb-20 relative">
       
       {/* 1. MEDIA GALLERY HERO */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[350px]">
-        <div className="md:col-span-2 rounded-2xl overflow-hidden bg-neutral-100 relative">
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 md:h-[350px] h-auto">
+        <div className="md:col-span-2 rounded-2xl overflow-hidden bg-neutral-100 relative h-48 md:h-full">
           <img 
             src={property.images[0]} 
             alt={property.title} 
@@ -284,24 +284,24 @@ export default function PropertyDetailPage() {
             {property.featured && <Badge variant="gold">Featured Launch</Badge>}
           </div>
         </div>
-        <div className="grid grid-rows-2 gap-4 h-full">
+        <div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 gap-4 h-auto md:h-full">
           {property.images[1] ? (
-            <div className="rounded-2xl overflow-hidden bg-neutral-100">
+            <div className="rounded-2xl overflow-hidden bg-neutral-100 h-28 md:h-full">
               <img src={property.images[1]} alt={property.title} className="h-full w-full object-cover" />
             </div>
           ) : (
-            <div className="rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-600 font-bold uppercase text-[10px]">
+            <div className="rounded-2xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-600 font-bold uppercase text-[10px] h-28 md:h-full">
               No additional photos
             </div>
           )}
-          <div className="rounded-2xl bg-brand-navy-dark text-white p-6 border border-neutral-800 flex flex-col justify-between">
+          <div className="rounded-2xl bg-brand-navy-dark text-white p-4 md:p-6 border border-neutral-800 flex flex-col justify-between h-28 md:h-full text-left">
             <div className="space-y-1">
               <span className="text-[9px] font-black uppercase tracking-widest text-brand-gold">V-RENT Valuation Engine</span>
-              <h4 className="text-sm font-bold uppercase">Instant PSF Estimate</h4>
+              <h4 className="text-xs md:text-sm font-bold uppercase">Instant PSF Estimate</h4>
             </div>
             <div>
-              <span className="text-2xl font-black text-brand-gold">S${property.psf} <span className="text-xs text-white">/psf</span></span>
-              <p className="text-[10px] text-neutral-400 mt-1">Based on 214 district transactions.</p>
+              <span className="text-xl md:text-2xl font-black text-brand-gold">S${property.psf} <span className="text-[10px] text-white">/psf</span></span>
+              <p className="text-[8px] md:text-[10px] text-neutral-400 mt-1">Based on 214 transactions.</p>
             </div>
           </div>
         </div>
@@ -404,9 +404,9 @@ export default function PropertyDetailPage() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Location & Commute Hub</h3>
             <Card className="p-6 overflow-hidden">
-              <div className="flex flex-col md:flex-row gap-6 h-[400px]">
+              <div className="flex flex-col md:flex-row gap-6 md:h-[400px] h-auto">
                 {/* Left Side: Amenity tabs & commute lists */}
-                <div className="w-full md:w-[45%] flex flex-col justify-between h-full text-left">
+                <div className="w-full md:w-[45%] flex flex-col justify-between h-auto md:h-full text-left">
                   {/* Tabs menu */}
                   <div className="flex flex-wrap gap-1 border-b border-border pb-3">
                     {[
@@ -551,7 +551,7 @@ export default function PropertyDetailPage() {
                 </div>
 
                 {/* Right Side: Leaflet map canvas */}
-                <div className="flex-1 h-full rounded-xl border border-border overflow-hidden relative bg-neutral-100">
+                <div className="w-full md:flex-1 h-64 md:h-full rounded-xl border border-border overflow-hidden relative bg-neutral-100">
                   <div ref={mapContainerRef} className="w-full h-full" style={{ zIndex: 1 }} />
                   {!leafletReady && (
                     <div className="absolute inset-0 bg-neutral-50 flex items-center justify-center text-[10px] text-neutral-400 font-bold uppercase tracking-wider font-sans">

@@ -285,8 +285,9 @@ export const Navbar: React.FC = () => {
                   {languages.map(lang => (
                     <button
                       key={lang.code}
+                      type="button"
                       onClick={() => handleLangChange(lang.code)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-bold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer"
                     >
                       <span>{lang.flag}</span>
                       <span>{lang.label}</span>
@@ -330,7 +331,7 @@ export const Navbar: React.FC = () => {
                   </Link>
                 );
               })}
-              {moreLinks.map((link) => {
+              {moreLinks.filter(link => !link.responsiveOnly).map((link) => {
                 const Icon = link.icon;
                 return (
                   <Link
@@ -339,9 +340,11 @@ export const Navbar: React.FC = () => {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-900 rounded-lg"
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4 text-brand-gold" />
                     {link.label}
-                    <span className="ml-auto text-[9px] font-black bg-emerald-500/15 text-emerald-500 px-1.5 py-0.5 rounded-full uppercase">{link.badge}</span>
+                    {link.badge && (
+                      <span className="ml-auto text-[9px] font-black bg-emerald-500/15 text-emerald-500 px-1.5 py-0.5 rounded-full uppercase">{link.badge}</span>
+                    )}
                   </Link>
                 );
               })}
