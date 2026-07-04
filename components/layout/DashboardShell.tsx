@@ -29,7 +29,12 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
 
   const [panelExpanded, setPanelExpanded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const isMapPage = pathname === '/map';
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Draggable State for Persona Switcher Capsule
   const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
@@ -130,6 +135,8 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
 
   // Redirect to correct dashboard when persona changes
   React.useEffect(() => {
+    if (!mounted) return;
+
     if (persona === 'consumer') {
       if (['/agent', '/agency', '/investor', '/admin'].some(p => pathname.startsWith(p))) {
         router.push('/');
@@ -155,7 +162,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
         router.push('/admin');
       }
     }
-  }, [persona, pathname, router]);
+  }, [persona, pathname, router, mounted]);
 
   const personas: { type: PersonaType; label: string; icon: any; color: string }[] = [
     { type: 'consumer', label: 'Consumer', icon: Compass, color: 'bg-emerald-500 text-white' },

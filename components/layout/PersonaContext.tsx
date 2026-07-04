@@ -19,17 +19,26 @@ interface PersonaContextType {
 const PersonaContext = createContext<PersonaContextType | undefined>(undefined);
 
 export const PersonaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [persona, setPersona] = useState<PersonaType>('consumer');
+  const [persona, setPersonaState] = useState<PersonaType>('consumer');
   const [isDarkMode, setDarkMode] = useState<boolean>(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [language, setLanguageState] = useState<LangCode>('EN');
 
   useEffect(() => {
-    const saved = localStorage.getItem('vrent_lang') as LangCode;
-    if (saved && ['EN', 'ZH', 'MS', 'TA'].includes(saved)) {
-      setLanguageState(saved);
+    const savedLang = localStorage.getItem('vrent_lang') as LangCode;
+    if (savedLang && ['EN', 'ZH', 'MS', 'TA'].includes(savedLang)) {
+      setLanguageState(savedLang);
+    }
+    const savedPersona = localStorage.getItem('vrent_persona') as PersonaType;
+    if (savedPersona && ['consumer', 'agent', 'agency', 'investor', 'admin'].includes(savedPersona)) {
+      setPersonaState(savedPersona);
     }
   }, []);
+
+  const setPersona = (p: PersonaType) => {
+    setPersonaState(p);
+    localStorage.setItem('vrent_persona', p);
+  };
 
   const setLanguage = (lang: LangCode) => {
     setLanguageState(lang);

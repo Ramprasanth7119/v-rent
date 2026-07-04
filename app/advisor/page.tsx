@@ -496,7 +496,7 @@ function AdvisorPageContent() {
         {/* Workspace Mode Header */}
         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-950/15 flex-shrink-0">
           <div className="flex items-center gap-3 text-left">
-            <div className="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-400 flex items-center justify-center text-purple-400 relative">
+            <div className="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-400 flex items-center justify-center text-purple-400 relative flex-shrink-0">
               <Bot className="h-4 w-4" />
               <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-card animate-ping"></span>
             </div>
@@ -610,7 +610,7 @@ function AdvisorPageContent() {
                   key={msg.id}
                   className={`flex items-start gap-4 ${msg.sender === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in duration-200`}
                 >
-                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                     msg.sender === 'user' 
                       ? 'bg-neutral-200 dark:bg-neutral-800 text-foreground' 
                       : 'bg-purple-500/10 border border-purple-400 text-purple-400'
@@ -652,7 +652,7 @@ function AdvisorPageContent() {
 
               {isTyping && (
                 <div className="flex items-start gap-4 animate-pulse">
-                  <div className="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-400 flex items-center justify-center text-purple-400">
+                  <div className="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-400 flex items-center justify-center text-purple-400 flex-shrink-0">
                     <Bot className="h-4.5 w-4.5" />
                   </div>
                   <div className="bg-neutral-100 dark:bg-neutral-900 rounded-xl px-4 py-2 text-xs text-neutral-400">
