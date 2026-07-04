@@ -1,41 +1,41 @@
-# V-RENT — PropTech Super Platform (Proof of Concept)
+# V-RENT — Singapore PropTech Super Platform
 
-V-RENT is a Singapore-headquartered, enterprise-grade PropTech Super Platform that unifies residential property search marketplaces, agency ERP operations, compliance registers, MAS lending simulators, and AI portfolios advisors under one scalable interface.
-
----
-
-## 🎙️ Demo Elevator Pitch (Read Aloud to Client)
-
-> *"Welcome. Today, we are presenting V-RENT: a unified PropTech Super Platform built specifically for Singapore's next-generation estate agencies. Rather than separating property searches, broker CRMs, bank calculators, and document signing into isolated applications, V-RENT integrates the entire lead-to-close loop. Powered by 'Ava'—our contextual real-estate AI—consumers get instant URA-correlated valuations, and brokers benefit from automated listing builders and smart lead scoring. The platform is designed from day one to enforce CEA compliance, PDPA integrity, and MAS Total Debt Servicing Ratio (TDSR) metrics. V-RENT isn't a listings directory; it is the operating system for your agency network."*
+V-RENT is an enterprise-grade PropTech Super Platform benchmarked against PropertyGuru and 99.co. It unifies residential/commercial property search marketplaces, direct owner listing wizards, agency ERP operations, secure document vaults, MAS lending simulators, and context-aware AI advisors under one highly responsive Next.js interface.
 
 ---
 
-## 🛠️ Persona Demo Switcher
-
-This proof-of-concept features a **Dynamic Persona Switcher Panel** at the bottom of the viewport. Click on any persona to instantly load their customized workspace and simulate their permissions context:
-
-1.  **Consumer:** Public marketplace search grids, financial stamp duty (ABSD) calculators, and interactive district map search drawers.
-2.  **Agent CRM:** Kanban pipeline manager, listings analytics, and the AI Listing Generator tool.
-3.  **Agency ERP:** Branch leadership rosters, billing packages, and the round-robin lead distribution rules panel.
-4.  **Investor Wealth:** Portfolio net yield trackers, capital appreciation charts, and high-yield opportunities matching feeds.
-5.  **System Admin:** Compliance logs, NRIC license verifications, and external API integration connection registers.
-
-*Quick Key Trigger:* Press `⌘K` or `Ctrl+K` from any screen to launch the global Command Palette overlay for rapid keyboard-first navigation.
+## 🎙️ Demo Elevator Pitch
+> *"Welcome. Today, we are presenting V-RENT: a unified PropTech Super Platform built specifically for Singapore's next-generation estate agencies and modern homebuyers. Rather than separating property searches, broker CRMs, bank calculators, and document signing into isolated applications, V-RENT integrates the entire lead-to-close loop. Powered by 'Ava'—our contextual real-estate AI—consumers get instant URA-correlated valuations, and brokers benefit from automated listing builders and smart lead scoring. The platform is designed from day one to enforce CEA compliance, PDPA integrity, and MAS Total Debt Servicing Ratio (TDSR) metrics. V-RENT isn't just a listings directory; it is the operating system for your agency network."*
 
 ---
 
-## 🚀 How to Run the POC Locally
+## 🛠️ Dynamic Persona Demo Switcher
+At the bottom of the viewport is a **Dynamic Persona Switcher Panel**. Click any persona to instantly swap workspace context and simulate active roles and permissions:
+1.  **Consumer**: Search marketplace grids, view URA charts, adjust interactive budget sliders, explore map district drawers.
+2.  **Agent CRM**: Kanban lead pipelines, listing analytics metrics, AI Listing Description copy generators.
+3.  **Agency ERP**: Branch ranks, billing packages, round-robin lead allocation config boards.
+4.  **Investor Wealth**: Asset distribution charts, portfolio net yields, high-yield opportunity trackers.
+5.  **System Admin**: Verification queues, Singpass validation nodes, integration API key registers.
 
-1.  Ensure you have Node.js installed on your machine.
-2.  Install dependencies:
+*Quick Navigation Key:* Press `Ctrl+K` or `⌘K` from any screen to summon the global Command Palette navigation overlay.
+
+---
+
+## 🚀 How to Run locally
+
+1.  **Install dependencies**:
     ```bash
     npm install
     ```
-3.  Boot the Next.js development server:
+2.  **Run development server**:
     ```bash
     npm run dev
     ```
-4.  Open [http://localhost:3000](http://localhost:3000) in your web browser.
+    Open [http://localhost:3000](http://localhost:3000) in your web browser.
+3.  **Build production version**:
+    ```bash
+    npm run build
+    ```
 
 ---
 
@@ -43,22 +43,28 @@ This proof-of-concept features a **Dynamic Persona Switcher Panel** at the botto
 
 ```
 /app
-  /layout.tsx           # Integrates global PersonaProvider & DashboardShell
-  /globals.css          # Core CSS variables, glassmorphic styling, and dark theme
-  /page.tsx             # Bento-grid editorial consumer Homepage
-  /search               # Split list-map filter search results
-  /map                  # Split resizable region SVG map exploration
+  /layout.tsx           # Integrates global PersonaProvider & DashboardShell wrapper
+  /globals.css          # Core CSS variables, glassmorphism, and dark-theme configurations
+  /page.tsx             # Bento-grid landing homepage featuring the Interactive Budget Slider
+  /search               # Split list-map filter marketplace search board
+  /search/wanted        # Buyer Wanted board listing active buyer requests
+  /map                  # Split resizable map exploration stacking vertically on mobile
   /property/[id]        # Listings details, URA price charts, lease decays, and booking calendars
   /vault                # Secure document uploads, audit history, and Singpass signing
-  /advisor              # Ava AI Assistant / Agent Copilot workspace
-  /calculator           # Financial mortgage tools compiling ABSD, BSD, TDSR check
-  /valuation            # Instant property automated valuation model
+  /advisor              # Ava AI Assistant / Agent Copilot chat workspace
+  /calculator           # Financial mortgage tools compiling ABSD, BSD, and TDSR limits
+  /valuation            # Instant property Automated Valuation Model (AVM)
   /agent                # CRM drag-and-drop Kanban, analytics, and AI description generator
   /agency               # ERP agent performance rankings, subscriptions billing, lead engines
-  /investor             # Investor asset allocations, growth SVG lines, opportunity lists
-  /admin                # Moderator queues, Singpass user validation nodes, integrations configurations
+  /investor             # Investor asset allocations, opportunity lists, yield projections
+  /admin                # Moderator queues, Singpass user validation nodes, integrations
   /auth                 # Signup logins, onboarding roles selector, pending CEA registers
   /agents               # Public agent directories index and profiles
+  /compare              # Side-by-side properties comparison board
+  /coliving             # Co-living shared rooms matching portal
+  /commercial           # Commercial offices and retail spaces register
+  /renovation           # Renovation budget estimation range slider
+  /loyalty              # Points ledger and rewards vouchers redemption hub
 /components
   /ui                   # Button, Card, Badge, Input, Select, Modal, Drawer, Tabs, Table primitives
   /layout               # Sidebar shells per persona context, PersonaContext provider
@@ -68,3 +74,12 @@ This proof-of-concept features a **Dynamic Persona Switcher Panel** at the botto
   /mock-data            # Static typed properties, agents, documents, transactions JSON data
   /services             # Asynchronous mock API client logic with setTimeout delays
 ```
+
+---
+
+## 💻 Tech Stack
+-   **Framework**: Next.js (App Router, Turbopack)
+-   **Language**: TypeScript (Strict checks)
+-   **Styling**: Tailwind CSS (PostCSS v4)
+-   **Icons**: Lucide React
+-   **Maps**: Google Maps JS SDK + Custom SVG Polygon Coordinates projection

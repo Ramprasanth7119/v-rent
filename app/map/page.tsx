@@ -34,6 +34,10 @@ function MapSearchPage() {
   const [previewProperty, setPreviewProperty] = useState<Property | null>(null);
   const [showPins, setShowPins] = useState(true);
 
+  /* ── Stable ref so event listeners always call the LATEST runPolygonFilter ── */
+  const polygonFilterRef = useRef<(poly: any, google: any) => void>(() => {});
+  const [debugText, setDebugText] = useState('');
+
   /* ── Google Maps refs & state ── */
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -170,13 +174,19 @@ function MapSearchPage() {
       activePolygonRef.current = evt.overlay;
       dm.setDrawingMode(null);
 
-      runPolygonFilter(evt.overlay, google);
+      // Always call via ref — avoids stale closure over allListings
+      polygonFilterRef.current(evt.overlay, google);
 
       const path = evt.overlay.getPath();
-      google.maps.event.addListener(path, 'set_at', () => runPolygonFilter(evt.overlay, google));
-      google.maps.event.addListener(path, 'insert_at', () => runPolygonFilter(evt.overlay, google));
+      google.maps.event.addListener(path, 'set_at', () => polygonFilterRef.current(evt.overlay, google));
+      google.maps.event.addListener(path, 'insert_at', () => polygonFilterRef.current(evt.overlay, google));
     });
   }, [isDarkMode]);
+
+  /* ── Keep polygonFilterRef pointing to the LATEST runPolygonFilter (fixes stale closure) ── */
+  useEffect(() => {
+    polygonFilterRef.current = runPolygonFilter;
+  });  // No dep array — runs after every render, keeping ref always fresh
 
   /* ── Effect to draw markers on Google Maps dynamically ── */
   useEffect(() => {
@@ -189,12 +199,10 @@ function MapSearchPage() {
     markersRef.current = [];
     labelsRef.current = [];
 
-    if (!showPins) return; // Skip if pins are toggled off
-
     /* -- Custom price-label overlay class -- */
     class PriceLabel extends google.maps.OverlayView {
       private pos: any;
-      private div: HTMLDivElement | null = null;
+      public div: HTMLDivElement | null = null;
       public property: Property;
       public highlighted: boolean = true;
 
@@ -264,9 +272,16 @@ function MapSearchPage() {
         this.highlighted = on;
         this.updateStyle();
       }
+
+      setVisible(visible: boolean) {
+        if (this.div) {
+          this.div.style.display = visible ? 'block' : 'none';
+        }
+      }
     }
 
-    filteredListings.forEach(p => {
+    // Always draw markers for all listings
+    allListings.forEach(p => {
       const pos = new google.maps.LatLng(p.coordinates.lat, p.coordinates.lng);
       const label = new PriceLabel(pos, p);
       labelsRef.current.push(label);
@@ -292,30 +307,122 @@ function MapSearchPage() {
         setPreviewProperty(p);
       });
     });
-  }, [filteredListings, mapsReady, showPins, isDarkMode]);
+
+    // Run visibility check once on mount
+    labelsRef.current.forEach(l => {
+      if (typeof (l as any).setVisible === 'function') {
+        (l as any).setVisible(showPins);
+      }
+    });
+    markersRef.current.forEach(m => {
+      m.setVisible(showPins);
+    });
+
+  }, [allListings, mapsReady, isDarkMode]);
+
+  /* ── Effect to toggle pin visibility based on showPins state ── */
+  useEffect(() => {
+    labelsRef.current.forEach(l => {
+      if (typeof (l as any).setVisible === 'function') {
+        (l as any).setVisible(showPins);
+      }
+    });
+    markersRef.current.forEach(m => {
+      m.setVisible(showPins);
+    });
+  }, [showPins]);
 
   /* ── Polygon containment filter ── */
   const runPolygonFilter = (poly: any, google: any) => {
-    const areaSqm = google.maps.geometry.spherical.computeArea(poly.getPath());
-    setEnclosedArea(areaSqm / 1_000_000);
+    try {
+      let areaSqm = 0;
+      try {
+        areaSqm = google.maps.geometry.spherical.computeArea(poly.getPath());
+      } catch (err) {
+        console.warn("spherical computeArea failed:", err);
+      }
+      setEnclosedArea(areaSqm / 1_000_000);
 
-    let inside = 0;
-    const matched: Property[] = [];
+      // Extract vertices for our custom ray-casting point-in-polygon math check
+      const vertices: { lat: number; lng: number }[] = [];
+      try {
+        const path = poly.getPath();
+        for (let i = 0; i < path.getLength(); i++) {
+          const xy = path.getAt(i);
+          let vLat = 0;
+          let vLng = 0;
+          if (xy) {
+            if (typeof xy.lat === 'function') {
+              vLat = xy.lat();
+              vLng = xy.lng();
+            } else if (typeof xy.lat === 'number') {
+              vLat = xy.lat;
+              vLng = xy.lng;
+            }
+          }
+          vertices.push({ lat: vLat, lng: vLng });
+        }
+      } catch (err) {
+        console.error("Failed to extract polygon vertices:", err);
+      }
 
-    allListings.forEach((p, idx) => {
-      const latLng = new google.maps.LatLng(p.coordinates.lat, p.coordinates.lng);
-      const inPoly = google.maps.geometry.poly.containsLocation(latLng, poly);
-      const meetsType = selectedType === 'All' || p.propertyType === selectedType;
-      const meetsPrice = p.price <= maxPrice;
-      const meetsBeds = minBeds === 0 || p.bedrooms >= minBeds;
-      const match = inPoly && meetsType && meetsPrice && meetsBeds;
+      // Ray-casting point-in-polygon algorithm (Jordan Curve Theorem)
+      const isPointInPolygon = (lat: number, lng: number, vs: { lat: number; lng: number }[]) => {
+        let inside = false;
+        for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+          const xi = vs[i].lng, yi = vs[i].lat;
+          const xj = vs[j].lng, yj = vs[j].lat;
+          
+          const intersect = ((yi > lat) !== (yj > lat))
+              && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+          if (intersect) inside = !inside;
+        }
+        return inside;
+      };
 
-      if (match) { matched.push(p); inside++; }
-      labelsRef.current[idx]?.setHighlight(match || !inPoly /* show faded if outside area */);
-    });
+      let inside = 0;
+      const matched: Property[] = [];
 
-    setFilteredListings(matched);
-    setLassoPct(Math.round((inside / allListings.length) * 100));
+      let debugInfo = `Vertices: ${vertices.length}\n`;
+      if (vertices.length > 0) {
+        debugInfo += `V0: Lat=${vertices[0].lat.toFixed(4)}, Lng=${vertices[0].lng.toFixed(4)}\n`;
+      }
+
+      allListings.forEach((p, idx) => {
+        const inPolyMath = vertices.length > 0 ? isPointInPolygon(p.coordinates.lat, p.coordinates.lng, vertices) : false;
+        
+        let inPolyGoogle = false;
+        if (google?.maps?.geometry?.poly) {
+          try {
+            const latLng = new google.maps.LatLng(p.coordinates.lat, p.coordinates.lng);
+            inPolyGoogle = google.maps.geometry.poly.containsLocation(latLng, poly);
+          } catch (e) {}
+        }
+
+        const inPoly = inPolyMath || inPolyGoogle;
+        const meetsType = selectedType === 'All' || p.propertyType === selectedType;
+        const meetsPrice = p.price <= maxPrice;
+        const meetsBeds = minBeds === 0 || p.bedrooms >= minBeds;
+        const match = inPoly && meetsType && meetsPrice && meetsBeds;
+
+        if (match) { matched.push(p); inside++; }
+        
+        try {
+          if (labelsRef.current[idx] && typeof labelsRef.current[idx].setHighlight === 'function') {
+            labelsRef.current[idx].setHighlight(match);
+          }
+        } catch (err) {}
+      });
+
+      debugInfo += `Found inside: ${inside}`;
+      setDebugText(debugInfo);
+
+      setFilteredListings(matched);
+      setLassoPct(allListings.length > 0 ? Math.round((inside / allListings.length) * 100) : 0);
+    } catch (globalErr: any) {
+      console.error("Global error in runPolygonFilter:", globalErr);
+      setDebugText(`Global error: ${globalErr.message}`);
+    }
   };
 
   /* ── Non-polygon filter (type/price/beds) ── */
@@ -528,6 +635,11 @@ function MapSearchPage() {
                   {avgPrice >= 1_000_000 ? `S$${(avgPrice / 1_000_000).toFixed(2)}M` : `S$${Math.round(avgPrice).toLocaleString()}`}
                 </span>
               </div>
+              {debugText && (
+                <pre className="text-[8px] text-neutral-400 font-mono mt-2 pt-2 border-t border-neutral-800 whitespace-pre-wrap">
+                  {debugText}
+                </pre>
+              )}
             </div>
           )}
 

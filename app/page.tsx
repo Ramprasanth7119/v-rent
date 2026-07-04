@@ -432,7 +432,7 @@ export default function HomePage() {
               <div className="space-y-2">
                 <div className="flex justify-between items-baseline">
                   <label className="text-xs font-bold uppercase text-neutral-400">Monthly Household Income</label>
-                  <span className="text-lg font-black text-brand-gold font-mono">S${sliderIncome.toLocaleString()} <span className="text-[10px] text-neutral-400 font-bold">/mo</span></span>
+                  <span className="text-lg font-black text-brand-gold font-mono">S${sliderIncome.toLocaleString('en-US')} <span className="text-[10px] text-neutral-400 font-bold">/mo</span></span>
                 </div>
                 <input 
                   type="range" 
@@ -454,7 +454,7 @@ export default function HomePage() {
               <div className="space-y-2">
                 <div className="flex justify-between items-baseline">
                   <label className="text-xs font-bold uppercase text-neutral-400">Combined CPF & Cash Savings</label>
-                  <span className="text-lg font-black text-brand-gold font-mono">S${sliderSavings.toLocaleString()}</span>
+                  <span className="text-lg font-black text-brand-gold font-mono">S${sliderSavings.toLocaleString('en-US')}</span>
                 </div>
                 <input 
                   type="range" 
@@ -489,7 +489,7 @@ export default function HomePage() {
                   <div className="py-2">
                     <span className="text-[10px] text-neutral-400 font-bold uppercase block">Max Property Purchase Price</span>
                     <span className="text-2xl md:text-3xl font-black text-brand-gold mt-1 block font-mono">
-                      SGD {sliderBudget.toLocaleString()}
+                      SGD {sliderBudget.toLocaleString('en-US')}
                     </span>
                   </div>
                 </div>
@@ -497,15 +497,15 @@ export default function HomePage() {
                 <div className="space-y-2 border-t border-neutral-800 pt-4 text-xs font-semibold">
                   <div className="flex justify-between text-[10px] border-b border-neutral-800 pb-1.5">
                     <span className="text-neutral-400 uppercase text-[9px]">Supported Bank Loan (75%):</span>
-                    <span className="font-mono">S${sliderApprovedLoan.toLocaleString()}</span>
+                    <span className="font-mono">S${sliderApprovedLoan.toLocaleString('en-US')}</span>
                   </div>
                   <div className="flex justify-between text-[10px] border-b border-neutral-800 pb-1.5">
                     <span className="text-neutral-400 uppercase text-[9px]">Min Cash Downpayment (5%):</span>
-                    <span className="font-mono">S${sliderMinCash.toLocaleString()}</span>
+                    <span className="font-mono">S${sliderMinCash.toLocaleString('en-US')}</span>
                   </div>
                   <div className="flex justify-between text-[10px]">
                     <span className="text-neutral-400 uppercase text-[9px]">CPF / Cash Downpayment (20%):</span>
-                    <span className="font-mono">S${sliderCpfDownpayment.toLocaleString()}</span>
+                    <span className="font-mono">S${sliderCpfDownpayment.toLocaleString('en-US')}</span>
                   </div>
                 </div>
 
