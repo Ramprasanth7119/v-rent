@@ -223,38 +223,21 @@ function AgentDashboardContent() {
   return (
     <div className="space-y-6 text-left">
       
-      {/* 1. AGENT DASHBOARD TABS NAVBAR */}
-      <div className="flex justify-between items-center flex-wrap gap-4 border-b border-border pb-2">
-        <div className="flex border-b border-transparent overflow-x-auto whitespace-nowrap gap-1">
-          {[
-            { id: 'crm', label: 'CRM Pipeline Board', icon: FolderKanban },
-            { id: 'listings', label: 'My Listings Manager', icon: Home },
-            { id: 'analytics', label: 'Advanced Analytics Suite', icon: LineChart },
-            { id: 'autopost', label: 'Auto-Repost Engine', icon: RefreshCw },
-            { id: 'generator', label: 'AI Listing Writer', icon: Sparkles },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabSwitch(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
-                  isActive 
-                    ? 'border-brand-gold text-brand-gold font-black' 
-                    : 'border-transparent text-neutral-500 hover:text-foreground'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* Page Header */}
+      <div className="flex justify-between items-start flex-wrap gap-4 pb-4 border-b border-border text-left">
+        <div>
+          <h1 className="text-xl font-black uppercase tracking-wider text-foreground">
+            {activeTab === 'crm' ? 'CRM Pipeline Board' : activeTab === 'listings' ? 'My Listings Manager' : activeTab === 'analytics' ? 'Advanced Analytics Suite' : activeTab === 'autopost' ? 'Auto-Repost Engine' : 'AI Listing Writer'}
+          </h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+            {activeTab === 'crm' ? 'Manage your leads pipeline from initial contact to contract closure.' : activeTab === 'listings' ? 'Track your active listings, view traffic counts, and trigger promotion boosts.' : activeTab === 'analytics' ? 'Analyze district demand gaps, market opportunity scores, and yield performance.' : activeTab === 'autopost' ? 'Configure automated rules to periodically refresh your listings on active search portals.' : 'Generate premium SEO-optimized property descriptions powered by V-Rent AI.'}
+          </p>
         </div>
-
-        <Button size="sm" variant="gold" leftIcon={<Plus className="h-4 w-4" />} onClick={() => alert("Shortcut: Creating a new lead record.")}>
-          New Lead / Listing
-        </Button>
+        {activeTab === 'crm' && (
+          <Button size="sm" variant="gold" leftIcon={<Plus className="h-4 w-4" />} onClick={() => alert("Shortcut: Creating a new lead record.")}>
+            New Lead
+          </Button>
+        )}
       </div>
 
       {/* 2. TAB CONTENT PANELS */}

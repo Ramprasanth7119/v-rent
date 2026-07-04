@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { usePersona, PersonaType } from './PersonaContext';
 import { Navbar, Footer } from './Navbar';
 import { AgentSidebar } from './AgentSidebar';
+import { AgencySidebar } from './AgencySidebar';
 import { InvestorSidebar } from './InvestorSidebar';
 import { AdminSidebar } from './AdminSidebar';
 import { CommandPalette } from '../ui/CommandPalette';
@@ -16,6 +17,7 @@ interface DashboardShellProps {
 
 export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const { 
     persona, 
     setPersona, 
@@ -113,6 +115,47 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
     };
   }, [isDragging]);
 
+  // Global Ctrl+K keyboard listener
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandPaletteOpen(!commandPaletteOpen);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [commandPaletteOpen, setCommandPaletteOpen]);
+
+  // Redirect to correct dashboard when persona changes
+  React.useEffect(() => {
+    if (persona === 'consumer') {
+      if (['/agent', '/agency', '/investor', '/admin', '/vault', '/advisor'].some(p => pathname.startsWith(p))) {
+        router.push('/');
+      }
+    } else if (persona === 'agent') {
+      const allowed = ['/agent', '/advisor', '/vault', '/agency'];
+      if (!allowed.some(p => pathname.startsWith(p))) {
+        router.push('/agent');
+      }
+    } else if (persona === 'agency') {
+      const allowed = ['/agency', '/vault'];
+      if (!allowed.some(p => pathname.startsWith(p))) {
+        router.push('/agency');
+      }
+    } else if (persona === 'investor') {
+      const allowed = ['/investor'];
+      if (!allowed.some(p => pathname.startsWith(p))) {
+        router.push('/investor');
+      }
+    } else if (persona === 'admin') {
+      const allowed = ['/admin'];
+      if (!allowed.some(p => pathname.startsWith(p))) {
+        router.push('/admin');
+      }
+    }
+  }, [persona, pathname, router]);
+
   const personas: { type: PersonaType; label: string; icon: any; color: string }[] = [
     { type: 'consumer', label: 'Consumer', icon: Compass, color: 'bg-emerald-500 text-white' },
     { type: 'agent', label: 'Agent CRM', icon: Briefcase, color: 'bg-brand-gold text-brand-navy' },
@@ -125,12 +168,29 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   const renderSidebar = () => {
     switch (persona) {
       case 'agent':
+        return (
+          <React.Suspense fallback={<div className="w-64 bg-sidebar-bg border-r border-neutral-800 flex-shrink-0" />}>
+            <AgentSidebar />
+          </React.Suspense>
+        );
       case 'agency':
-        return <AgentSidebar />;
+        return (
+          <React.Suspense fallback={<div className="w-64 bg-sidebar-bg border-r border-neutral-800 flex-shrink-0" />}>
+            <AgencySidebar />
+          </React.Suspense>
+        );
       case 'investor':
-        return <InvestorSidebar />;
+        return (
+          <React.Suspense fallback={<div className="w-64 bg-sidebar-bg border-r border-neutral-800 flex-shrink-0" />}>
+            <InvestorSidebar />
+          </React.Suspense>
+        );
       case 'admin':
-        return <AdminSidebar />;
+        return (
+          <React.Suspense fallback={<div className="w-64 bg-sidebar-bg border-r border-neutral-800 flex-shrink-0" />}>
+            <AdminSidebar />
+          </React.Suspense>
+        );
       default:
         return null;
     }

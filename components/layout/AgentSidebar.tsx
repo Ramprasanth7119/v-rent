@@ -2,23 +2,29 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { 
   LayoutDashboard, Users, Home, Bot, FileText, Settings, 
-  ChevronRight, Award, Compass, CreditCard 
+  ChevronRight, Award, Compass, CreditCard, LineChart, RefreshCw, Sparkles
 } from 'lucide-react';
 import { usePersona } from './PersonaContext';
 
 export const AgentSidebar: React.FC = () => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { setPersona } = usePersona();
 
+  const activeTab = searchParams.get('tab') || 'crm';
+
   const links = [
-    { name: 'CRM Dashboard', href: '/agent', icon: LayoutDashboard },
-    { name: 'My Listings', href: '/agent?tab=listings', icon: Home },
-    { name: 'Agent AI Copilot', href: '/advisor?mode=copilot', icon: Bot },
-    { name: 'Document Vault', href: '/vault', icon: FileText },
-    { name: 'Billing & Subscriptions', href: '/agency?tab=billing', icon: CreditCard },
+    { name: 'CRM Pipeline', href: '/agent', icon: LayoutDashboard, tab: 'crm' },
+    { name: 'My Listings', href: '/agent?tab=listings', icon: Home, tab: 'listings' },
+    { name: 'Advanced Analytics', href: '/agent?tab=analytics', icon: LineChart, tab: 'analytics' },
+    { name: 'Auto-Repost Engine', href: '/agent?tab=autopost', icon: RefreshCw, tab: 'autopost' },
+    { name: 'AI Listing Writer', href: '/agent?tab=generator', icon: Sparkles, tab: 'generator' },
+    { name: 'Agent AI Copilot', href: '/advisor?mode=copilot', icon: Bot, tab: 'copilot' },
+    { name: 'Document Vault', href: '/vault', icon: FileText, tab: 'vault' },
+    { name: 'Billing & Subscriptions', href: '/agency?tab=billing', icon: CreditCard, tab: 'billing' },
   ];
 
   return (
@@ -55,7 +61,16 @@ export const AgentSidebar: React.FC = () => {
       <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
         {links.map((link) => {
           const Icon = link.icon;
-          const isActive = pathname === link.href;
+          let isActive = false;
+          if (link.href === '/agent') {
+            isActive = activeTab === 'crm' && pathname === '/agent';
+          } else if (link.href === '/vault') {
+            isActive = pathname === '/vault';
+          } else if (link.href.includes('/advisor')) {
+            isActive = pathname === '/advisor';
+          } else {
+            isActive = activeTab === link.tab;
+          }
           return (
             <Link
               key={link.name}

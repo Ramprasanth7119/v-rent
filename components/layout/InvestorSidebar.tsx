@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { 
   TrendingUp, Compass, Landmark, Briefcase, FileSpreadsheet, Settings 
 } from 'lucide-react';
@@ -10,13 +10,16 @@ import { usePersona } from './PersonaContext';
 
 export const InvestorSidebar: React.FC = () => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { setPersona } = usePersona();
 
+  const activeTab = searchParams.get('tab') || 'portfolio';
+
   const links = [
-    { name: 'Portfolio Summary', href: '/investor', icon: Landmark },
-    { name: 'Opportunities', href: '/investor?tab=opportunities', icon: Briefcase },
-    { name: 'Market Intel', href: '/valuation', icon: TrendingUp },
-    { name: 'Financial Reports', href: '/vault', icon: FileSpreadsheet },
+    { name: 'Portfolio Summary', href: '/investor', icon: Landmark, tab: 'portfolio' },
+    { name: 'Opportunities', href: '/investor?tab=opportunities', icon: Briefcase, tab: 'opportunities' },
+    { name: 'Market Intel', href: '/investor?tab=intel', icon: TrendingUp, tab: 'intel' },
+    { name: 'Financial Reports', href: '/investor?tab=reports', icon: FileSpreadsheet, tab: 'reports' },
   ];
 
   return (
@@ -41,7 +44,7 @@ export const InvestorSidebar: React.FC = () => {
       <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
         {links.map((link) => {
           const Icon = link.icon;
-          const isActive = pathname === link.href;
+          const isActive = activeTab === link.tab;
           return (
             <Link
               key={link.name}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -9,7 +10,8 @@ import { Property } from '../../lib/mock-data/properties';
 import { 
   Landmark, TrendingUp, Sparkles, AlertCircle, Compass, ArrowRight, 
   MapPin, Calendar, DollarSign, BarChart3, Clock, CheckCircle2, 
-  Building, Globe, FileSearch, ExternalLink, ChevronDown, ChevronUp, X
+  Building, Globe, FileSearch, ExternalLink, ChevronDown, ChevronUp, X,
+  Briefcase, FileSpreadsheet
 } from 'lucide-react';
 
 interface GlsSite {
@@ -114,10 +116,13 @@ const glsStatusColor: Record<GlsSite['status'], string> = {
   'Confirmed List': 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
 };
 
-export default function InvestorDashboard() {
+function InvestorDashboardContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const activeTab = searchParams.get('tab') || 'portfolio';
+
   const [opps, setOpps] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'portfolio' | 'gls' | 'dealflow'>('portfolio');
   const [expandedGls, setExpandedGls] = useState<string | null>(null);
 
   // Dynamic Portfolio State
@@ -176,78 +181,63 @@ export default function InvestorDashboard() {
       {/* Page Header */}
       <div className="flex justify-between items-start flex-wrap gap-4 pb-4 border-b border-border text-left">
         <div>
-          <h1 className="text-xl font-black uppercase tracking-wider text-foreground">Investor Wealth Center</h1>
+          <h1 className="text-xl font-black uppercase tracking-wider text-foreground">
+            {activeTab === 'portfolio' ? 'Investor Portfolio Summary' : activeTab === 'opportunities' ? 'AI Investment Opportunities' : activeTab === 'intel' ? 'Private Market Intel & GLS Supply' : 'Premium Financial Reports'}
+          </h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Real-time yield metrics, GLS pipeline tracking, portfolio appreciation, and AI-sourced deal flow.
+            {activeTab === 'portfolio' ? 'Real-time yield metrics, asset values, appreciation trends, and net performance scores.' : activeTab === 'opportunities' ? 'AI-filtered deals with high yield potential and market matching characteristics.' : activeTab === 'intel' ? 'District-level price indices, YoY growth statistics, and government land sales tracking.' : 'Downloadable compliance audits, asset statements, and portfolio tax estimations.'}
           </p>
         </div>
         <Badge variant="gold" className="text-xs py-1.5 px-3">Elite Portfolio Status</Badge>
       </div>
 
-      {/* PORTFOLIO METRICS HEADER */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-5 flex flex-col justify-between text-left">
-          <div className="flex justify-between items-center text-xs font-bold text-neutral-400 uppercase">
-            <span>Portfolio Value</span>
-            <Landmark className="h-4 w-4 text-brand-gold" />
-          </div>
-          <div className="mt-3">
-            <span className="text-xl font-black text-foreground">S${(totalPortfolioValue / 1e6).toFixed(2)}M</span>
-            <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mt-1">▲ {appreciation}% Total Return</p>
-          </div>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between text-left">
-          <div className="flex justify-between items-center text-xs font-bold text-neutral-400 uppercase">
-            <span>Gross Rental Yield</span>
-            <TrendingUp className="h-4 w-4 text-brand-gold" />
-          </div>
-          <div className="mt-3">
-            <span className="text-xl font-black text-foreground">{avgYield}% Avg</span>
-            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">S${totalMonthlyRent.toLocaleString()}/mo total rent</p>
-          </div>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between text-left">
-          <div className="flex justify-between items-center text-xs font-bold text-neutral-400 uppercase">
-            <span>Properties Held</span>
-            <Building className="h-4 w-4 text-brand-gold" />
-          </div>
-          <div className="mt-3">
-            <span className="text-xl font-black text-foreground">{portfolio.length} Assets</span>
-            <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Across {new Set(portfolio.map(p => p.district)).size} districts</p>
-          </div>
-        </Card>
-        <Card className="p-5 flex flex-col justify-between bg-gradient-to-br from-brand-navy to-brand-navy-light text-white border-brand-gold/15 text-left">
-          <div className="flex justify-between items-center text-[10px] font-black uppercase text-brand-gold tracking-widest">
-            <span>Portfolio Score</span>
-            <Sparkles className="h-4 w-4 text-brand-gold animate-pulse" />
-          </div>
-          <div className="mt-3">
-            <span className="text-xl font-black text-white">92 / 100</span>
-            <p className="text-[10px] text-neutral-300 mt-1">Elite diversification & low vacancy</p>
-          </div>
-        </Card>
-      </div>
-
-      {/* TABS */}
-      <div className="flex border-b border-border gap-1">
-        {(['portfolio', 'gls', 'dealflow'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 -mb-px cursor-pointer ${
-              activeTab === tab 
-                ? 'border-brand-gold text-brand-gold font-black' 
-                : 'border-transparent text-neutral-500 hover:text-foreground'
-            }`}
-          >
-            {tab === 'portfolio' ? '📊 My Portfolio' : tab === 'gls' ? '🏗️ GLS Pipeline Tracker' : '🤖 AI Deal Flow'}
-          </button>
-        ))}
-      </div>
-
       {/* PORTFOLIO TAB */}
       {activeTab === 'portfolio' && (
         <div className="space-y-6">
+          {/* PORTFOLIO METRICS HEADER */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="p-5 flex flex-col justify-between text-left">
+              <div className="flex justify-between items-center text-xs font-bold text-neutral-400 uppercase">
+                <span>Portfolio Value</span>
+                <Landmark className="h-4 w-4 text-brand-gold" />
+              </div>
+              <div className="mt-3">
+                <span className="text-xl font-black text-foreground">S${(totalPortfolioValue / 1e6).toFixed(2)}M</span>
+                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mt-1">▲ {appreciation}% Total Return</p>
+              </div>
+            </Card>
+            <Card className="p-5 flex flex-col justify-between text-left">
+              <div className="flex justify-between items-center text-xs font-bold text-neutral-400 uppercase">
+                <span>Gross Rental Yield</span>
+                <TrendingUp className="h-4 w-4 text-brand-gold" />
+              </div>
+              <div className="mt-3">
+                <span className="text-xl font-black text-foreground">{avgYield}% Avg</span>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">S${totalMonthlyRent.toLocaleString('en-US')}/mo total rent</p>
+              </div>
+            </Card>
+            <Card className="p-5 flex flex-col justify-between text-left">
+              <div className="flex justify-between items-center text-xs font-bold text-neutral-400 uppercase">
+                <span>Properties Held</span>
+                <Building className="h-4 w-4 text-brand-gold" />
+              </div>
+              <div className="mt-3">
+                <span className="text-xl font-black text-foreground">{portfolio.length} Assets</span>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Across {new Set(portfolio.map(p => p.district)).size} districts</p>
+              </div>
+            </Card>
+            <Card className="p-5 flex flex-col justify-between bg-gradient-to-br from-brand-navy to-brand-navy-light text-white border-brand-gold/15 text-left">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase text-brand-gold tracking-widest">
+                <span>Portfolio Score</span>
+                <Sparkles className="h-4 w-4 text-brand-gold animate-pulse" />
+              </div>
+              <div className="mt-3">
+                <span className="text-xl font-black text-white">92 / 100</span>
+                <p className="text-[10px] text-neutral-300 mt-1">Elite diversification & low vacancy</p>
+              </div>
+            </Card>
+          </div>
+
           {/* Capital Appreciation Chart */}
           <Card className="p-6 space-y-4 text-left">
             <div className="flex justify-between items-center">
@@ -334,9 +324,86 @@ export default function InvestorDashboard() {
         </div>
       )}
 
-      {/* GLS TRACKER TAB */}
-      {activeTab === 'gls' && (
-        <div className="space-y-6">
+      {/* MARKET INTEL & GLS TRACKER TAB */}
+      {activeTab === 'intel' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Market Intel Analytics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            <Card className="p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-neutral-400 uppercase">
+                <span>Top Growth District</span>
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <span className="text-xl font-black text-foreground">District 09 (Orchard / River Valley)</span>
+                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mt-1">▲ +8.2% YoY Appreciation</p>
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-neutral-400 uppercase">
+                <span>Private Rent Index</span>
+                <Building className="h-4 w-4 text-brand-gold" />
+              </div>
+              <div>
+                <span className="text-xl font-black text-foreground">164.8 Points</span>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">S$5.85 avg rental PSF pm</p>
+              </div>
+            </Card>
+
+            <Card className="p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-neutral-400 uppercase">
+                <span>Market Transaction Velocity</span>
+                <Clock className="h-4 w-4 text-blue-400" />
+              </div>
+              <div>
+                <span className="text-xl font-black text-foreground">Average 24 Days on Portal</span>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">High demand in central/west zones</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* District Growth Performance Table */}
+          <Card className="overflow-hidden">
+            <div className="px-6 py-4 border-b border-border text-left">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Singapore District Performance</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-neutral-50/50 dark:bg-neutral-950/20 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    <th className="px-5 py-3.5">District</th>
+                    <th className="px-5 py-3.5">Primary Localities</th>
+                    <th className="px-5 py-3.5 text-right">Avg Resale PSF</th>
+                    <th className="px-5 py-3.5 text-right">YoY Growth</th>
+                    <th className="px-5 py-3.5 text-right">Transaction Vol</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border font-medium">
+                  {[
+                    { dist: 'D09', areas: 'Orchard, River Valley, Cairnhill', psf: 'S$2,850', growth: '+8.2%', vol: '382 deals' },
+                    { dist: 'D10', areas: 'Tanglin, Holland, Bukit Timah', psf: 'S$2,920', growth: '+5.4%', vol: '298 deals' },
+                    { dist: 'D15', areas: 'Katong, Joo Chiat, Amber Road', psf: 'S$1,980', growth: '+6.1%', vol: '424 deals' },
+                    { dist: 'D22', areas: 'Jurong, Boon Lay, Tuas (GLS Hub)', psf: 'S$1,350', growth: '+9.4%', vol: '512 deals' }
+                  ].map((row, i) => (
+                    <tr key={i} className="hover:bg-neutral-50/30 dark:hover:bg-neutral-900/10">
+                      <td className="px-5 py-3.5 font-bold text-brand-gold">{row.dist}</td>
+                      <td className="px-5 py-3.5 text-neutral-500">{row.areas}</td>
+                      <td className="px-5 py-3.5 text-right font-mono">{row.psf}</td>
+                      <td className="px-5 py-3.5 text-right text-emerald-500 font-bold">{row.growth}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-neutral-400">{row.vol}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* GLS Sites Supply Section Title */}
+          <div className="pt-2 text-left">
+            <h3 className="text-xs font-black uppercase tracking-wider text-neutral-400">URA Government Land Sales Supply Tracker</h3>
+          </div>
+
           {/* GLS Header */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
@@ -456,7 +523,7 @@ export default function InvestorDashboard() {
           </div>
 
           {/* GLS Source Attribution */}
-          <Card className="p-3 border-blue-500/20 bg-blue-500/5 flex gap-2 items-center">
+          <Card className="p-3 border-blue-500/20 bg-blue-500/5 flex gap-2 items-center text-left">
             <Globe className="h-4 w-4 text-blue-400 flex-shrink-0" />
             <p className="text-[10px] text-neutral-500">
               Data sourced from <span className="font-bold text-blue-400">URA (Urban Redevelopment Authority) Government Land Sales Programme</span>. Refreshed quarterly. Verify with official URA GLS circulars for legal compliance.
@@ -465,10 +532,10 @@ export default function InvestorDashboard() {
         </div>
       )}
 
-      {/* AI DEAL FLOW TAB */}
-      {activeTab === 'dealflow' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* AI OPPORTUNITIES DEAL FLOW TAB */}
+      {activeTab === 'opportunities' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
             {loading ? (
               Array.from({ length: 3 }).map((_, idx) => (
                 <div key={idx} className="h-64 rounded-xl bg-card border border-border animate-pulse" />
@@ -491,7 +558,7 @@ export default function InvestorDashboard() {
                     <div className="grid grid-cols-2 gap-2 text-[10px]">
                       <div>
                         <p className="text-neutral-400 font-bold uppercase">Price</p>
-                        <p className="font-black text-brand-gold">S${p.price.toLocaleString()}</p>
+                        <p className="font-black text-brand-gold">S${p.price.toLocaleString('en-US')}</p>
                       </div>
                       <div>
                         <p className="text-neutral-400 font-bold uppercase">PSF</p>
@@ -513,6 +580,90 @@ export default function InvestorDashboard() {
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* FINANCIAL REPORTS TAB */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6 text-left animate-in fade-in duration-200">
+          {/* Section: Download Hub */}
+          <Card className="overflow-hidden">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center whitespace-nowrap">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Premium Wealth Reports (Downloads)</h3>
+              <Badge variant="gold" className="text-[10px]">Elite Access Active</Badge>
+            </div>
+            <div className="divide-y divide-border">
+              {[
+                { title: 'Singapore Residential Supply Pipeline Forecast 2026', desc: 'In-depth analysis of URA Master Plan additions and estimated launch rates.', date: 'Jun 2026', size: '4.8 MB' },
+                { title: 'Central Core Region (CCR) Shophouse Capital Appreciation Audit', desc: 'Historical performance registry of Conservation Shophouses across D01, D02, D08.', date: 'May 2026', size: '8.2 MB' },
+                { title: 'HDB Resale Index & Million-Dollar Flat Density Assessment', desc: 'Tracks flat premium values across mature estate blocks.', date: 'Apr 2026', size: '3.1 MB' },
+                { title: 'URA Master Plan 2026: Land Reclamation & Infrastructure Impact Study', desc: 'Identifies high-growth locations ahead of MRT expansion phases.', date: 'Mar 2026', size: '12.4 MB' }
+              ].map((doc, idx) => (
+                <div key={idx} className="px-6 py-4 flex flex-wrap items-center justify-between gap-4 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                    <div className="h-9 w-9 rounded bg-brand-gold/10 flex items-center justify-center flex-shrink-0">
+                      <FileSpreadsheet className="h-4.5 w-4.5 text-brand-gold" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-foreground truncate">{doc.title}</h4>
+                      <p className="text-[10px] text-neutral-400 mt-0.5 leading-relaxed">{doc.desc}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="text-right whitespace-nowrap text-[10px]">
+                      <span className="text-neutral-400 font-bold block">Refreshed</span>
+                      <span className="font-semibold text-neutral-500">{doc.date}</span>
+                    </div>
+                    <div className="text-right whitespace-nowrap text-[10px]">
+                      <span className="text-neutral-400 font-bold block">Size</span>
+                      <span className="font-semibold text-neutral-500">{doc.size}</span>
+                    </div>
+                    <Button size="sm" variant="outline" className="text-[9px] uppercase font-bold tracking-wider py-1 px-2.5 h-7">
+                      Download PDF
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Section: Tax & Net Returns Evaluation */}
+          <Card className="p-6 space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">Net Portfolio ROI Breakdown</h3>
+              <p className="text-[10px] text-neutral-500">Includes Buyer Stamp Duty (BSD), ABSD estimates, and accumulated rental revenues.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-neutral-50/50 dark:bg-neutral-950/20 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    <th className="px-5 py-3">Property Asset</th>
+                    <th className="px-5 py-3 text-right">Tax & Stamp Duties</th>
+                    <th className="px-5 py-3 text-right">Total Rent Collected</th>
+                    <th className="px-5 py-3 text-right">Net ROI %</th>
+                    <th className="px-5 py-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border font-medium">
+                  {[
+                    { name: 'Martin Modern', tax: 'S$99,200', rent: 'S$470,400', roi: '18.4%' },
+                    { name: 'The Antares', tax: 'S$51,200', rent: 'S$187,200', roi: '14.1%' },
+                    { name: 'Tanjong Pagar Shophouse', tax: 'S$184,000', rent: 'S$1,110,000', roi: '38.2%' }
+                  ].map((row, i) => (
+                    <tr key={i} className="hover:bg-neutral-50/30 dark:hover:bg-neutral-900/10">
+                      <td className="px-5 py-3.5 font-bold text-foreground">{row.name}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-neutral-400">{row.tax}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-emerald-500 font-bold">+{row.rent}</td>
+                      <td className="px-5 py-3.5 text-right font-mono text-brand-gold font-bold">{row.roi}</td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-emerald-500">
+                        <Badge variant="success">Secured</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
       )}
 
@@ -642,5 +793,13 @@ export default function InvestorDashboard() {
       )}
 
     </div>
+  );
+}
+
+export default function InvestorDashboard() {
+  return (
+    <React.Suspense fallback={<div className="text-xs uppercase font-bold text-neutral-400">Loading Wealth Center...</div>}>
+      <InvestorDashboardContent />
+    </React.Suspense>
   );
 }

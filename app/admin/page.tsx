@@ -8,7 +8,8 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { 
   ShieldAlert, Users, Database, FileCheck, 
-  Check, X, Activity, Server, Key, AlertTriangle 
+  Check, X, Activity, Server, Key, AlertTriangle,
+  DollarSign
 } from 'lucide-react';
 
 function AdminDashboardContent() {
@@ -63,32 +64,15 @@ function AdminDashboardContent() {
   return (
     <div className="space-y-6">
       
-      {/* 1. ADMIN TABS NAVBAR */}
-      <div className="flex justify-between items-center flex-wrap gap-4 border-b border-border pb-2">
-        <div className="flex border-b border-transparent overflow-x-auto whitespace-nowrap gap-1">
-          {[
-            { id: 'moderation', label: 'Moderation Queue', icon: ShieldAlert },
-            { id: 'users', label: 'User Verifications', icon: Users },
-            { id: 'integrations', label: 'Integrations Nodes', icon: Database },
-            { id: 'audit', label: 'PDPA Consent Audit Logs', icon: FileCheck },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabSwitch(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
-                  isActive 
-                    ? 'border-brand-gold text-brand-gold font-black' 
-                    : 'border-transparent text-neutral-500 hover:text-foreground'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* Page Header */}
+      <div className="flex justify-between items-start flex-wrap gap-4 pb-4 border-b border-border text-left">
+        <div>
+          <h1 className="text-xl font-black uppercase tracking-wider text-foreground">
+            {activeTab === 'moderation' ? 'System Moderation Queue' : activeTab === 'users' ? 'User Verifications & Roster' : activeTab === 'revenue' ? 'Platform Revenue Metrics' : activeTab === 'integrations' ? 'External API Integrations' : 'PDPA Consent Audit Logs'}
+          </h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+            {activeTab === 'moderation' ? 'Review flagged property listings and AI fraud score warnings.' : activeTab === 'users' ? 'Verify CEA agency credentials and user account registrations.' : activeTab === 'revenue' ? 'Track platform subscriptions, seat upgrades, and boost campaign invoices.' : activeTab === 'integrations' ? 'Manage microservice APIs and Bank/Singpass gateway integrations.' : 'Review consent logs, terms updates, and PDPA compliance registrations.'}
+          </p>
         </div>
       </div>
 
@@ -166,9 +150,63 @@ function AdminDashboardContent() {
           />
         </div>
 
+      ) : activeTab === 'revenue' ? (
+        
+        /* TAB C: REVENUE METRICS */
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4 space-y-2">
+              <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 block">Total Revenue</span>
+              <span className="text-2xl font-black text-brand-gold font-mono">S$142,500</span>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase leading-none">+12.4% vs last month</p>
+            </Card>
+            <Card className="p-4 space-y-2">
+              <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 block">MRR (Subscriptions)</span>
+              <span className="text-2xl font-black text-white font-mono">S$18,400</span>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase leading-none">124 active paid agents</p>
+            </Card>
+            <Card className="p-4 space-y-2">
+              <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 block">Promotion Fees</span>
+              <span className="text-2xl font-black text-white font-mono">S$4,200</span>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase leading-none">28 boosted listings</p>
+            </Card>
+            <Card className="p-4 space-y-2">
+              <span className="text-[10px] uppercase font-black tracking-widest text-neutral-400 block">Transaction Volume</span>
+              <span className="text-2xl font-black text-brand-gold font-mono">S$48.2M</span>
+              <p className="text-[9px] text-neutral-500 font-bold uppercase leading-none">Aggregated contract value</p>
+            </Card>
+          </div>
+
+          <Table
+            columns={[
+              { key: 'invoice', header: 'Invoice ID', render: (row) => (
+                <span className="text-xs font-mono font-bold">{row.invoice}</span>
+              )},
+              { key: 'agent', header: 'Agent Name', render: (row) => (
+                <span className="text-xs font-semibold text-foreground">{row.agent}</span>
+              )},
+              { key: 'package', header: 'Product Package', render: (row) => (
+                <span className="text-xs">{row.package}</span>
+              )},
+              { key: 'amount', header: 'Amount Paid', render: (row) => (
+                <span className="text-xs font-bold text-brand-gold font-mono">{row.amount}</span>
+              )},
+              { key: 'status', header: 'Payment Status', render: () => (
+                <Badge variant="success">Paid Success</Badge>
+              )}
+            ]}
+            data={[
+              { invoice: 'INV-2026-004', agent: 'Marcus Lim', package: 'Agent Professional Plan (Annual)', amount: 'S$1,200' },
+              { invoice: 'INV-2026-003', agent: 'Sherry Tan', package: 'Agent Starter Plan (Monthly)', amount: 'S$120' },
+              { invoice: 'INV-2026-002', agent: 'Jared Ong', package: 'Marina Bay Premium Boost Fee', amount: 'S$150' },
+              { invoice: 'INV-2026-001', agent: 'Agency Singapore Corp', package: 'Enterprise API License (Quarterly)', amount: 'S$4,500' }
+            ]}
+          />
+        </div>
+
       ) : activeTab === 'integrations' ? (
         
-        /* TAB C: INTEGRATION CONNECTIONS */
+        /* TAB D: INTEGRATION CONNECTIONS */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in duration-200">
           {integrations.map((item) => (
             <Card key={item.id} className="p-5 flex justify-between items-start gap-4">

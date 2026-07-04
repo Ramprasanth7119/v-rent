@@ -4,24 +4,21 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { 
-  ShieldAlert, Compass, Users, Settings, Database, 
-  DollarSign, Activity, FileCheck 
+  Trophy, CreditCard, GitFork, Compass, ShieldCheck 
 } from 'lucide-react';
 import { usePersona } from './PersonaContext';
 
-export const AdminSidebar: React.FC = () => {
+export const AgencySidebar: React.FC = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { setPersona } = usePersona();
 
-  const activeTab = searchParams.get('tab') || 'moderation';
+  const activeTab = searchParams.get('tab') || 'leaderboard';
 
   const links = [
-    { name: 'Moderation Queue', href: '/admin', icon: ShieldAlert, tab: 'moderation' },
-    { name: 'User Directory', href: '/admin?tab=users', icon: Users, tab: 'users' },
-    { name: 'Revenue Metrics', href: '/admin?tab=revenue', icon: DollarSign, tab: 'revenue' },
-    { name: 'Integrations Nodes', href: '/admin?tab=integrations', icon: Database, tab: 'integrations' },
-    { name: 'Compliance Audits', href: '/admin?tab=audit', icon: FileCheck, tab: 'audit' },
+    { name: 'Team Performance', href: '/agency', icon: Trophy, tab: 'leaderboard' },
+    { name: 'Lead Distribution', href: '/agency?tab=routing', icon: GitFork, tab: 'routing' },
+    { name: 'Billing & Seats', href: '/agency?tab=billing', icon: CreditCard, tab: 'billing' },
   ];
 
   return (
@@ -30,15 +27,20 @@ export const AdminSidebar: React.FC = () => {
       <div className="h-16 px-6 border-b border-neutral-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded bg-brand-gold flex items-center justify-center font-bold text-brand-navy">V</div>
-          <span className="font-bold tracking-tight text-white uppercase text-sm">V-Rent Admin</span>
+          <span className="font-bold tracking-tight text-white uppercase text-sm">V-Rent Agency</span>
         </div>
       </div>
 
-      {/* Role */}
+      {/* Profile */}
       <div className="p-4 border-b border-neutral-800">
-        <div className="bg-neutral-900/60 p-3 rounded-lg border border-neutral-800">
-          <h4 className="text-xs font-bold text-white">System SuperUser</h4>
-          <p className="text-[10px] text-red-400 font-semibold uppercase mt-0.5">Platform Controller</p>
+        <div className="bg-neutral-900/60 p-3 rounded-lg border border-neutral-800 flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-full bg-brand-gold/15 border border-brand-gold flex items-center justify-center">
+            <ShieldCheck className="h-4.5 w-4.5 text-brand-gold" />
+          </div>
+          <div className="text-left min-w-0 flex-1">
+            <h4 className="text-xs font-bold text-white truncate">Agency Admin</h4>
+            <p className="text-[10px] text-brand-gold font-semibold uppercase mt-0.5 leading-none">Licence L3008921A</p>
+          </div>
         </div>
       </div>
 
@@ -77,4 +79,4 @@ export const AdminSidebar: React.FC = () => {
     </aside>
   );
 };
-export default AdminSidebar;
+export default AgencySidebar;

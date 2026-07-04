@@ -36,31 +36,15 @@ function AgencyDashboardContent() {
   return (
     <div className="space-y-6">
       
-      {/* 1. AGENCY ERP TABS NAVBAR */}
-      <div className="flex justify-between items-center flex-wrap gap-4 border-b border-border pb-2">
-        <div className="flex border-b border-transparent overflow-x-auto whitespace-nowrap gap-1">
-          {[
-            { id: 'leaderboard', label: 'Agent Performance Leaderboard', icon: Trophy },
-            { id: 'billing', label: 'Billing & seats', icon: CreditCard },
-            { id: 'routing', label: 'Lead Distribution Engine', icon: GitFork },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabSwitch(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wider border-b-2 cursor-pointer transition-all ${
-                  isActive 
-                    ? 'border-brand-gold text-brand-gold font-black' 
-                    : 'border-transparent text-neutral-500 hover:text-foreground'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
+      {/* Page Header */}
+      <div className="flex justify-between items-start flex-wrap gap-4 pb-4 border-b border-border text-left">
+        <div>
+          <h1 className="text-xl font-black uppercase tracking-wider text-foreground">
+            {activeTab === 'leaderboard' ? 'Agent Performance Leaderboard' : activeTab === 'billing' ? 'Billing & Seat Subscriptions' : 'Lead Distribution Rule Engine'}
+          </h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+            {activeTab === 'leaderboard' ? 'Real-time sales tracking, active listings count, and team KPIs.' : activeTab === 'billing' ? 'Manage subscription tiers, boosted credits, and agent seats.' : 'Configure automated routing protocol rules for incoming customer leads.'}
+          </p>
         </div>
       </div>
 
