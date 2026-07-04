@@ -9,7 +9,7 @@ import { AgencySidebar } from './AgencySidebar';
 import { InvestorSidebar } from './InvestorSidebar';
 import { AdminSidebar } from './AdminSidebar';
 import { CommandPalette } from '../ui/CommandPalette';
-import { Terminal, Shield, Briefcase, TrendingUp, Compass, Search, Sun, Moon } from 'lucide-react';
+import { Terminal, Shield, Briefcase, TrendingUp, Compass, Search, Sun, Moon, Menu, X } from 'lucide-react';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -28,6 +28,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   } = usePersona();
 
   const [panelExpanded, setPanelExpanded] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMapPage = pathname === '/map';
 
   // Draggable State for Persona Switcher Capsule
@@ -219,15 +220,45 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
         </div>
       ) : (
         // Dashboard Shell
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex h-screen overflow-hidden relative">
+          {/* Mobile Sidebar Backdrop Cover */}
+          {sidebarOpen && (
+            <div 
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
+            />
+          )}
+
           {/* Sidebar */}
-          {renderSidebar()}
+          <div 
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('a') || target.closest('button')) {
+                setSidebarOpen(false);
+              }
+            }}
+            className={`
+              fixed inset-y-0 left-0 z-50 transform md:relative md:translate-x-0 transition-transform duration-200 ease-out
+              ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+              md:flex flex-shrink-0 h-full
+            `}
+          >
+            {renderSidebar()}
+          </div>
 
           {/* Main Dashboard Workspace */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Dashboard Workspace Header */}
-            <header className="h-16 border-b border-border bg-card flex items-center justify-between px-8 flex-shrink-0">
-              <div className="flex items-center gap-4">
+            <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-8 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                {/* Mobile Menu Toggle Button */}
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="md:hidden p-2 rounded-lg border border-border text-neutral-400 hover:text-foreground cursor-pointer transition-colors"
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+
                 <h1 className="text-sm font-bold uppercase tracking-widest text-neutral-400">
                   {persona === 'agency' ? 'Agency ERP Core' : `${persona} Portal`}
                 </h1>

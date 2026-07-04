@@ -314,7 +314,7 @@ export default function HomePage() {
   const sliderCpfDownpayment = Math.round(sliderBudget * 0.20);
 
   return (
-    <div className="space-y-16 pb-20 -mx-4 sm:-mx-6 lg:-mx-8 -mt-8">
+    <div className="space-y-16 pb-20 overflow-x-hidden -mt-8">
       
       {/* 1. HERO SECTION WITH INTEGRATED AI SEARCH */}
       <section className="relative pt-12 pb-20 overflow-hidden">
