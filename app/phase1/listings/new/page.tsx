@@ -50,6 +50,7 @@ export default function NewListingPage() {
     addListing({
       id: `lst-${Math.random().toString(36).slice(2, 8)}`,
       reference: `VR-${24110 + state.listings.length}`,
+      agent: state.profile.fullName,
       project: addr.project,
       address: addr.label,
       postalCode: addr.postal,

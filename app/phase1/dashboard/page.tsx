@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { PageHead, Stat, GateRow, SpecNote, StatusChip } from '../../../components/phase1/bits';
+import { PropertyImage } from '../../../components/phase1/PropertyImage';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
 import { Check, X, SlidersHorizontal } from 'lucide-react';
@@ -134,15 +135,26 @@ export default function DashboardPage() {
             <div className="mb-2.5 text-xs font-semibold text-foreground">Recent listings</div>
             <div className="space-y-2.5">
               {state.listings.slice(0, 4).map((l) => (
-                <div key={l.id} className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-xs font-medium text-foreground">{l.project}</div>
+                <Link
+                  key={l.id}
+                  href={`/phase1/listings/${l.id}`}
+                  className="group flex items-center gap-2.5 rounded-lg p-1.5 -mx-1.5 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                >
+                  <PropertyImage
+                    seed={l.reference + l.project}
+                    variant={0}
+                    className="h-9 w-12 flex-shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium text-foreground transition-colors group-hover:text-brand-gold">
+                      {l.project}
+                    </div>
                     <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
                       {l.unitNo} · {sgd(l.monthlyRent)}/mo
                     </div>
                   </div>
                   <StatusChip status={l.status} />
-                </div>
+                </Link>
               ))}
             </div>
             <Link href="/phase1/listings">

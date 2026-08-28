@@ -16,6 +16,8 @@ export type ListingStatus =
 export interface DemoListing {
   id: string;
   reference: string;
+  agent: string;
+  description?: string;
   project: string;
   address: string;
   postalCode: string;
@@ -134,7 +136,9 @@ export const INCUMBENT_PRICING = [
 export const SEED_LISTINGS: DemoListing[] = [
   {
     id: 'lst-1',
-    reference: 'VR-24081',
+    reference: "VR-24081",
+    agent: "Tan Wei Ming",
+    description: "High-floor two bedroom with an unobstructed view across Marina Bay. Fully fitted kitchen, built-in wardrobes throughout, and direct sheltered access to Downtown MRT.",
     project: 'The Sail @ Marina Bay',
     address: '2 Marina Boulevard',
     postalCode: '018987',
@@ -156,7 +160,9 @@ export const SEED_LISTINGS: DemoListing[] = [
   },
   {
     id: 'lst-2',
-    reference: 'VR-24077',
+    reference: "VR-24077",
+    agent: "Tan Wei Ming",
+    description: "Well-kept executive flat a short walk from Rivervale Plaza. Corner unit, bright through most of the day, with an enclosed kitchen and service yard.",
     project: 'Blk 118A Rivervale Drive',
     address: '118A Rivervale Drive',
     postalCode: '541118',
@@ -178,7 +184,9 @@ export const SEED_LISTINGS: DemoListing[] = [
   },
   {
     id: 'lst-3',
-    reference: 'VR-24102',
+    reference: "VR-24102",
+    agent: "Tan Wei Ming",
+    description: "Efficient one bedroom in a newly completed development. Pool-facing, no west sun, and vacant for immediate handover.",
     project: 'Normanton Park',
     address: '11 Normanton Park',
     postalCode: '119003',
@@ -198,7 +206,9 @@ export const SEED_LISTINGS: DemoListing[] = [
   },
   {
     id: 'lst-4',
-    reference: 'VR-24066',
+    reference: "VR-24066",
+    agent: "Tan Wei Ming",
+    description: "Two bedroom facing the internal garden. Quiet stack away from the main road, walking distance to Tampines Hub and three MRT lines.",
     project: 'Treasure at Tampines',
     address: '39 Tampines Lane',
     postalCode: '528473',
@@ -220,7 +230,9 @@ export const SEED_LISTINGS: DemoListing[] = [
   },
   {
     id: 'lst-5',
-    reference: 'VR-24058',
+    reference: "VR-24058",
+    agent: "Tan Wei Ming",
+    description: "Freehold three bedroom on a high floor with a dual-aspect living area. Marble flooring, private lift lobby, and a full-height balcony.",
     project: 'The Continuum',
     address: '8 Thiam Siew Avenue',
     postalCode: '428407',

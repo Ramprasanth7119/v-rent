@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, UserPlus, ShieldCheck, IdCard, ClipboardList, CreditCard, Wallet,
-  LayoutDashboard, Building2, Upload, GaugeCircle, Gavel, Receipt, BarChart3,
+  LayoutDashboard, Building2, Upload, GaugeCircle, Gavel, Receipt, BarChart3, Users,
   RotateCcw, FastForward, Menu, X,
 } from 'lucide-react';
 import { useDemo } from '../../lib/phase1/DemoContext';
@@ -32,6 +32,7 @@ const AGENT_NAV: NavItem[] = [
 ];
 
 const ADMIN_NAV: NavItem[] = [
+  { href: '/phase1/admin/agents', label: 'Agents', module: 'M14', icon: Users },
   { href: '/phase1/admin/verification', label: 'Verification queue', module: 'M7', icon: ShieldCheck },
   { href: '/phase1/admin/moderation', label: 'Moderation queue', module: 'M13', icon: Gavel },
   { href: '/phase1/admin/subscriptions', label: 'Subscriptions', module: 'M10', icon: Receipt },
@@ -40,7 +41,9 @@ const ADMIN_NAV: NavItem[] = [
 
 function NavLink({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {
   const pathname = usePathname();
-  const active = pathname === item.href;
+  const active =
+    pathname === item.href ||
+    (item.href !== '/phase1' && pathname.startsWith(item.href + '/'));
   const Icon = item.icon;
   return (
     <Link

@@ -57,6 +57,7 @@ export default function ImportPage() {
       addListing({
         id: `imp-${i}-${Math.random().toString(36).slice(2, 6)}`,
         reference: `VR-${24200 + i}`,
+        agent: state.profile.fullName,
         project: r.project,
         address: r.project,
         postalCode: r.postal,
