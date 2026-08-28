@@ -96,7 +96,7 @@ export default function AgentDetailPage() {
         </div>
       </Card>
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-4">
+      <div className="vr-stagger mb-5 grid gap-3 sm:grid-cols-4">
         <Stat label="Listings" value={listings.length} sub={`${published.length} published`} />
         <Stat label="Monthly inventory" value={sgd(inventoryValue)} sub="Sum of published rents" />
         <Stat label="Plan" value={agent.plan ?? 'None'} tone={agent.plan ? 'default' : 'warn'} />
@@ -158,7 +158,7 @@ export default function AgentDetailPage() {
             <span className="text-xs tabular-nums text-neutral-400">{listings.length} total</span>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="vr-stagger grid gap-3 sm:grid-cols-2">
             {listings.map((l) => (
               <Card key={l.id} hoverEffect className="overflow-hidden p-0">
                 <div className="relative">

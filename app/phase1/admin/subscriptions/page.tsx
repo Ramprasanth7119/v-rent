@@ -26,7 +26,7 @@ export default function SubscriptionsPage() {
         actions={<Button variant="outline" leftIcon={<RefreshCw size={14} />}>Run reconciliation</Button>}
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="vr-stagger mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Active subscriptions" value={active.length} sub="Across three plans" tone="good" />
         <Stat label="Monthly recurring" value={sgd(mrr)} sub="Annual billings ÷ 12" />
         <Stat label="Paid by PayNow" value={`${paynowShare}%`} sub="1.3% vs 3.4% on cards" tone="good" />

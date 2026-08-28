@@ -45,7 +45,7 @@ export default function AgentsPage() {
         blurb="Every registered agent, their verification standing, plan and listing inventory."
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-4">
+      <div className="vr-stagger mb-5 grid gap-3 sm:grid-cols-4">
         <Stat label="Total agents" value={AGENTS.length} />
         <Stat label="Approved" value={approved} tone="good" />
         <Stat label="Needs attention" value={attention} tone="warn" sub="Review or expired" />

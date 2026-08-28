@@ -47,7 +47,7 @@ export default function PlansPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="vr-stagger grid gap-4 md:grid-cols-3">
         {PLANS.map((p) => {
           const selected = state.plan?.code === p.code;
           return (

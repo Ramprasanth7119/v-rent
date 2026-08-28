@@ -156,7 +156,7 @@ export default function ListingsPage() {
 
       {/* results */}
       {view === 'grid' ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="vr-stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((l) => (
             <Card key={l.id} hoverEffect className="group flex flex-col overflow-hidden p-0">
               <Link href={`/phase1/listings/${l.id}`} className="relative block">

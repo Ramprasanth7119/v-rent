@@ -29,7 +29,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="vr-stagger mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Active listings"
           value={listingLimit ? `${activeListings} / ${listingLimit}` : '—'}

@@ -6,9 +6,11 @@ import { usePathname } from 'next/navigation';
 import {
   Home, UserPlus, ShieldCheck, IdCard, ClipboardList, CreditCard, Wallet,
   LayoutDashboard, Building2, Upload, GaugeCircle, Gavel, Receipt, BarChart3, Users,
-  RotateCcw, FastForward, Menu, X,
+  RotateCcw, FastForward, Menu, X, Sun, Moon, LogIn,
 } from 'lucide-react';
 import { useDemo } from '../../lib/phase1/DemoContext';
+import { usePersona } from '../layout/PersonaContext';
+import { useTheme } from './hooks';
 
 interface NavItem {
   href: string;
@@ -20,6 +22,7 @@ interface NavItem {
 const AGENT_NAV: NavItem[] = [
   { href: '/phase1', label: 'Start here', module: '', icon: Home },
   { href: '/phase1/signup', label: 'Create account', module: 'M1', icon: UserPlus },
+  { href: '/phase1/login', label: 'Sign in', module: 'M1', icon: LogIn },
   { href: '/phase1/verify', label: 'Verify contact', module: 'M2', icon: ShieldCheck },
   { href: '/phase1/profile', label: 'Profile & CEA', module: 'M6', icon: IdCard },
   { href: '/phase1/status', label: 'Application status', module: 'M8', icon: ClipboardList },
@@ -68,8 +71,11 @@ function NavLink({ item, onNavigate }: { item: NavItem; onNavigate: () => void }
 
 export function Phase1Shell({ children }: { children: React.ReactNode }) {
   const { reset, skipToActive, state } = useDemo();
+  const { isDarkMode, setDarkMode } = usePersona();
+  const { toggle: toggleTheme, ready: themeReady } = useTheme(setDarkMode, isDarkMode);
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const pageKey = usePathname();
 
   const statusLabel =
     state.approval === 'approved'
@@ -114,8 +120,23 @@ export function Phase1Shell({ children }: { children: React.ReactNode }) {
       </nav>
 
       <div className="border-t border-white/8 px-4 py-4">
-        <div className="mb-2.5 text-[11px] text-slate-400">
-          Demo state: <span className="text-slate-200 font-medium">{statusLabel}</span>
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-[11px] text-slate-400">
+            Demo state: <span className="font-medium text-slate-200">{statusLabel}</span>
+          </span>
+          <button
+            onClick={toggleTheme}
+            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="relative flex h-6 w-11 flex-shrink-0 items-center rounded-full bg-white/12 px-0.5 transition-colors hover:bg-white/20"
+          >
+            <span
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-gold text-brand-navy-dark transition-transform duration-300"
+              style={{ transform: themeReady && isDarkMode ? 'translateX(20px)' : 'translateX(0)' }}
+            >
+              {isDarkMode ? <Moon size={11} /> : <Sun size={11} />}
+            </span>
+          </button>
         </div>
         <div className="flex gap-2">
           <button
@@ -164,7 +185,7 @@ export function Phase1Shell({ children }: { children: React.ReactNode }) {
       <div className="flex">
         <aside className="hidden lg:block w-64 flex-shrink-0 h-screen sticky top-0">{sidebar}</aside>
         <main className="min-w-0 flex-1">
-          <div className="mx-auto max-w-5xl px-5 sm:px-8 py-8 sm:py-10">{children}</div>
+          <div key={pageKey} className="vr-fade mx-auto max-w-5xl px-5 sm:px-8 py-8 sm:py-10">{children}</div>
         </main>
       </div>
     </div>

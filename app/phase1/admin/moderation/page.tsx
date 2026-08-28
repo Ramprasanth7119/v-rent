@@ -26,7 +26,7 @@ export default function ModerationPage() {
         blurb="Whether every listing is reviewed before going live is still a client decision, so it is a configuration flag rather than a code path."
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="vr-stagger mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="In queue" value={queue.length} sub="Oldest first" />
         <Stat label="Median time to decision" value="3h 12m" sub="Target under 24h" tone="good" />
         <Stat label="Rejection rate, 30 days" value="7.4%" sub="Mostly photograph quality" />

@@ -18,7 +18,7 @@ export function PageHead({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4 mb-7">
+    <div className="vr-rise flex flex-wrap items-start justify-between gap-4 mb-7">
       <div className="min-w-0">
         <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-brand-gold mb-2">
           {module}
@@ -56,7 +56,7 @@ export function Stat({
     bad: 'text-red-600 dark:text-red-400',
   }[tone];
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-neutral-300 dark:hover:border-neutral-700">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
         {label}
       </div>
@@ -85,7 +85,7 @@ export function GateRow({
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border last:border-b-0">
       <span
-        className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full ${
+        className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full transition-colors duration-300 ${
           pass
             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
             : 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400'
