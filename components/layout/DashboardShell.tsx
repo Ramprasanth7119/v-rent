@@ -31,6 +31,9 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const isMapPage = pathname === '/map';
+  // The Phase 1 prototype ships its own shell and must not inherit the
+  // consumer navigation or the persona switcher.
+  const isPhase1 = pathname?.startsWith('/phase1') ?? false;
 
   React.useEffect(() => {
     setMounted(true);
@@ -205,6 +208,12 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   };
 
   const isDashboardMode = persona !== 'consumer';
+
+  // Every hook above must run unconditionally; this bail-out is placed after
+  // them so the Phase 1 prototype can render without the consumer chrome.
+  if (isPhase1) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-200">
