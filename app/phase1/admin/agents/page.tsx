@@ -2,135 +2,109 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Card } from '../../../../components/ui/Card';
-import { PageHead, Stat, SpecNote } from '../../../../components/phase1/bits';
-import { AGENTS, listingsForAgent } from '../../../../lib/phase1/agents';
-import { Search, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  PageHeader, StatCard, FilterBar, SearchInput, FilterChips, SortButton, DataTable, Column,
+  usePagination, Pagination, EmptyState, Avatar, Button, PresenterNote,
+} from '../../../../components/phase1/kit';
+import { StatusBadge, Pill } from '../../../../components/phase1/status';
+import { AGENTS, AgentRow, listingsForAgent } from '../../../../lib/phase1/agents';
+import { ChevronRight, Users, ShieldCheck, AlertCircle, Building2 } from 'lucide-react';
 
-const STATUS_STYLE: Record<string, string> = {
-  approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400',
-  under_review: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400',
-  suspended: 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400',
-  verification_expired: 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  approved: 'Approved',
-  under_review: 'Under review',
-  suspended: 'Suspended',
-  verification_expired: 'CEA expired',
-};
+type Filter = 'all' | 'approved' | 'under_review' | 'verification_expired' | 'suspended';
+type Sort = 'name' | 'joined' | 'listings';
 
 export default function AgentsPage() {
+  const router = useRouter();
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [sort, setSort] = useState<Sort>('name');
 
-  const rows = AGENTS.filter((a) => {
-    const matchesQ =
-      !q ||
-      [a.name, a.ceaNumber, a.agency].some((v) => v.toLowerCase().includes(q.toLowerCase()));
-    const matchesF = filter === 'all' || a.status === filter;
-    return matchesQ && matchesF;
-  });
+  const count = (s: Filter) => (s === 'all' ? AGENTS.length : AGENTS.filter((a) => a.status === s).length);
 
-  const approved = AGENTS.filter((a) => a.status === 'approved').length;
-  const attention = AGENTS.filter((a) => a.status !== 'approved').length;
+  const rows = AGENTS
+    .filter((a) => filter === 'all' || a.status === filter)
+    .filter((a) => !q || [a.name, a.ceaNumber, a.agency].some((v) => v.toLowerCase().includes(q.toLowerCase())))
+    .sort((a, b) =>
+      sort === 'joined' ? b.joinedAt.localeCompare(a.joinedAt)
+      : sort === 'listings' ? listingsForAgent(b.name).length - listingsForAgent(a.name).length
+      : a.name.localeCompare(b.name),
+    );
+
+  const pg = usePagination(rows, 6);
+  const approved = count('approved');
+  const attention = AGENTS.length - approved;
   const totalListings = AGENTS.reduce((n, a) => n + listingsForAgent(a.name).length, 0);
+
+  const columns: Column<AgentRow>[] = [
+    {
+      key: 'agent', header: 'Agent',
+      render: (a) => (
+        <div className="flex items-center gap-3">
+          <Avatar name={a.name} size="md" />
+          <div className="min-w-0">
+            <Link href={`/phase1/admin/agents/${a.id}`} onClick={(e) => e.stopPropagation()} className="block truncate text-[15px] font-semibold text-p1-text hover:underline underline-offset-4">{a.name}</Link>
+            <div className="truncate text-[13px] text-p1-text-3">{a.agency}</div>
+          </div>
+        </div>
+      ),
+    },
+    { key: 'cea', header: 'CEA number', render: (a) => <span className="font-mono text-[14px]">{a.ceaNumber}</span> },
+    { key: 'status', header: 'Status', render: (a) => <StatusBadge kind="agent" value={a.status} /> },
+    { key: 'plan', header: 'Plan', render: (a) => (a.plan ? <Pill tone="accent">{a.plan}</Pill> : <span className="text-p1-text-3">—</span>) },
+    {
+      key: 'listings', header: 'Listings', align: 'right', hideBelow: 'md',
+      render: (a) => {
+        const ls = listingsForAgent(a.name);
+        return <span className="tabular-nums">{ls.filter((l) => l.status === 'published').length} live <span className="text-p1-text-3">/ {ls.length}</span></span>;
+      },
+    },
+    { key: 'joined', header: 'Joined', hideBelow: 'lg', render: (a) => <span className="font-mono text-[13px] text-p1-text-2">{a.joinedAt}</span> },
+    { key: 'go', header: <span className="sr-only">Open</span>, width: '40px', render: () => <ChevronRight size={16} className="text-p1-text-3" aria-hidden /> },
+  ];
 
   return (
     <>
-      <PageHead
-        module="M14 · Administrative Console"
-        title="Agents"
-        blurb="Every registered agent, their verification standing, plan and listing inventory."
-      />
+      <PageHeader eyebrow="Administration" title="Agents" description="Every registered agent, their verification standing, plan and listing inventory." />
 
-      <div className="vr-stagger mb-5 grid gap-3 sm:grid-cols-4">
-        <Stat label="Total agents" value={AGENTS.length} />
-        <Stat label="Approved" value={approved} tone="good" />
-        <Stat label="Needs attention" value={attention} tone="warn" sub="Review or expired" />
-        <Stat label="Listings on platform" value={totalListings} />
+      <div className="vr-stagger mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total agents" value={AGENTS.length} icon={<Users size={16} />} />
+        <StatCard label="Verified" value={approved} tone="success" icon={<ShieldCheck size={16} />} />
+        <StatCard label="Needs attention" value={attention} tone="warning" hint="review, expired or suspended" icon={<AlertCircle size={16} />} />
+        <StatCard label="Listings on platform" value={totalListings} icon={<Building2 size={16} />} />
       </div>
 
-      <Card className="mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] flex-1">
-            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search by name, CEA number or agency"
-              className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder-neutral-400 focus:border-brand-gold focus:outline-none focus:ring-2 focus:ring-brand-gold/10"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {['all', 'approved', 'under_review', 'verification_expired'].map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  filter === f
-                    ? 'bg-brand-navy text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800'
-                }`}
-              >
-                {f === 'all' ? 'All' : STATUS_LABEL[f]}
-              </button>
-            ))}
-          </div>
+      <FilterBar>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <SearchInput value={q} onChange={(v) => { setQ(v); pg.setPage(1); }} placeholder="Search by name, CEA number or agency" className="flex-1" />
+          <SortButton value={sort} onChange={setSort} options={[{ key: 'name', label: 'Name A–Z' }, { key: 'joined', label: 'Recently joined' }, { key: 'listings', label: 'Most listings' }]} />
         </div>
-      </Card>
+        <FilterChips
+          value={filter}
+          onChange={(k) => { setFilter(k); pg.setPage(1); }}
+          options={[
+            { key: 'all', label: 'All', count: count('all') },
+            { key: 'approved', label: 'Verified', count: count('approved') },
+            { key: 'under_review', label: 'Under review', count: count('under_review') },
+            { key: 'verification_expired', label: 'CEA expired', count: count('verification_expired') },
+            { key: 'suspended', label: 'Suspended', count: count('suspended') },
+          ]}
+        />
+      </FilterBar>
 
-      <div className="grid gap-2.5">
-        {rows.map((a) => {
-          const listings = listingsForAgent(a.name);
-          const published = listings.filter((l) => l.status === 'published').length;
-          return (
-            <Link key={a.id} href={`/phase1/admin/agents/${a.id}`}>
-              <Card hoverEffect className="flex flex-wrap items-center gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand-navy text-xs font-semibold text-white">
-                  {a.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
-                </div>
+      <DataTable
+        columns={columns}
+        rows={pg.slice}
+        rowKey={(a) => a.id}
+        onRowClick={(a) => router.push(`/phase1/admin/agents/${a.id}`)}
+        caption="Registered agents"
+        empty={<EmptyState compact icon={<Users size={20} />} title="No agents match" description="Try a different name or clear the search." action={<Button variant="outline" size="sm" onClick={() => { setQ(''); setFilter('all'); }}>Clear search</Button>} />}
+      />
+      <Pagination className="mt-4" page={pg.page} pages={pg.pages} onChange={pg.setPage} from={pg.from} to={pg.to} total={pg.total} />
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{a.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLE[a.status]}`}>
-                      {STATUS_LABEL[a.status]}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                    <span className="font-mono">{a.ceaNumber}</span> · {a.agency}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6 text-right">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500">Plan</div>
-                    <div className="text-xs font-medium text-foreground">{a.plan ?? '—'}</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500">Listings</div>
-                    <div className="text-xs font-medium tabular-nums text-foreground">
-                      {published} live <span className="text-neutral-400">/ {listings.length}</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={15} className="text-neutral-300 dark:text-neutral-600" />
-                </div>
-              </Card>
-            </Link>
-          );
-        })}
-        {rows.length === 0 && (
-          <Card className="py-10 text-center text-sm text-neutral-400">No agents match that search.</Card>
-        )}
-      </div>
-
-      <SpecNote>
-        Suspending an agent from this screen takes effect on their very next request, because sessions are
-        held server-side rather than in a self-contained token. That requirement is what drove the
-        authentication decision in M1.
-      </SpecNote>
+      <PresenterNote>
+        Suspending an agent takes effect on their very next request, because sessions are held server-side rather than in a self-contained token. That requirement drove the authentication decision in M1.
+      </PresenterNote>
     </>
   );
 }

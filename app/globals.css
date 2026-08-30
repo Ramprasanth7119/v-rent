@@ -193,3 +193,179 @@ body {
   }
   .vr-shimmer::after { display: none; }
 }
+
+/* ============================================================
+   V-RENT Phase 1 — design system tokens
+   Scoped to the `.p1` root so nothing here leaks into the
+   consumer application. Light values first; dark overrides
+   follow under `.dark .p1`.
+   ============================================================ */
+
+.p1 {
+  --p1-bg: #F5F7FA;
+  --p1-surface: #FFFFFF;
+  --p1-elevated: #FFFFFF;
+  --p1-subtle: #EEF1F5;
+  --p1-border: #E2E7EE;
+  --p1-border-strong: #C9D2DD;
+  --p1-text: #0F172A;
+  --p1-text-2: #475467;
+  --p1-text-3: #667085;
+  --p1-primary: #0B1E3F;
+  --p1-primary-hover: #15305F;
+  --p1-primary-soft: #E9EEF8;
+  --p1-primary-on: #FFFFFF;
+  --p1-accent: #D4AF37;
+  --p1-accent-hover: #C6A22C;
+  --p1-accent-text: #8A6A11;
+  --p1-accent-soft: #FBF4DE;
+  --p1-accent-on: #0B1E3F;
+  --p1-success: #067647;
+  --p1-success-soft: #ECFDF3;
+  --p1-success-border: #ABEFC6;
+  --p1-warning: #B54708;
+  --p1-warning-soft: #FFFAEB;
+  --p1-warning-border: #FEDF89;
+  --p1-danger: #B42318;
+  --p1-danger-soft: #FEF3F2;
+  --p1-danger-border: #FECDCA;
+  --p1-info: #175CD3;
+  --p1-info-soft: #EFF4FF;
+  --p1-info-border: #B2CCFF;
+  --p1-sidebar: #0B1E3F;
+  --p1-sidebar-2: #08172F;
+  --p1-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --p1-shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --p1-shadow-lg: 0 16px 40px -12px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --p1-ring: rgba(212, 175, 55, 0.35);
+  --font-p1-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-p1-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+
+  font-family: var(--font-p1-sans);
+  font-feature-settings: 'cv11', 'ss01', 'tnum' 0;
+  background-color: var(--p1-bg);
+  color: var(--p1-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark .p1 {
+  --p1-bg: #0B1017;
+  --p1-surface: #121923;
+  --p1-elevated: #182230;
+  --p1-subtle: #1A2330;
+  --p1-border: #243040;
+  --p1-border-strong: #364659;
+  --p1-text: #EEF2F7;
+  --p1-text-2: #B3BECD;
+  --p1-text-3: #8593A6;
+  --p1-primary: #4C72CC;
+  --p1-primary-hover: #5B81DB;
+  --p1-primary-soft: #1A2740;
+  --p1-primary-on: #FFFFFF;
+  --p1-accent: #E2BC4E;
+  --p1-accent-hover: #ECC85F;
+  --p1-accent-text: #E2BC4E;
+  --p1-accent-soft: #2B2410;
+  --p1-accent-on: #0B1E3F;
+  --p1-success: #4ADE80;
+  --p1-success-soft: #0D2A1C;
+  --p1-success-border: #1E5A3A;
+  --p1-warning: #FBBF24;
+  --p1-warning-soft: #2A2109;
+  --p1-warning-border: #6B4E0B;
+  --p1-danger: #F87171;
+  --p1-danger-soft: #2C1414;
+  --p1-danger-border: #7A2626;
+  --p1-info: #7AA7FF;
+  --p1-info-soft: #101F3A;
+  --p1-info-border: #23407A;
+  --p1-sidebar: #0A1220;
+  --p1-sidebar-2: #070D18;
+  --p1-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --p1-shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.5);
+  --p1-shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.7);
+  --p1-ring: rgba(226, 188, 78, 0.4);
+}
+
+@theme inline {
+  --color-p1-bg: var(--p1-bg);
+  --color-p1-surface: var(--p1-surface);
+  --color-p1-elevated: var(--p1-elevated);
+  --color-p1-subtle: var(--p1-subtle);
+  --color-p1-border: var(--p1-border);
+  --color-p1-border-strong: var(--p1-border-strong);
+  --color-p1-text: var(--p1-text);
+  --color-p1-text-2: var(--p1-text-2);
+  --color-p1-text-3: var(--p1-text-3);
+  --color-p1-primary: var(--p1-primary);
+  --color-p1-primary-hover: var(--p1-primary-hover);
+  --color-p1-primary-soft: var(--p1-primary-soft);
+  --color-p1-primary-on: var(--p1-primary-on);
+  --color-p1-accent: var(--p1-accent);
+  --color-p1-accent-hover: var(--p1-accent-hover);
+  --color-p1-accent-text: var(--p1-accent-text);
+  --color-p1-accent-soft: var(--p1-accent-soft);
+  --color-p1-accent-on: var(--p1-accent-on);
+  --color-p1-success: var(--p1-success);
+  --color-p1-success-soft: var(--p1-success-soft);
+  --color-p1-success-border: var(--p1-success-border);
+  --color-p1-warning: var(--p1-warning);
+  --color-p1-warning-soft: var(--p1-warning-soft);
+  --color-p1-warning-border: var(--p1-warning-border);
+  --color-p1-danger: var(--p1-danger);
+  --color-p1-danger-soft: var(--p1-danger-soft);
+  --color-p1-danger-border: var(--p1-danger-border);
+  --color-p1-info: var(--p1-info);
+  --color-p1-info-soft: var(--p1-info-soft);
+  --color-p1-info-border: var(--p1-info-border);
+  --color-p1-sidebar: var(--p1-sidebar);
+  --color-p1-sidebar-2: var(--p1-sidebar-2);
+  --font-p1sans: var(--font-p1-sans);
+  --font-p1display: var(--font-p1-display);
+  --shadow-p1-sm: var(--p1-shadow-sm);
+  --shadow-p1-md: var(--p1-shadow-md);
+  --shadow-p1-lg: var(--p1-shadow-lg);
+}
+
+/* Focus ring — one rule, every interactive element. */
+.p1 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--p1-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.p1 input:focus-visible, .p1 select:focus-visible, .p1 textarea:focus-visible {
+  outline-offset: 0;
+  border-radius: 10px;
+}
+
+/* Scrollbar inside the prototype — a little wider for older hands. */
+.p1 ::-webkit-scrollbar { width: 10px; height: 10px; }
+.p1 ::-webkit-scrollbar-thumb { background: var(--p1-border-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+
+/* Skeleton shimmer */
+@keyframes p1-skeleton { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+.p1-skeleton {
+  background: linear-gradient(90deg, var(--p1-subtle) 25%, var(--p1-border) 50%, var(--p1-subtle) 75%);
+  background-size: 200% 100%;
+  animation: p1-skeleton 1.6s linear infinite;
+  border-radius: 8px;
+}
+
+/* Overlay and panel motion */
+@keyframes p1-overlay { from { opacity: 0 } to { opacity: 1 } }
+@keyframes p1-panel-in { from { opacity: 0; transform: translateY(8px) scale(.985) } to { opacity: 1; transform: none } }
+@keyframes p1-drawer-in { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes p1-drawer-in-left { from { transform: translateX(-24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.p1-overlay { animation: p1-overlay .18s ease both; }
+.p1-panel { animation: p1-panel-in .22s cubic-bezier(.16,1,.3,1) both; }
+.p1-drawer { animation: p1-drawer-in .24s cubic-bezier(.16,1,.3,1) both; }
+.p1-drawer-left { animation: p1-drawer-in-left .24s cubic-bezier(.16,1,.3,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .p1-skeleton { animation: none; }
+  .p1-overlay, .p1-panel, .p1-drawer, .p1-drawer-left { animation: none !important; }
+  .p1 * { transition-duration: .01ms !important; }
+}
+
+/* Screen-reader only helper (Tailwind has sr-only, kept for clarity in markup) */
+.p1 .p1-tabular { font-variant-numeric: tabular-nums; }

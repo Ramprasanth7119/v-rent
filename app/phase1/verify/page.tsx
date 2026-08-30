@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { PageHead, SpecNote, StepRail } from '../../../components/phase1/bits';
+import { Button, Callout, PageHeader, PresenterNote, SectionCard, Stepper } from '../../../components/phase1/kit';
+import { Pill, StatusBadge } from '../../../components/phase1/status';
+import { JOURNEY_STEPS, journeyCompleted } from '../../../components/phase1/journey';
 import { useDemo } from '../../../lib/phase1/DemoContext';
-import { Check, Mail, Smartphone, AlertTriangle } from 'lucide-react';
+import { Mail, Smartphone, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 /** The code the prototype accepts. Shown on screen so a presenter never fumbles it. */
 const DEMO_CODE = '481902';
@@ -37,123 +37,86 @@ export default function VerifyPage() {
 
   return (
     <>
-      <PageHead
-        module="M2 · Contact Verification"
-        title="Verify email and mobile"
-        blurb="Both must be confirmed before the profile step unlocks."
+      <PageHeader
+        eyebrow="Step 2 of 8"
+        title="Confirm your email and mobile"
+        description="Both must be confirmed before you can add your professional details. This protects your account and lets us reach you about your listings."
       />
-      <StepRail
-        current={1}
-        steps={[
-          { label: 'Account', done: true },
-          { label: 'Verify', done: both },
-          { label: 'Profile', done: state.profileSubmitted },
-          { label: 'Approval', done: state.approval === 'approved' },
-          { label: 'Plan', done: !!state.plan },
-          { label: 'Listings', done: false },
-        ]}
-      />
+      <Stepper steps={JOURNEY_STEPS} current={1} completed={journeyCompleted(state)} />
+
+      {both && (
+        <Callout tone="success" title="Both contacts confirmed" className="mb-5" action={<Button variant="accent" size="sm" onClick={() => router.push('/phase1/profile')} rightIcon={<ArrowRight size={15} />}>Continue</Button>}>
+          You can now add your professional details.
+        </Callout>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        {/* Email */}
-        <Card>
-          <div className="mb-4 flex items-center gap-2.5">
-            <Mail size={16} className="text-brand-gold" />
-            <span className="text-sm font-semibold text-foreground">Email address</span>
-            {state.emailVerified && (
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                <Check size={10} strokeWidth={3} /> Verified
-              </span>
-            )}
-          </div>
-          <p className="text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
-            A single-use link expiring in 24 hours was sent to{' '}
-            <span className="font-medium text-foreground">{state.profile.email}</span>.
+        <SectionCard
+          title="Email address"
+          icon={<Mail size={18} />}
+          actions={<StatusBadge kind="check" value={state.emailVerified ? 'verified' : 'pending'} />}
+        >
+          <p className="text-[15px] leading-6 text-p1-text-2">
+            We sent a confirmation link to <span className="font-medium text-p1-text">{state.profile.email}</span>. The link works once and expires in 24 hours.
           </p>
-          {!state.emailVerified && (
-            <Button className="mt-4" variant="outline" size="sm" onClick={() => set({ emailVerified: true })}>
-              Simulate clicking the link
-            </Button>
+          {!state.emailVerified ? (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={() => set({ emailVerified: true })}>Simulate clicking the link</Button>
+              <Pill tone="accent">Prototype</Pill>
+              <button type="button" className="text-[14px] font-medium text-p1-accent-text underline-offset-4 hover:underline cursor-pointer">Resend email</button>
+            </div>
+          ) : (
+            <p className="mt-4 flex items-center gap-2 text-[14px] text-p1-success"><CheckCircle2 size={17} aria-hidden /> Email confirmed.</p>
           )}
-        </Card>
+        </SectionCard>
 
-        {/* Mobile */}
-        <Card>
-          <div className="mb-4 flex items-center gap-2.5">
-            <Smartphone size={16} className="text-brand-gold" />
-            <span className="text-sm font-semibold text-foreground">Mobile number</span>
-            {state.mobileVerified && (
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                <Check size={10} strokeWidth={3} /> Verified
-              </span>
-            )}
-          </div>
-
+        <SectionCard
+          title="Mobile number"
+          icon={<Smartphone size={18} />}
+          actions={<StatusBadge kind="check" value={state.mobileVerified ? 'verified' : 'pending'} />}
+        >
           {!state.mobileVerified ? (
-            <>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                Six-digit code sent to{' '}
-                <span className="font-medium text-foreground">{state.profile.mobile}</span>. Expires in
-                five minutes.
+            <form onSubmit={(e) => { e.preventDefault(); submitCode(); }}>
+              <p className="text-[15px] leading-6 text-p1-text-2">
+                Enter the six-digit code sent to <span className="font-medium text-p1-text">{state.profile.mobile}</span>. It expires in five minutes.
               </p>
+              <label htmlFor="verify-code" className="mt-4 mb-1.5 block text-[14px] font-medium text-p1-text">Six-digit code</label>
               <input
+                id="verify-code"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                onKeyDown={(e) => e.key === 'Enter' && submitCode()}
                 placeholder="000000"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 disabled={attempts >= 5}
-                className="mt-3 w-full rounded-lg border border-border bg-card px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] text-foreground placeholder-neutral-300 focus:border-brand-gold focus:outline-none focus:ring-2 focus:ring-brand-gold/10 disabled:opacity-50 dark:placeholder-neutral-700"
+                aria-invalid={!!error || undefined}
+                aria-describedby={error ? 'verify-code-err' : undefined}
+                className="h-16 w-full rounded-[10px] border border-p1-border-strong bg-p1-surface text-center font-mono text-[28px] tracking-[0.4em] text-p1-text placeholder:text-p1-border-strong disabled:opacity-50"
               />
-              {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
-              <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" variant="gold" onClick={submitCode} disabled={code.length !== 6 || attempts >= 5}>
-                  Verify
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => { setAttempts(0); setError(''); setCode(''); }}>
-                  Resend (60s cooldown)
-                </Button>
+              {error && <p id="verify-code-err" role="alert" className="mt-2 text-[14px] text-p1-danger">{error}</p>}
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Button type="submit" variant="accent" disabled={code.length !== 6 || attempts >= 5}>Verify code</Button>
+                <Button variant="ghost" onClick={() => { setAttempts(0); setError(''); setCode(''); }}>Resend code</Button>
               </div>
-              <p className="mt-3 rounded-md bg-neutral-100 px-2.5 py-1.5 font-mono text-[11px] text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
-                Prototype code: {DEMO_CODE} — try a wrong one first to show the attempt limit
-              </p>
-            </>
+              <Callout tone="neutral" title="Prototype code" className="mt-4">
+                Enter <span className="font-mono font-semibold text-p1-text">{DEMO_CODE}</span>. Try a wrong code first to show the attempt limit.
+              </Callout>
+            </form>
           ) : (
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              Confirmed. The number is stored normalised to E.164 format.
-            </p>
+            <p className="flex items-center gap-2 text-[14px] text-p1-success"><CheckCircle2 size={17} aria-hidden /> Mobile number confirmed.</p>
           )}
-        </Card>
+        </SectionCard>
       </div>
 
-      <Card className="mt-5 border-amber-300/50 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20">
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-          <div>
-            <div className="text-xs font-semibold text-foreground">
-              Sender ID registration is a schedule dependency
-            </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-              Since January 2023, any alphanumeric SMS sender ID sent to a Singapore number that is not
-              registered with the SMS Sender ID Registry is labelled <strong>“Likely-SCAM”</strong> on
-              the recipient&apos;s handset. Registration needs the company UEN and is not instant, so it
-              has to start in week one — otherwise the very first step of this funnel fails.
-            </p>
-          </div>
-        </div>
-      </Card>
-
       <div className="mt-6 flex justify-end">
-        <Button variant="gold" size="lg" disabled={!both} onClick={() => router.push('/phase1/profile')}>
-          Continue to profile
+        <Button variant="accent" size="lg" disabled={!both} onClick={() => router.push('/phase1/profile')} rightIcon={<ArrowRight size={17} />}>
+          Continue to professional details
         </Button>
       </div>
 
-      <SpecNote>
-        One-time passwords are the single case sent synchronously rather than through the outbox — a
-        delay of several seconds is fine for an approval email and unacceptable here. The code itself is
-        stored hashed in Redis, never in plaintext.
-      </SpecNote>
+      <PresenterNote>
+        One-time codes are sent synchronously rather than through the outbox — a delay of seconds is fine for an approval email but not here. Codes are stored hashed in Redis. Mobile numbers are stored normalised to E.164. Schedule dependency: since January 2023 any alphanumeric SMS sender ID not registered with the Singapore SMS Sender ID Registry is labelled “Likely-SCAM” on the handset; registration needs the company UEN and is not instant, so it must start in week one.
+      </PresenterNote>
     </>
   );
 }

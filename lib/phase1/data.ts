@@ -11,7 +11,8 @@ export type ListingStatus =
   | 'published'
   | 'paused'
   | 'rejected'
-  | 'expired';
+  | 'expired'
+  | 'suspended';
 
 export interface DemoListing {
   id: string;
@@ -23,7 +24,8 @@ export interface DemoListing {
   postalCode: string;
   unitNo: string;
   district: number;
-  propertyType: 'Condominium' | 'HDB' | 'Apartment' | 'Landed';
+  propertyType: 'Condominium' | 'HDB' | 'Apartment' | 'Landed' | 'Executive Condominium';
+  updatedAt?: string;
   bedrooms: number;
   bathrooms: number;
   sizeSqft: number;
@@ -250,8 +252,66 @@ export const SEED_LISTINGS: DemoListing[] = [
     images: 7,
     createdAt: '2026-08-18',
     rejectionReason: 'Photographs appear to show a different unit type from the one described.',
+    updatedAt: '2026-08-19',
+  },
+  {
+    id: 'lst-6', reference: 'VR-24110', agent: 'Tan Wei Ming',
+    description: 'Corner terrace on a quiet cul-de-sac off Upper East Coast Road. Four bedrooms plus a study, private car porch for two, and a landscaped rear garden.',
+    project: 'Frankel Estate', address: '31 Jalan Sempadan', postalCode: '457409', unitNo: '—',
+    district: 15, propertyType: 'Landed', bedrooms: 4, bathrooms: 4, sizeSqft: 3210, monthlyRent: 12500,
+    availableFrom: '2026-10-15', minLeaseMonths: 24, furnishing: 'Partially furnished',
+    status: 'published', images: 19, createdAt: '2026-07-22', updatedAt: '2026-08-20', publishedAt: '2026-07-23', expiresAt: '2026-10-21',
+  },
+  {
+    id: 'lst-7', reference: 'VR-24112', agent: 'Tan Wei Ming',
+    description: 'Executive condominium three-bedder facing the pool. Fully fitted kitchen, two covered lots, and a five-minute walk to Sengkang MRT.',
+    project: 'Rivercove Residences', address: '35 Anchorvale Lane', postalCode: '544672', unitNo: '#11-07',
+    district: 19, propertyType: 'Executive Condominium', bedrooms: 3, bathrooms: 2, sizeSqft: 1055, monthlyRent: 4300,
+    availableFrom: '2026-09-15', minLeaseMonths: 12, furnishing: 'Fully furnished',
+    status: 'pending_review', images: 12, createdAt: '2026-08-27', updatedAt: '2026-08-28',
+  },
+  {
+    id: 'lst-8', reference: 'VR-24049', agent: 'Tan Wei Ming',
+    description: 'Renovated four-room flat opposite Bedok Mall, with a study nook and a bright corner kitchen.',
+    project: 'Blk 39 Chai Chee Avenue', address: '39 Chai Chee Avenue', postalCode: '461039', unitNo: '#06-118',
+    district: 16, propertyType: 'HDB', bedrooms: 3, bathrooms: 2, sizeSqft: 968, monthlyRent: 3450,
+    availableFrom: '2026-06-01', minLeaseMonths: 24, furnishing: 'Unfurnished',
+    status: 'expired', images: 8, createdAt: '2026-05-02', updatedAt: '2026-08-01', publishedAt: '2026-05-03', expiresAt: '2026-08-01',
+  },
+  {
+    id: 'lst-9', reference: 'VR-24105', agent: 'Tan Wei Ming',
+    description: 'Walk-up apartment in a conserved shophouse row. High ceilings, original tiles, two minutes from Tiong Bahru Market.',
+    project: 'Tiong Bahru Estate', address: '71 Seng Poh Road', postalCode: '160071', unitNo: '#02-15',
+    district: 3, propertyType: 'Apartment', bedrooms: 2, bathrooms: 1, sizeSqft: 1120, monthlyRent: 4600,
+    availableFrom: '2026-11-01', minLeaseMonths: 12, furnishing: 'Partially furnished',
+    status: 'draft', images: 0, createdAt: '2026-08-26', updatedAt: '2026-08-26',
+  },
+  {
+    id: 'lst-10', reference: 'VR-24087', agent: 'Tan Wei Ming',
+    description: 'Ninth-floor one-bedder in a newly completed development on the Bukit Timah side of Newton. Unblocked, no west sun.',
+    project: 'Kopar at Newton', address: '6 Kampong Java Road', postalCode: '228881', unitNo: '#09-03',
+    district: 9, propertyType: 'Condominium', bedrooms: 1, bathrooms: 1, sizeSqft: 484, monthlyRent: 4200,
+    availableFrom: '2026-09-01', minLeaseMonths: 12, furnishing: 'Fully furnished',
+    status: 'published', images: 16, createdAt: '2026-08-08', updatedAt: '2026-08-09', publishedAt: '2026-08-09', expiresAt: '2026-11-07',
+  },
+  {
+    id: 'lst-11', reference: 'VR-24091', agent: 'Tan Wei Ming',
+    description: 'Five-room flat on a high floor with a sea-facing balcony. Two minutes from Marine Parade MRT on the Thomson–East Coast Line.',
+    project: 'Blk 82 Marine Parade Central', address: '82 Marine Parade Central', postalCode: '440082', unitNo: '#19-337',
+    district: 15, propertyType: 'HDB', bedrooms: 3, bathrooms: 2, sizeSqft: 1206, monthlyRent: 4100,
+    availableFrom: '2026-10-01', minLeaseMonths: 24, furnishing: 'Partially furnished',
+    status: 'published', images: 13, createdAt: '2026-08-12', updatedAt: '2026-08-14', publishedAt: '2026-08-13', expiresAt: '2026-11-11',
+  },
+  {
+    id: 'lst-12', reference: 'VR-24108', agent: 'Tan Wei Ming',
+    description: 'Ground-floor two-bedder with a private patio, next to the tennis courts. Pet-friendly landlord.',
+    project: 'Parc Esta', address: '900 Sims Avenue', postalCode: '408627', unitNo: '#01-42',
+    district: 14, propertyType: 'Condominium', bedrooms: 2, bathrooms: 2, sizeSqft: 721, monthlyRent: 4350,
+    availableFrom: '2026-09-20', minLeaseMonths: 12, furnishing: 'Fully furnished',
+    status: 'draft', images: 5, createdAt: '2026-08-27', updatedAt: '2026-08-27',
   },
 ];
+
 
 /* --------------------------------------------------- admin: verification */
 
@@ -329,6 +389,21 @@ export const MODERATION_QUEUE: ModerationCase[] = [
     agent: 'Daniel Ong',
     submittedAt: '2026-08-27 14:02',
   },
+  {
+    id: 'mod-4',
+    reference: 'VR-24112',
+    project: 'Rivercove Residences',
+    agent: 'Tan Wei Ming',
+    submittedAt: '2026-08-28 09:40',
+  },
+  {
+    id: 'mod-5',
+    reference: 'VR-24101',
+    project: 'Blk 265 Toh Guan Road',
+    agent: 'Nurul Aisyah',
+    submittedAt: '2026-08-27 10:18',
+    flag: 'Description contains a mobile number — contact details are not permitted in the listing text',
+  },
 ];
 
 /* ------------------------------------------------- admin: subscriptions */
@@ -339,6 +414,9 @@ export const SUBSCRIPTIONS: SubscriptionRow[] = [
   { agent: 'Daniel Ong', plan: 'Premium', status: 'past_due', method: 'Card', renewsOn: '2026-08-25', amountSgd: 2388 },
   { agent: 'Sherry Tan', plan: 'Professional', status: 'active', method: 'Card', renewsOn: '2027-05-30', amountSgd: 1188 },
   { agent: 'Marcus Lim', plan: 'Professional', status: 'expired', method: 'Card', renewsOn: '2026-06-30', amountSgd: 1188 },
+  { agent: 'Nurul Aisyah', plan: 'Starter', status: 'active', method: 'PayNow', renewsOn: '2027-07-12', amountSgd: 588 },
+  { agent: 'Kevin Chua', plan: 'Premium', status: 'active', method: 'PayNow', renewsOn: '2027-04-03', amountSgd: 2388 },
+  { agent: 'Rachel Goh', plan: 'Professional', status: 'cancelled', method: 'Card', renewsOn: '2026-09-14', amountSgd: 1188 },
 ];
 
 /* --------------------------------------------------------- admin: audit */
@@ -350,6 +428,12 @@ export const AUDIT_LOG: AuditRow[] = [
   { at: '2026-08-27 19:44', actor: 'system', action: 'Payment webhook verified, subscription activated', entity: 'subscription:sub_8841' },
   { at: '2026-08-27 16:20', actor: 'ops.marcus', action: 'Rejected listing — photographs inconsistent', entity: 'listing:VR-24058' },
   { at: '2026-08-27 09:02', actor: 'system', action: 'Agent moved to verification_expired', entity: 'agent:R058921A' },
+  { at: '2026-08-26 17:31', actor: 'ops.lena', action: 'Approved listing in moderation', entity: 'listing:VR-24091' },
+  { at: '2026-08-26 14:10', actor: 'agent.priya', action: 'Paused listing', entity: 'listing:VR-24093' },
+  { at: '2026-08-26 11:45', actor: 'finance.ho', action: 'Refund issued — duplicate charge', entity: 'invoice:inv_2291' },
+  { at: '2026-08-25 09:00', actor: 'system', action: 'Renewal payment failed, subscription moved to past_due', entity: 'subscription:sub_8790' },
+  { at: '2026-08-24 16:22', actor: 'agent.tan', action: 'Bulk import — 4 drafts created, 2 rows skipped', entity: 'import:imp_118' },
+  { at: '2026-08-24 10:05', actor: 'ops.marcus', action: 'Requested more information from agent', entity: 'agent:R061947B' },
 ];
 
 /* ------------------------------------------------------- admin: funnel */
@@ -383,4 +467,5 @@ export const LISTING_STATUS_LABEL: Record<ListingStatus, string> = {
   paused: 'Paused',
   rejected: 'Rejected',
   expired: 'Expired',
+  suspended: 'Suspended',
 };

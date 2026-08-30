@@ -3,40 +3,44 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Card } from '../../../../components/ui/Card';
-import { Button } from '../../../../components/ui/Button';
-import { PageHead, StatusChip, GateRow, Field, SpecNote } from '../../../../components/phase1/bits';
-import { Gallery, PropertyImage } from '../../../../components/phase1/PropertyImage';
+import {
+  Button, LinkButton, Card, SectionCard, PageHeader, Callout, Field, FieldGrid, Tabs, KeyValue, EmptyState, PresenterNote, cx,
+} from '../../../../components/phase1/kit';
+import { StatusBadge, Pill } from '../../../../components/phase1/status';
+import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
+import { Gallery, PropertyImage } from '../../../../components/phase1/PropertyImage';
 import { useDemo } from '../../../../lib/phase1/DemoContext';
 import { sgd } from '../../../../lib/phase1/data';
 import { LISTING_ACTIVITY, DEFAULT_ACTIVITY, AMENITIES } from '../../../../lib/phase1/agents';
 import {
-  ArrowLeft, Bed, Bath, Maximize, Calendar, Sofa, MapPin, Copy, Pause, Play,
-  Pencil, Eye, Lock, Check, ShieldCheck, Clock,
+  ArrowLeft, Bed, Bath, Maximize, Sofa, Copy, Pause, Play, Pencil, Eye, EyeOff, Lock, Check, X, ShieldCheck, BarChart3, Building2,
 } from 'lucide-react';
+
+const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+const district = (n: number) => `D${String(n).padStart(2, '0')}`;
+
+type Tab = 'details' | 'compliance' | 'activity';
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { push } = useToast();
   const { state, setListingStatus, addListing, gate, canPublish } = useDemo();
-  const [tab, setTab] = useState<'details' | 'compliance' | 'activity'>('details');
+  const [tab, setTab] = useState<Tab>('details');
   const [publicPreview, setPublicPreview] = useState(false);
+  const [confirm, setConfirm] = useState<null | 'publish' | 'pause'>(null);
 
   const listing = state.listings.find((l) => l.id === id);
 
   if (!listing) {
     return (
       <>
-        <PageHead module="M12 · Listing Management" title="Listing not found" />
-        <Card className="py-12 text-center">
-          <p className="text-sm text-neutral-500">
-            This listing is not in the current demo state — a reset may have cleared it.
-          </p>
-          <Link href="/phase1/listings">
-            <Button className="mt-4" variant="outline">Back to my listings</Button>
-          </Link>
+        <PageHeader eyebrow="Listings" title="Listing not found" crumbs={[{ label: 'Listings', href: '/phase1/listings' }, { label: 'Not found' }]} />
+        <Card>
+          <EmptyState icon={<Building2 size={26} />} title="This listing is not in the current walkthrough"
+            description="A reset may have cleared it. Go back to your listings to continue."
+            action={<LinkButton href="/phase1/listings" variant="outline" leftIcon={<ArrowLeft size={16} />}>Back to my listings</LinkButton>} />
         </Card>
       </>
     );
@@ -49,7 +53,7 @@ export default function ListingDetailPage() {
   const clone = () => {
     addListing({
       ...listing,
-      id: `lst-${Math.random().toString(36).slice(2, 8)}`,
+      id: `lst-c${state.listings.length + 1}-${listing.id}`,
       reference: `VR-${24110 + state.listings.length}`,
       unitNo: '#—',
       status: 'draft',
@@ -62,199 +66,146 @@ export default function ListingDetailPage() {
   };
 
   const publish = () => {
+    setConfirm(null);
     if (!canPublish) {
-      push({ tone: 'warn', title: 'Publication blocked', body: 'One or more gate conditions failed. See the panel on the right.' });
+      push({ tone: 'warn', title: 'Publication blocked', body: 'One or more checks failed. See the publication checklist.' });
       return;
     }
     setListingStatus(listing.id, 'published');
     push({ tone: 'success', title: 'Listing published', body: 'Compliance snapshot frozen at publication.' });
   };
 
+  const pause = () => {
+    setConfirm(null);
+    setListingStatus(listing.id, 'paused');
+    push({ tone: 'info', title: 'Listing paused', body: 'Tenants will not see it until you resume.' });
+  };
+
+  const resume = () => {
+    setListingStatus(listing.id, 'published');
+    push({ tone: 'success', title: 'Listing resumed' });
+  };
+
   return (
     <>
-      <Link
-        href="/phase1/listings"
-        className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 transition-colors hover:text-brand-gold"
-      >
-        <ArrowLeft size={13} /> My listings
-      </Link>
-
-      <PageHead
-        module={`M12 · ${listing.reference}`}
+      <PageHeader
+        crumbs={[{ label: 'Listings', href: '/phase1/listings' }, { label: listing.reference }]}
         title={listing.project}
-        blurb={`${listing.unitNo} · ${listing.address}, Singapore ${listing.postalCode}`}
+        description={`${listing.unitNo} · ${listing.address}, Singapore ${listing.postalCode}`}
+        meta={<><StatusBadge kind="listing" value={listing.status} size="lg" /><Pill>{district(listing.district)}</Pill><Pill>{listing.reference}</Pill><Pill>{listing.propertyType}</Pill></>}
         actions={
           <>
-            <Button variant="ghost" leftIcon={<Copy size={13} />} onClick={clone}>Clone</Button>
-            <Button variant="outline" leftIcon={<Pencil size={13} />}>Edit</Button>
-            {listing.status === 'published' && (
-              <Button variant="outline" leftIcon={<Pause size={13} />}
-                onClick={() => { setListingStatus(listing.id, 'paused'); push({ tone: 'info', title: 'Listing paused' }); }}>
-                Pause
-              </Button>
-            )}
-            {listing.status === 'paused' && (
-              <Button variant="gold" leftIcon={<Play size={13} />}
-                onClick={() => { setListingStatus(listing.id, 'published'); push({ tone: 'success', title: 'Listing resumed' }); }}>
-                Resume
-              </Button>
-            )}
+            <Button variant="outline" leftIcon={<Pencil size={16} />}>Edit</Button>
+            <Button variant="outline" leftIcon={<Copy size={16} />} onClick={clone}>Clone</Button>
+            {listing.status === 'published' && <Button variant="outline" leftIcon={<Pause size={16} />} onClick={() => setConfirm('pause')}>Pause</Button>}
+            {listing.status === 'paused' && <Button variant="primary" leftIcon={<Play size={16} />} onClick={resume}>Resume</Button>}
             {(listing.status === 'draft' || listing.status === 'rejected') && (
-              <Button variant="gold" leftIcon={!canPublish ? <Lock size={13} /> : undefined} onClick={publish}>
-                Publish
-              </Button>
+              <Button variant="accent" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} onClick={() => setConfirm('publish')}>Publish</Button>
             )}
           </>
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      {listing.status === 'rejected' && listing.rejectionReason && (
+        <Callout tone="danger" title="Rejected in moderation" className="mb-5">
+          {listing.rejectionReason} Correct the listing, then press Publish to resubmit — it goes through the same checks as a new listing.
+        </Callout>
+      )}
+
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
           <Gallery seed={listing.reference + listing.project} count={Math.max(1, listing.images)} />
 
-          {/* headline facts */}
           <Card>
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
-                    {sgd(listing.monthlyRent)}
-                  </span>
-                  <span className="text-sm text-neutral-500">per month</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-p1display text-[34px] font-medium leading-none tabular-nums text-p1-text">{sgd(listing.monthlyRent)}</span>
+                  <span className="text-[15px] text-p1-text-2">per month</span>
                 </div>
-                <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  S${psf} psf · minimum {listing.minLeaseMonths}-month lease
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusChip status={listing.status} />
-                <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
-                  D{String(listing.district).padStart(2, '0')}
-                </span>
+                <div className="mt-2 text-[14px] text-p1-text-2">S${psf} psf · minimum {listing.minLeaseMonths}-month lease · available from {fmtDate(listing.availableFrom)}</div>
               </div>
             </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4">
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-p1-border pt-5 sm:grid-cols-4">
               {[
                 { icon: Bed, label: 'Bedrooms', value: listing.bedrooms },
                 { icon: Bath, label: 'Bathrooms', value: listing.bathrooms },
                 { icon: Maximize, label: 'Floor area', value: `${listing.sizeSqft.toLocaleString()} sqft` },
                 { icon: Sofa, label: 'Furnishing', value: listing.furnishing.replace(' furnished', '') },
               ].map((f) => (
-                <div key={f.label} className="flex items-start gap-2.5">
-                  <f.icon size={15} className="mt-0.5 flex-shrink-0 text-brand-gold" />
+                <div key={f.label} className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-accent-text" aria-hidden><f.icon size={18} /></span>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-wider text-neutral-500">{f.label}</div>
-                    <div className="truncate text-sm font-medium text-foreground">{f.value}</div>
+                    <div className="text-[13px] text-p1-text-3">{f.label}</div>
+                    <div className="truncate text-[15px] font-semibold text-p1-text">{f.value}</div>
                   </div>
                 </div>
               ))}
             </div>
           </Card>
 
-          {/* tabs */}
-          <Card className="p-0">
-            <div className="flex border-b border-border">
-              {([
-                ['details', 'Details'],
-                ['compliance', 'Compliance'],
-                ['activity', 'Activity'],
-              ] as const).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setTab(k)}
-                  className={`relative px-5 py-3 text-xs font-medium transition-colors ${
-                    tab === k ? 'text-foreground' : 'text-neutral-500 hover:text-foreground'
-                  }`}
-                >
-                  {label}
-                  {tab === k && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-brand-gold" />}
-                </button>
-              ))}
+          <Card padding="none">
+            <div className="px-5 sm:px-6">
+              <Tabs<Tab> value={tab} onChange={setTab} label="Listing sections" items={[
+                { key: 'details', label: 'Details' },
+                { key: 'compliance', label: 'Compliance' },
+                { key: 'activity', label: 'Activity', count: activity.length },
+              ]} />
             </div>
-
-            <div className="p-5">
+            <div className="p-5 sm:p-6">
               {tab === 'details' && (
                 <>
-                  <p className="text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-                    {listing.description ?? 'No description recorded for this listing yet.'}
-                  </p>
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <p className="text-[15px] leading-7 text-p1-text">{listing.description ?? 'No description recorded for this listing yet.'}</p>
+                  <FieldGrid cols={2} className="mt-6">
                     <Field label="Property type" value={listing.propertyType} />
-                    <Field label="Available from" value={listing.availableFrom} />
-                    <Field label="Postal code" value={<span className="font-mono">{listing.postalCode}</span>} />
-                    <Field label="Unit" value={<span className="font-mono">{listing.unitNo}</span>} />
-                  </div>
-                  <div className="mt-5">
-                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Amenities</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {amenities.map((a) => (
-                        <span key={a} className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
-                          {a}
-                        </span>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[11px] text-neutral-400">
-                      Selected from a controlled vocabulary, so Phase 2 can build search facets from them.
-                    </p>
+                    <Field label="Available from" value={fmtDate(listing.availableFrom)} />
+                    <Field label="Postal code" value={listing.postalCode} mono />
+                    <Field label="Unit" value={listing.unitNo} mono />
+                  </FieldGrid>
+                  <div className="mt-6">
+                    <div className="mb-2 text-[13px] font-medium text-p1-text-3">Amenities</div>
+                    <div className="flex flex-wrap gap-2">{amenities.map((a) => <Pill key={a}>{a}</Pill>)}</div>
                   </div>
                 </>
               )}
 
               {tab === 'compliance' && (
                 <>
-                  <div className="rounded-lg border border-border bg-neutral-50 p-4 dark:bg-neutral-950/40">
-                    <div className="mb-2 flex items-center gap-2">
-                      <ShieldCheck size={14} className="text-brand-gold" />
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                        Compliance snapshot
-                      </span>
-                      {listing.status === 'published' ? (
-                        <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                          Frozen
-                        </span>
-                      ) : (
-                        <span className="ml-auto rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
-                          Captured on publish
-                        </span>
-                      )}
+                  <div className="rounded-xl border border-p1-border bg-p1-subtle/50 p-4 sm:p-5">
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                      <ShieldCheck size={18} className="text-p1-accent-text" aria-hidden />
+                      <span className="text-[15px] font-semibold text-p1-text">Compliance snapshot</span>
+                      {listing.status === 'published' || listing.status === 'paused' || listing.status === 'expired'
+                        ? <Pill tone="success" className="ml-auto">Frozen at publication</Pill>
+                        : <Pill className="ml-auto">Captured on publish</Pill>}
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <FieldGrid cols={2}>
                       <Field label="Salesperson" value={listing.agent} />
-                      <Field label="CEA registration no." value={<span className="font-mono">{state.profile.ceaNumber}</span>} />
+                      <Field label="CEA registration no." value={state.profile.ceaNumber} mono />
                       <Field label="Agency" value={state.profile.agency} />
-                      <Field label="Agency licence no." value={<span className="font-mono">{state.profile.agencyLicence}</span>} />
-                    </div>
-                    {listing.publishedAt && (
-                      <div className="mt-3 border-t border-border pt-3 text-[11px] text-neutral-500">
-                        Captured {listing.publishedAt}. Rendered from this copy, never from the live profile.
-                      </div>
-                    )}
+                      <Field label="Agency licence no." value={state.profile.agencyLicence} mono />
+                    </FieldGrid>
+                    {listing.publishedAt && <div className="mt-4 border-t border-p1-border pt-3 text-[13px] text-p1-text-3">Captured {fmtDate(listing.publishedAt)}. Shown from this copy, never from the live profile.</div>}
                   </div>
-                  <p className="mt-4 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
-                    Advertising rules require the salesperson name, registration number and agency licence
-                    number on every property advertisement. Freezing them at publication means that if this
-                    agent later moves agency, advertisements already live keep showing the licence that was
-                    correct when they went out — which matters both for compliance and as evidence if a
-                    listing is ever disputed.
+                  <p className="mt-4 text-[14px] leading-6 text-p1-text-2">
+                    Singapore advertising rules require the salesperson name, registration number and agency licence number on every
+                    property advertisement. These are frozen when a listing goes live, so a later change of agency never alters an
+                    advertisement that was correct when published.
                   </p>
                 </>
               )}
 
               {tab === 'activity' && (
-                <ol className="space-y-4">
+                <ol className="space-y-5">
                   {activity.map((a, i) => (
                     <li key={i} className="flex gap-3">
                       <div className="flex flex-col items-center">
-                        <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-brand-gold" />
-                        {i < activity.length - 1 && <span className="mt-1 w-px flex-1 bg-border" />}
+                        <span className={cx('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', a.actor === 'system' ? 'bg-p1-text-3' : 'bg-p1-accent')} aria-hidden />
+                        {i < activity.length - 1 && <span className="mt-1 w-px flex-1 bg-p1-border" aria-hidden />}
                       </div>
                       <div className="min-w-0 pb-1">
-                        <div className="text-xs text-foreground">{a.what}</div>
-                        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-neutral-500">
-                          <span className="font-mono">{a.at}</span>
-                          <span className={a.actor === 'system' ? 'text-neutral-400' : 'text-brand-gold'}>{a.actor}</span>
-                        </div>
+                        <div className="text-[14px] text-p1-text">{a.what}</div>
+                        <div className="mt-0.5 text-[13px] text-p1-text-3">{a.at} · {a.actor === 'system' ? 'System' : a.actor}</div>
                       </div>
                     </li>
                   ))}
@@ -262,129 +213,82 @@ export default function ListingDetailPage() {
               )}
             </div>
           </Card>
-
-          {listing.status === 'rejected' && listing.rejectionReason && (
-            <Card className="border-red-300/60 bg-red-50/60 dark:border-red-900/60 dark:bg-red-950/20">
-              <div className="text-xs font-semibold text-foreground">Rejected in moderation</div>
-              <p className="mt-1 text-xs text-neutral-700 dark:text-neutral-300">{listing.rejectionReason}</p>
-              <p className="mt-2 text-[11px] text-neutral-500">
-                Correct the listing and resubmit. A specific reason produces a fix; a bare rejection produces a support ticket.
-              </p>
-            </Card>
-          )}
         </div>
 
-        {/* right rail */}
-        <div className="space-y-3">
-          <Card className={canPublish ? '' : 'border-red-300/60 dark:border-red-900/60'}>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground">Publish gate</span>
-              <span className={`text-[10px] font-semibold uppercase tracking-wide ${canPublish ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                {canPublish ? 'Passing' : 'Blocked'}
-              </span>
-            </div>
-            <div>
+        <div className="space-y-4">
+          <SectionCard title="Publication checklist" description={canPublish ? 'All checks passed' : 'Action needed before publishing'} padding="sm"
+            icon={canPublish ? <Check size={18} className="text-p1-success" /> : <X size={18} className="text-p1-danger" />}>
+            <ul className="divide-y divide-p1-border">
               {gate.map((g) => (
-                <GateRow key={g.id} pass={g.pass} label={g.label} detail={g.detail} fixHref={g.fixHref} fixLabel={g.fixLabel} />
+                <li key={g.id} className="flex items-start gap-3 py-3">
+                  <span className={cx('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', g.pass ? 'bg-p1-success-soft text-p1-success' : 'bg-p1-danger-soft text-p1-danger')} aria-hidden>
+                    {g.pass ? <Check size={13} strokeWidth={3} /> : <X size={13} strokeWidth={3} />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-medium text-p1-text">{g.label}<span className="sr-only">{g.pass ? ' — passed' : ' — failed'}</span></div>
+                    <div className="mt-0.5 text-[13px] text-p1-text-2">{g.detail}</div>
+                    {!g.pass && g.fixHref && <Link href={g.fixHref} className="mt-1 inline-block text-[13px] font-semibold text-p1-accent-text underline-offset-4 hover:underline">{g.fixLabel} →</Link>}
+                  </div>
+                </li>
               ))}
-            </div>
-          </Card>
+            </ul>
+          </SectionCard>
 
-          <Card>
-            <button
-              onClick={() => setPublicPreview((v) => !v)}
-              className="flex w-full items-center gap-2 text-left"
-            >
-              <Eye size={14} className="text-brand-gold" />
-              <span className="flex-1 text-xs font-semibold text-foreground">Phase 2 public preview</span>
-              <span className="text-[10px] text-neutral-400">{publicPreview ? 'Hide' : 'Show'}</span>
-            </button>
-            {publicPreview && (
-              <div className="mt-3 overflow-hidden rounded-lg border border-border">
-                <PreviewCard
-                  seed={listing.reference + listing.project}
-                  project={listing.project}
-                  price={sgd(listing.monthlyRent)}
-                  meta={`${listing.bedrooms} bed · ${listing.bathrooms} bath · ${listing.sizeSqft} sqft`}
-                  district={`D${String(listing.district).padStart(2, '0')}`}
-                  agent={listing.agent}
-                  cea={state.profile.ceaNumber}
-                />
-              </div>
+          <SectionCard title="Listing timeline" padding="sm">
+            <KeyValue rows={[
+              { k: 'Created', v: fmtDate(listing.createdAt) },
+              ...(listing.publishedAt ? [{ k: 'Published', v: fmtDate(listing.publishedAt) }] : []),
+              ...(listing.expiresAt ? [{ k: 'Expires', v: fmtDate(listing.expiresAt) }] : []),
+              { k: 'Photos', v: listing.images },
+              { k: 'Last updated', v: fmtDate(listing.updatedAt ?? listing.createdAt) },
+            ]} />
+          </SectionCard>
+
+          <SectionCard title="Public preview" description="How tenants will see it" padding="sm"
+            actions={<Button size="sm" variant="outline" leftIcon={publicPreview ? <EyeOff size={14} /> : <Eye size={14} />} onClick={() => setPublicPreview((v) => !v)} aria-pressed={publicPreview}>{publicPreview ? 'Hide' : 'Show'}</Button>}>
+            {publicPreview ? (
+              <PreviewCard seed={listing.reference + listing.project} project={listing.project} price={sgd(listing.monthlyRent)}
+                meta={`${listing.bedrooms} bed · ${listing.bathrooms} bath · ${listing.sizeSqft.toLocaleString()} sqft`} district={district(listing.district)}
+                agent={listing.agent} cea={state.profile.ceaNumber} />
+            ) : (
+              <p className="text-[13px] text-p1-text-3">The public property site opens in Phase 2. Preview what this listing will look like there.</p>
             )}
-            <p className="mt-2.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-              Rendered from the public read model that already exists in Phase 1 — which is why Phase 2 is
-              exposure and caching rather than a new API.
-            </p>
-          </Card>
+          </SectionCard>
 
-          <Card>
-            <div className="mb-2.5 text-xs font-semibold text-foreground">Lifecycle</div>
-            <div className="space-y-2.5 text-[11px]">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-neutral-500">Created</span>
-                <span className="font-mono text-foreground">{listing.createdAt}</span>
-              </div>
-              {listing.publishedAt && (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-neutral-500">Published</span>
-                  <span className="font-mono text-foreground">{listing.publishedAt}</span>
-                </div>
-              )}
-              {listing.expiresAt && (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-neutral-500">Expires</span>
-                  <span className="font-mono text-foreground">{listing.expiresAt}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-neutral-500">Photographs</span>
-                <span className="font-mono text-foreground">{listing.images}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="border-dashed">
-            <div className="flex items-center gap-2">
-              <Clock size={13} className="text-neutral-400" />
-              <span className="text-xs font-semibold text-neutral-500">Performance — Phase 2</span>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-              Views, impressions and enquiries appear here once the public site exists. View events are
-              captured from day one so this chart opens with history rather than empty.
-            </p>
+          <Card padding="sm" className="border-dashed">
+            <div className="flex items-center gap-2 text-[14px] font-semibold text-p1-text-2"><BarChart3 size={16} aria-hidden /> Performance</div>
+            <p className="mt-1 text-[13px] leading-5 text-p1-text-3">Views, impressions and enquiries appear here once the public site opens in Phase 2. Views are recorded from day one so this opens with history.</p>
           </Card>
         </div>
       </div>
 
-      <SpecNote>
-        This screen reads from one listing record and one compliance snapshot. Note that publishing here
-        runs exactly the same gate as the create wizard and bulk import — there is one publish path in the
-        system, not three.
-      </SpecNote>
+      <ConfirmDialog open={confirm === 'publish'} onClose={() => setConfirm(null)} onConfirm={publish}
+        title="Publish this listing?" description="The listing goes live immediately and your agent details are frozen onto it as required by CEA advertising rules."
+        confirmLabel="Publish listing" />
+      <ConfirmDialog open={confirm === 'pause'} onClose={() => setConfirm(null)} onConfirm={pause}
+        title="Pause this listing?" description="Tenants will not see it until you resume. Your quota slot is kept." confirmLabel="Pause listing" />
+
+      <PresenterNote>
+        This screen reads from one listing record and one compliance snapshot. Publishing here runs exactly the same gate as the
+        create wizard and bulk import — there is one publish path in the system, not three.
+      </PresenterNote>
     </>
   );
 }
 
 /** A miniature of the Phase 2 public listing card. */
-function PreviewCard({
-  seed, project, price, meta, district, agent, cea,
-}: { seed: string; project: string; price: string; meta: string; district: string; agent: string; cea: string }) {
+function PreviewCard({ seed, project, price, meta, district, agent, cea }: { seed: string; project: string; price: string; meta: string; district: string; agent: string; cea: string }) {
   return (
-    <div className="bg-card">
+    <div className="overflow-hidden rounded-xl border border-p1-border bg-p1-surface">
       <div className="relative">
         <PropertyImage seed={seed} variant={0} rounded="rounded-none" className="aspect-[16/10] w-full" />
-        <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white backdrop-blur">
-          Verified agent
-        </span>
+        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[12px] font-medium text-white"><ShieldCheck size={12} aria-hidden /> Verified agent</span>
       </div>
       <div className="p-3">
-        <div className="text-sm font-semibold tabular-nums text-foreground">{price}<span className="text-[10px] font-normal text-neutral-400">/mo</span></div>
-        <div className="mt-0.5 truncate text-xs font-medium text-foreground">{project}</div>
-        <div className="mt-0.5 text-[10px] text-neutral-500">{meta} · {district}</div>
-        <div className="mt-2 border-t border-border pt-2 text-[9px] leading-tight text-neutral-500">
-          {agent} · CEA {cea}
-        </div>
+        <div className="text-[16px] font-semibold tabular-nums text-p1-text">{price}<span className="text-[12px] font-normal text-p1-text-3">/mo</span></div>
+        <div className="mt-0.5 truncate text-[14px] font-medium text-p1-text">{project}</div>
+        <div className="mt-0.5 text-[12px] text-p1-text-2">{meta} · {district}</div>
+        <div className="mt-2 border-t border-p1-border pt-2 text-[12px] text-p1-text-3">{agent} · CEA {cea}</div>
       </div>
     </div>
   );

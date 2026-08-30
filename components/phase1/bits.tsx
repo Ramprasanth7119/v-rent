@@ -118,6 +118,7 @@ export function StatusChip({ status }: { status: ListingStatus }) {
     paused: 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-400',
     rejected: 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400',
     expired: 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400',
+    suspended: 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-400',
   };
   return (
     <span

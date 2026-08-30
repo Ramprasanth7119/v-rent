@@ -1,142 +1,131 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { PageHead, SpecNote, StepRail } from '../../../components/phase1/bits';
+import { Check, Lock, Sparkles } from 'lucide-react';
+import {
+  Button, LinkButton, Card, PageHeader, Callout, Stepper, PresenterNote, cx,
+} from '../../../components/phase1/kit';
+import { Pill } from '../../../components/phase1/status';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { INCUMBENT_PRICING, PLANS, sgd } from '../../../lib/phase1/data';
-import { Check, Lock } from 'lucide-react';
+
+const STEPS = [
+  { label: 'Create account' }, { label: 'Verify contact' }, { label: 'Professional details' },
+  { label: 'CEA verification' }, { label: 'Approval' }, { label: 'Subscribe' }, { label: 'Payment' }, { label: 'Start listing' },
+];
+
+function friendly(label: string, value: string) {
+  if (label === 'Featured slots') {
+    return value === 'None' ? 'No featured slots' : `${value.replace(/\s*\(Phase 6\)/, '')} featured slots — coming in a later phase`;
+  }
+  return `${value} ${label.toLowerCase()}`;
+}
 
 export default function PlansPage() {
   const router = useRouter();
   const { state, set } = useDemo();
   const locked = state.approval !== 'approved';
 
+  const completed = (i: number) => [
+    true,
+    state.emailVerified && state.mobileVerified,
+    state.profileSubmitted,
+    state.profileSubmitted,
+    state.approval === 'approved',
+    !!state.plan,
+    state.subscription === 'active',
+    false,
+  ][i];
+
   return (
     <>
-      <PageHead
-        module="M9 · Plans and Entitlements"
-        title="Choose a plan"
-        blurb="Plan names, prices and limits below are placeholders. They demonstrate the mechanism — final commercial terms are open question Q5."
+      <PageHeader
+        eyebrow="Subscription"
+        title="Choose the plan that fits your portfolio"
+        description="One flat yearly price with your listing quota included. No credits, no boosts, no surprises. Upgrade or downgrade at any time."
       />
-      <StepRail
-        current={4}
-        steps={[
-          { label: 'Account', done: true },
-          { label: 'Verify', done: true },
-          { label: 'Profile', done: true },
-          { label: 'Approval', done: state.approval === 'approved' },
-          { label: 'Plan', done: !!state.plan },
-          { label: 'Listings', done: false },
-        ]}
-      />
+      <Stepper steps={STEPS} current={5} completed={completed} />
 
       {locked && (
-        <Card className="mb-5 border-amber-300/60 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20">
-          <div className="flex items-center gap-2.5">
-            <Lock size={15} className="flex-shrink-0 text-amber-600 dark:text-amber-400" />
-            <p className="text-xs text-neutral-700 dark:text-neutral-300">
-              Subscription is only offered to approved agents. Approve the application first on the{' '}
-              <button onClick={() => router.push('/phase1/status')} className="font-semibold text-brand-gold underline">
-                application status
-              </button>{' '}
-              screen.
-            </p>
-          </div>
-        </Card>
+        <Callout tone="warning" title="Plans open once your application is approved" className="mb-6"
+          action={<LinkButton href="/phase1/status" variant="outline" size="sm">View application status</LinkButton>}>
+          Only verified CEA-registered agents can subscribe. Your application status shows what is outstanding.
+        </Callout>
       )}
 
-      <div className="vr-stagger grid gap-4 md:grid-cols-3">
+      <div className="vr-stagger grid gap-5 md:grid-cols-3" role="radiogroup" aria-label="Plans">
         {PLANS.map((p) => {
           const selected = state.plan?.code === p.code;
+          const recommended = !!p.highlight;
           return (
             <Card
               key={p.code}
-              className={`relative flex flex-col ${
-                selected ? 'border-brand-gold ring-2 ring-brand-gold/20' : ''
-              } ${p.highlight && !selected ? 'border-brand-navy/30' : ''}`}
+              padding="lg"
+              className={cx('relative flex flex-col', recommended && 'border-2 border-p1-accent shadow-p1-md', selected && 'ring-2 ring-p1-accent/40')}
             >
-              {p.highlight && (
-                <span className="absolute -top-2.5 left-5 rounded-full bg-brand-navy px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                  {p.highlight}
+              {recommended && (
+                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <Pill tone="accent" className="h-7 px-3 text-[13px] shadow-p1-sm"><Sparkles size={13} aria-hidden /> Most agents choose this</Pill>
                 </span>
               )}
-              <div className="text-sm font-semibold text-foreground">{p.name}</div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-2xl font-semibold tabular-nums tracking-tight text-foreground">
-                  {sgd(p.priceYearSgd)}
-                </span>
-                <span className="text-xs text-neutral-500">/year</span>
+              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-p1-text-3">{p.name}</div>
+              <div className="mt-3 flex items-baseline gap-1.5">
+                <span className="font-p1display text-[40px] font-medium leading-none tracking-tight text-p1-text tabular-nums">{sgd(p.priceYearSgd)}</span>
+                <span className="text-[15px] text-p1-text-2">/year</span>
               </div>
-              <div className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                about {sgd(Math.round(p.priceYearSgd / 12))} a month
-              </div>
+              <div className="mt-1.5 text-[14px] text-p1-text-3">about {sgd(Math.round(p.priceYearSgd / 12))} a month</div>
 
-              <ul className="mt-4 flex-1 space-y-2.5">
+              <ul className="mt-6 flex-1 space-y-3">
                 {p.entitlements.map((e) => (
-                  <li key={e.key} className="flex items-start gap-2 text-xs">
-                    <Check size={13} className="mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-neutral-600 dark:text-neutral-400">
-                      <span className="font-medium text-foreground">{e.value}</span> — {e.label}
-                    </span>
+                  <li key={e.key} className="flex items-start gap-2.5 text-[14px] leading-5 text-p1-text-2">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden><Check size={12} strokeWidth={3} /></span>
+                    <span><span className="font-semibold text-p1-text">{e.value.replace(/\s*\(Phase 6\)/, '')}</span> {friendly(e.label, e.value).replace(/^\S+\s/, '').replace(/^days\s/, '')}</span>
                   </li>
                 ))}
               </ul>
 
-              <div className="mt-4 rounded-md bg-neutral-100 px-2.5 py-2 dark:bg-neutral-900">
-                <div className="font-mono text-[10px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                  {p.entitlements.map((e) => (
-                    <div key={e.key}>
-                      {e.key} = {e.value}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <Button
-                className="mt-4"
-                variant={selected ? 'outline' : 'gold'}
-                disabled={locked}
-                onClick={() => {
-                  set({ plan: p });
-                  router.push('/phase1/checkout');
-                }}
-              >
-                {selected ? 'Selected' : 'Choose ' + p.name}
-              </Button>
+              {selected ? (
+                <Button className="mt-6" variant="outline" size="lg" block disabled leftIcon={<Check size={16} />}>Current plan</Button>
+              ) : (
+                <Button
+                  className="mt-6" variant={recommended ? 'accent' : 'primary'} size="lg" block disabled={locked}
+                  leftIcon={locked ? <Lock size={16} /> : undefined}
+                  onClick={() => { set({ plan: p }); router.push('/phase1/checkout'); }}
+                >
+                  Choose {p.name}
+                </Button>
+              )}
+              {selected && <p className="mt-2 text-center text-[13px] text-p1-text-3">You are on this plan. Choose another card to change.</p>}
             </Card>
           );
         })}
       </div>
 
-      <Card className="mt-6">
-        <div className="mb-3 text-sm font-semibold text-foreground">For comparison</div>
-        <div className="space-y-2">
-          {INCUMBENT_PRICING.map((p) => (
-            <div key={p.name} className="flex items-baseline justify-between gap-4 text-sm">
-              <span className="text-neutral-600 dark:text-neutral-400">
-                {p.name} <span className="text-xs text-neutral-400">— {p.note}</span>
-              </span>
-              <span className="font-semibold tabular-nums text-red-600 dark:text-red-400">
-                {sgd(p.priceYearSgd)}/yr
-              </span>
+      <Card className="mt-8" padding="lg">
+        <h2 className="text-[17px] font-semibold text-p1-text">Compare with PropertyGuru</h2>
+        <p className="mt-1 text-[14px] text-p1-text-2">Published agent package prices, verified 28 August 2026 (after GST).</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {INCUMBENT_PRICING.map((c) => (
+            <div key={c.name} className="rounded-xl border border-p1-border bg-p1-subtle/60 p-4">
+              <div className="text-[13px] font-medium text-p1-text-2">{c.name}</div>
+              <div className="mt-1 text-[24px] font-semibold tabular-nums text-p1-danger">{sgd(c.priceYearSgd)}<span className="text-[13px] font-normal text-p1-text-3">/yr</span></div>
+              <div className="mt-0.5 text-[13px] text-p1-text-3">{c.note}</div>
             </div>
           ))}
+          <div className="rounded-xl border-2 border-p1-accent bg-p1-accent-soft/50 p-4">
+            <div className="text-[13px] font-medium text-p1-text-2">V-RENT, all plans</div>
+            <div className="mt-1 text-[24px] font-semibold tabular-nums text-p1-success">{sgd(PLANS[0].priceYearSgd)}–{sgd(PLANS[2].priceYearSgd)}<span className="text-[13px] font-normal text-p1-text-3">/yr</span></div>
+            <div className="mt-0.5 text-[13px] text-p1-text-3">quota included, no credits</div>
+          </div>
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Verified 28 August 2026. Note that neither incumbent charges for listing management itself —
-          they charge for visibility through credits, refreshes and promoted placement. Our position is
-          a flat price with quota included.
+        <p className="mt-4 text-[13px] leading-5 text-p1-text-3">
+          Incumbents charge for visibility (credits, refreshes and boosted placement), not for listing management. V-RENT prices are indicative and subject to client confirmation.
         </p>
       </Card>
 
-      <SpecNote>
-        Entitlements are stored as keyed rows against a plan version, not as columns. Adding a plan or
-        changing a limit is an administrative form, not a database migration — which is what makes the
-        unanswered commercial questions safe to defer. Subscriptions reference a plan <em>version</em>,
-        so repricing never retroactively changes what an existing subscriber bought.
-      </SpecNote>
+      <PresenterNote>
+        Plan limits are stored as keyed entitlements against a plan version (for example <code>active_listing_limit = 30</code>), not as columns. Adding a plan or changing a limit is an administrative form, not a database migration. Subscriptions reference a plan version, so repricing never changes what an existing subscriber bought. Final commercial terms are open question Q5.
+      </PresenterNote>
     </>
   );
 }

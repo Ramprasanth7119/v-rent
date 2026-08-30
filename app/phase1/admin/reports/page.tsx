@@ -1,74 +1,104 @@
 "use client";
 
-import { Card } from '../../../../components/ui/Card';
-import { Button } from '../../../../components/ui/Button';
-import { PageHead, SpecNote } from '../../../../components/phase1/bits';
+import { useState } from 'react';
+import {
+  PageHeader, Card, SectionCard, Callout, Button, SelectInput, SearchInput, DataTable, Column,
+  usePagination, Pagination, EmptyState, PresenterNote, cx,
+} from '../../../../components/phase1/kit';
+import { Pill, LISTING_STATUS } from '../../../../components/phase1/status';
 import { useCountUp, useInView } from '../../../../components/phase1/hooks';
-import { AUDIT_LOG, FUNNEL } from '../../../../lib/phase1/data';
+import { AUDIT_LOG, AuditRow, FUNNEL, SUBSCRIPTIONS } from '../../../../lib/phase1/data';
+import { ALL_LISTINGS } from '../../../../lib/phase1/agents';
 import { Download, TrendingDown, Activity, Users, FileCheck, CreditCard } from 'lucide-react';
 
 export default function ReportsPage() {
+  const [range, setRange] = useState('30');
+  const [q, setQ] = useState('');
   const top = FUNNEL[0].count;
   const last = FUNNEL[FUNNEL.length - 1].count;
   const conversion = Math.round((last / top) * 1000) / 10;
 
+  const audit = AUDIT_LOG.filter((r) => !q || [r.action, r.actor, r.entity].some((v) => v.toLowerCase().includes(q.toLowerCase())));
+  const pg = usePagination(audit, 8);
+
+  const columns: Column<AuditRow>[] = [
+    { key: 'at', header: 'When', width: '160px', render: (r) => <span className="whitespace-nowrap font-mono text-[13px] text-p1-text-2">{r.at}</span> },
+    { key: 'actor', header: 'Actor', render: (r) => <Pill tone={r.actor === 'system' ? 'neutral' : 'accent'}>{r.actor}</Pill> },
+    { key: 'action', header: 'Action', render: (r) => <span className="text-[14px] text-p1-text">{r.action}</span> },
+    { key: 'entity', header: 'Entity', hideBelow: 'md', render: (r) => <span className="font-mono text-[13px] text-p1-text-3">{r.entity}</span> },
+  ];
+
   return (
     <>
-      <PageHead
-        module="M14 · Administrative Console and Reporting"
-        title="Reports and audit"
-        actions={<Button variant="outline" leftIcon={<Download size={14} />}>Export CSV</Button>}
+      <PageHeader
+        eyebrow="Administration" title="Reports and audit" description="Where prospective agents give up, what the platform holds, and who did what."
+        actions={
+          <>
+            <SelectInput label="Date range" containerClassName="w-44 [&_label]:sr-only" value={range} onChange={(e) => setRange(e.target.value)} options={[{ value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }, { value: 'all', label: 'All time' }]} />
+            <Button variant="outline" leftIcon={<Download size={15} />}>Export CSV</Button>
+          </>
+        }
       />
 
-      {/* headline counters */}
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 vr-stagger">
-        <CounterTile icon={Users} label="Registered" value={top} sub="All time" />
-        <CounterTile icon={FileCheck} label="Approved" value={FUNNEL[3].count} sub="Passed verification" tone="good" />
-        <CounterTile icon={CreditCard} label="Subscribed" value={FUNNEL[4].count} sub="Paying agents" tone="good" />
-        <CounterTile icon={Activity} label="End-to-end conversion" value={conversion} suffix="%" sub="Registered to first listing" tone="warn" />
+      <div className="vr-stagger mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <CounterTile icon={Users} label="Registered" value={top} sub="all time" />
+        <CounterTile icon={FileCheck} label="Approved" value={FUNNEL[3].count} sub="passed verification" tone="success" />
+        <CounterTile icon={CreditCard} label="Subscribed" value={FUNNEL[4].count} sub="paying agents" tone="success" />
+        <CounterTile icon={Activity} label="End-to-end conversion" value={conversion} suffix="%" sub="registered to first listing" tone="warning" />
       </div>
 
       <FunnelCard />
 
-      <AuditCard />
+      <div className="mb-6 grid gap-5 lg:grid-cols-2">
+        <BarCard title="Listings by status" hint="All agents, current" rows={Object.keys(LISTING_STATUS).map((k) => ({ label: LISTING_STATUS[k].label, value: ALL_LISTINGS.filter((l) => l.status === k).length })).filter((r) => r.value > 0)} />
+        <BarCard title="Plan mix" hint="Active subscriptions" rows={['Starter', 'Professional', 'Premium'].map((p) => ({ label: p, value: SUBSCRIPTIONS.filter((s) => s.status === 'active' && s.plan === p).length }))} />
+      </div>
 
-      <SpecNote>
-        The audit trail exists so questions like “who approved this agent, and were they permitted to?” have an
-        answer. It is also what makes the three-day data breach notification window survivable — you cannot
-        report the scope of a breach you cannot reconstruct.
-      </SpecNote>
+      <SectionCard
+        padding="none"
+        title={<span className="flex items-center gap-2"><span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-p1-success opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-p1-success" /></span>Audit trail</span>}
+        description="Every consequential action, written in the same transaction as the change itself."
+        actions={<SearchInput value={q} onChange={(v) => { setQ(v); pg.setPage(1); }} placeholder="Search actions" className="w-full sm:w-64" />}
+      >
+        <div className="p-4 sm:p-5">
+          <AuditTable columns={columns} rows={pg.slice} />
+          <Pagination className="mt-4" page={pg.page} pages={pg.pages} onChange={pg.setPage} from={pg.from} to={pg.to} total={pg.total} />
+        </div>
+      </SectionCard>
+
+      <PresenterNote>
+        The audit trail answers “who approved this agent, and were they permitted to?” It is also what makes the three-day PDPA breach notification window survivable — you cannot report the scope of a breach you cannot reconstruct.
+      </PresenterNote>
     </>
+  );
+}
+
+function AuditTable({ columns, rows }: { columns: Column<AuditRow>[]; rows: AuditRow[] }) {
+  const { ref, seen } = useInView<HTMLDivElement>();
+  return (
+    <div ref={ref} className={cx(seen && 'vr-stagger')}>
+      <DataTable columns={columns} rows={rows} rowKey={(r) => r.at + r.entity} caption="Audit trail" empty={<EmptyState compact title="No matching activity" />} />
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ tiles */
 
-function CounterTile({
-  icon: Icon, label, value, sub, suffix = '', tone = 'default',
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  label: string; value: number; sub: string; suffix?: string;
-  tone?: 'default' | 'good' | 'warn';
+function CounterTile({ icon: Icon, label, value, sub, suffix = '', tone = 'default' }: {
+  icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: number; sub: string; suffix?: string; tone?: 'default' | 'success' | 'warning';
 }) {
   const n = useCountUp(value, 1000);
-  const toneCls = {
-    default: 'text-foreground',
-    good: 'text-emerald-600 dark:text-emerald-400',
-    warn: 'text-amber-600 dark:text-amber-400',
-  }[tone];
-
+  const cls = { default: 'text-p1-text', success: 'text-p1-success', warning: 'text-p1-warning' }[tone];
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2">
-        <Icon size={13} className="text-brand-gold" />
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-          {label}
-        </span>
+    <div className="rounded-2xl border border-p1-border bg-p1-surface p-5 shadow-p1-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] font-medium text-p1-text-2">{label}</span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-3" aria-hidden><Icon size={16} /></span>
       </div>
-      <div className={`mt-1.5 text-2xl font-semibold tabular-nums tracking-tight ${toneCls}`}>
+      <div className={cx('mt-2 text-[28px] font-semibold leading-none tracking-tight tabular-nums', cls)}>
         {suffix === '%' ? (n / 10).toFixed(1) : n.toLocaleString()}{suffix}
       </div>
-      <div className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{sub}</div>
+      <div className="mt-2 text-[13px] text-p1-text-3">{sub}</div>
     </div>
   );
 }
@@ -78,129 +108,63 @@ function CounterTile({
 function FunnelCard() {
   const { ref, seen } = useInView<HTMLDivElement>();
   const top = FUNNEL[0].count;
-
+  const largestDrop = Math.max(...FUNNEL.map((f, i) => (i > 0 ? FUNNEL[i - 1].count - f.count : 0)));
   return (
-    <Card className="mb-5">
-      <div className="mb-1 text-sm font-semibold text-foreground">Onboarding funnel</div>
-      <p className="mb-5 text-xs text-neutral-500 dark:text-neutral-400">
-        The most commercially valuable report in Phase 1 — it shows exactly where prospective agents give up.
-      </p>
-
-      <div ref={ref} className="space-y-3">
+    <SectionCard className="mb-6" title="Onboarding funnel" description="Shows exactly where prospective agents give up between registering and publishing their first listing.">
+      <div ref={ref} className="space-y-4">
         {FUNNEL.map((f, i) => {
           const pct = Math.round((f.count / top) * 100);
           const prev = i > 0 ? FUNNEL[i - 1].count : f.count;
           const drop = prev - f.count;
           const dropPct = i > 0 ? Math.round((drop / prev) * 100) : 0;
-          const bad = dropPct >= 15;
-          return (
-            <FunnelRow
-              key={f.stage}
-              stage={f.stage}
-              count={f.count}
-              pct={pct}
-              drop={i > 0 ? drop : null}
-              dropPct={dropPct}
-              bad={bad}
-              delay={i * 0.09}
-              go={seen}
-            />
-          );
+          return <FunnelRow key={f.stage} stage={f.stage} count={f.count} pct={pct} drop={i > 0 ? drop : null} dropPct={dropPct} bad={i > 0 && drop === largestDrop} delay={i * 0.09} go={seen} />;
         })}
       </div>
-
-      <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-red-50 p-3.5 dark:bg-red-950/20">
-        <TrendingDown size={15} className="mt-0.5 flex-shrink-0 text-red-600 dark:text-red-400" />
-        <p className="text-[11px] leading-relaxed text-neutral-700 dark:text-neutral-300">
-          The largest single drop is <strong>approved → subscribed</strong>, losing 61 agents. In the real
-          product that is the number to attack first, and it is exactly the question the specification raises
-          about selling a subscription before there is tenant traffic behind it.
-        </p>
-      </div>
-    </Card>
+      <Callout tone="danger" className="mt-5" icon={<TrendingDown size={18} />} title="Largest drop: approved → subscribed, losing 61 agents">
+        This is the number to attack first. Agents are being asked to pay before there is tenant traffic behind the platform.
+      </Callout>
+    </SectionCard>
   );
 }
 
-function FunnelRow({
-  stage, count, pct, drop, dropPct, bad, delay, go,
-}: {
-  stage: string; count: number; pct: number; drop: number | null;
-  dropPct: number; bad: boolean; delay: number; go: boolean;
-}) {
+function FunnelRow({ stage, count, pct, drop, dropPct, bad, delay, go }: { stage: string; count: number; pct: number; drop: number | null; dropPct: number; bad: boolean; delay: number; go: boolean }) {
   const n = useCountUp(go ? count : 0, 900);
-
   return (
     <div>
-      <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
-        <span className="font-medium text-foreground">{stage}</span>
-        <span className="flex items-baseline gap-2.5">
-          {drop !== null && (
-            <span className={`text-[11px] tabular-nums ${bad ? 'text-red-600 dark:text-red-400' : 'text-neutral-400'}`}>
-              −{drop} ({dropPct}%)
-            </span>
-          )}
-          <span className="font-semibold tabular-nums text-foreground">{n.toLocaleString()}</span>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[14px]">
+        <span className="font-medium text-p1-text">{stage}</span>
+        <span className="flex items-baseline gap-3">
+          {drop !== null && <span className={cx('text-[13px] tabular-nums', bad ? 'font-medium text-p1-danger' : 'text-p1-text-3')}>−{drop} ({dropPct}%)</span>}
+          <span className="font-semibold tabular-nums text-p1-text">{n.toLocaleString()}</span>
         </span>
       </div>
-      <div className="h-6 overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-900">
-        <div
-          className={`relative flex h-full items-center justify-end overflow-hidden rounded-md pr-2 ${
-            go ? 'vr-grow vr-shimmer' : ''
-          } ${bad ? 'bg-red-500/80' : 'bg-brand-navy dark:bg-brand-navy-light'}`}
-          style={{ width: `${pct}%`, animationDelay: `${delay}s` }}
-        >
-          <span className="text-[10px] font-medium tabular-nums text-white/90">{pct}%</span>
+      <div className="h-7 overflow-hidden rounded-lg bg-p1-subtle" role="img" aria-label={`${stage}: ${count}, ${pct}% of registered`}>
+        <div className={cx('relative flex h-full items-center justify-end overflow-hidden rounded-lg pr-2.5', go && 'vr-grow vr-shimmer', bad ? 'bg-p1-danger' : 'bg-p1-primary')}
+          style={{ width: `${pct}%`, animationDelay: `${delay}s` }}>
+          <span className="text-[12px] font-medium tabular-nums text-white">{pct}%</span>
         </div>
       </div>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ audit */
+/* --------------------------------------------------------------- bar card */
 
-function AuditCard() {
-  const { ref, seen } = useInView<HTMLTableSectionElement>();
-
+function BarCard({ title, hint, rows }: { title: string; hint: string; rows: { label: string; value: number }[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="border-b border-border px-5 py-4">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-          </span>
-          <div className="text-sm font-semibold text-foreground">Audit trail</div>
-        </div>
-        <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-          Every consequential action, written in the same transaction as the change itself.
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-border bg-neutral-50/60 text-[11px] uppercase tracking-wider text-neutral-500 dark:bg-neutral-950/30">
-              <th className="px-5 py-3 font-semibold">When</th>
-              <th className="px-5 py-3 font-semibold">Actor</th>
-              <th className="px-5 py-3 font-semibold">Action</th>
-              <th className="px-5 py-3 font-semibold">Entity</th>
-            </tr>
-          </thead>
-          <tbody ref={ref} className={`divide-y divide-border ${seen ? 'vr-stagger' : ''}`}>
-            {AUDIT_LOG.map((r, i) => (
-              <tr key={i} className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-950/40">
-                <td className="whitespace-nowrap px-5 py-3 font-mono text-[11px] text-neutral-500">{r.at}</td>
-                <td className="px-5 py-3">
-                  <span className={`font-mono text-[11px] ${r.actor === 'system' ? 'text-neutral-400' : 'text-brand-gold'}`}>
-                    {r.actor}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-xs text-foreground">{r.action}</td>
-                <td className="px-5 py-3 font-mono text-[11px] text-neutral-500">{r.entity}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <Card>
+      <h2 className="text-[16px] font-semibold text-p1-text">{title}</h2>
+      <p className="mt-0.5 text-[13px] text-p1-text-3">{hint}</p>
+      <ul className="mt-4 space-y-3">
+        {rows.map((r) => (
+          <li key={r.label} className="grid grid-cols-[120px_minmax(0,1fr)_32px] items-center gap-3 text-[14px]">
+            <span className="truncate text-p1-text-2">{r.label}</span>
+            <span className="h-3 overflow-hidden rounded-full bg-p1-subtle" aria-hidden><span className="block h-full rounded-full bg-p1-primary" style={{ width: `${(r.value / max) * 100}%` }} /></span>
+            <span className="text-right font-semibold tabular-nums text-p1-text">{r.value}</span>
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

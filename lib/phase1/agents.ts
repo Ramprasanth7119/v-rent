@@ -68,6 +68,33 @@ export const AGENTS: AgentRow[] = [
     specialisations: [],
     languages: ['English'],
   },
+  {
+    id: 'agt-6', name: 'Nurul Aisyah', ceaNumber: 'R066410D',
+    agency: 'PropNex Realty Pte Ltd', agencyLicence: 'L3008022J',
+    status: 'approved', plan: 'Starter', joinedAt: '2026-07-12', ceaValidUntil: '2027-05-31',
+    email: 'nurul.aisyah@propnex.example', mobile: '+65 8123 9901',
+    bio: 'HDB rentals across the west, with a focus on first-time tenants and families.',
+    specialisations: ['HDB', 'West region'],
+    languages: ['English', 'Malay'],
+  },
+  {
+    id: 'agt-7', name: 'Kevin Chua', ceaNumber: 'R041233H',
+    agency: 'Huttons Asia Pte Ltd', agencyLicence: 'L3008899K',
+    status: 'approved', plan: 'Premium', joinedAt: '2026-04-03', ceaValidUntil: '2027-02-28',
+    email: 'kevin.chua@huttons.example', mobile: '+65 9788 1204',
+    bio: 'Fifteen years in landed and cluster housing on the east coast.',
+    specialisations: ['Landed', 'East coast', 'Corporate leasing'],
+    languages: ['English', 'Mandarin', 'Cantonese'],
+  },
+  {
+    id: 'agt-8', name: 'Rachel Goh', ceaNumber: 'R072655P',
+    agency: 'OrangeTee & Tie Pte Ltd', agencyLicence: 'L3009250K',
+    status: 'suspended', plan: 'Professional', joinedAt: '2026-06-20', ceaValidUntil: '2027-09-30',
+    email: 'rachel.goh@orangetee.example', mobile: '+65 9012 3344',
+    bio: 'City-fringe condominium leasing.',
+    specialisations: ['Condominium', 'City fringe'],
+    languages: ['English', 'Mandarin'],
+  },
 ];
 
 export const OTHER_LISTINGS: DemoListing[] = [
@@ -110,6 +137,30 @@ export const OTHER_LISTINGS: DemoListing[] = [
     district: 3, propertyType: 'Apartment', bedrooms: 1, bathrooms: 1, sizeSqft: 320, monthlyRent: 1850,
     availableFrom: '2026-09-01', minLeaseMonths: 6, furnishing: 'Fully furnished',
     status: 'expired', images: 8, createdAt: '2026-06-02', publishedAt: '2026-06-03', expiresAt: '2026-09-01',
+  },
+  {
+    id: 'oth-6', reference: 'VR-24080', agent: 'Nurul Aisyah',
+    description: 'Four-room flat beside Jurong East MRT and Westgate. Newly painted, two air-conditioned bedrooms.',
+    project: 'Blk 265 Toh Guan Road', address: '265 Toh Guan Road', postalCode: '600265', unitNo: '#14-22',
+    district: 22, propertyType: 'HDB', bedrooms: 3, bathrooms: 2, sizeSqft: 990, monthlyRent: 3350,
+    availableFrom: '2026-09-15', minLeaseMonths: 24, furnishing: 'Partially furnished',
+    status: 'published', images: 9, createdAt: '2026-08-01', publishedAt: '2026-08-02', expiresAt: '2026-10-01',
+  },
+  {
+    id: 'oth-7', reference: 'VR-24063', agent: 'Kevin Chua',
+    description: 'Semi-detached house with a private pool on a 4,800 sqft plot. Five bedrooms, helper quarters and parking for three.',
+    project: 'Siglap Hill', address: '18 Siglap Hill', postalCode: '456086', unitNo: '—',
+    district: 15, propertyType: 'Landed', bedrooms: 5, bathrooms: 5, sizeSqft: 4800, monthlyRent: 22000,
+    availableFrom: '2026-10-01', minLeaseMonths: 24, furnishing: 'Unfurnished',
+    status: 'published', images: 27, createdAt: '2026-07-05', publishedAt: '2026-07-06', expiresAt: '2026-11-03',
+  },
+  {
+    id: 'oth-8', reference: 'VR-24098', agent: 'Rachel Goh',
+    description: 'Two-bedroom apartment in a boutique development off Balestier Road.',
+    project: 'One Balestier', address: '1 Balestier Road', postalCode: '329672', unitNo: '#07-09',
+    district: 12, propertyType: 'Condominium', bedrooms: 2, bathrooms: 2, sizeSqft: 678, monthlyRent: 3900,
+    availableFrom: '2026-09-10', minLeaseMonths: 12, furnishing: 'Fully furnished',
+    status: 'suspended', images: 11, createdAt: '2026-08-15', publishedAt: '2026-08-16', expiresAt: '2026-11-14',
   },
 ];
 

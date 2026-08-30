@@ -3,16 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { PageHead, SpecNote } from '../../../components/phase1/bits';
+import { Button, Callout, Card, Checkbox, PageHeader, PresenterNote, SectionCard, TextInput } from '../../../components/phase1/kit';
 import { useToast } from '../../../components/phase1/Toast';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { AGENTS } from '../../../lib/phase1/agents';
-import {
-  ShieldCheck, KeyRound, Smartphone, Check, AlertTriangle, ArrowRight, Info,
-} from 'lucide-react';
+import { ShieldCheck, Smartphone, ArrowRight, ArrowLeft, Lock, KeyRound, IdCard } from 'lucide-react';
 
 type Stage = 'credentials' | 'mfa';
 const DEMO_CODE = '481902';
@@ -56,196 +51,116 @@ export default function LoginPage() {
       return;
     }
     skipToActive();
-    push({ tone: 'success', title: 'Signed in', body: 'Opaque session issued in an HttpOnly cookie.' });
+    push({ tone: 'success', title: 'Signed in', body: 'Welcome back. Your workspace is ready.' });
     router.push('/phase1/dashboard');
   };
 
   return (
     <>
-      <PageHead
-        module="M1 · Authentication and Accounts"
-        title="Sign in"
-        blurb="Agents sign in with their email address or their CEA registration number, then confirm a code sent to the mobile number on their verified profile."
+      <PageHeader
+        eyebrow="Agent sign in"
+        title="Welcome back"
+        description="Sign in with your email address or CEA registration number. We will then send a code to your verified mobile number."
       />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_330px]">
-        <Card className="vr-rise">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <SectionCard
+          title={stage === 'credentials' ? 'Sign in' : 'Confirm it’s you'}
+          description={stage === 'credentials' ? undefined : `A six-digit code was sent to ${matchedAgent?.mobile ?? state.profile.mobile}.`}
+          icon={stage === 'credentials' ? <KeyRound size={18} /> : <Smartphone size={18} />}
+        >
           {stage === 'credentials' ? (
-            <div className="grid gap-4">
+            <form className="grid gap-5" onSubmit={(e) => { e.preventDefault(); submitCredentials(); }}>
               <div>
-                <Input
+                <TextInput
                   label="Email address or CEA registration number"
                   value={identifier}
+                  autoComplete="username"
                   onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
                   placeholder="R123456A or you@agency.com.sg"
+                  leftIcon={<IdCard size={17} />}
                 />
                 {looksLikeCea && matchedAgent && (
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 vr-fade">
-                    <ShieldCheck size={12} className="flex-shrink-0" />
-                    Recognised registration — {matchedAgent.agency}
-                  </div>
+                  <p className="vr-fade mt-2 flex items-center gap-2 text-[14px] text-p1-success"><ShieldCheck size={15} aria-hidden /> Recognised registration — {matchedAgent.agency}</p>
                 )}
                 {looksLikeCea && !matchedAgent && (
-                  <div className="mt-2 text-[11px] text-neutral-500">
-                    Format accepted. Whether an account exists is not revealed here.
-                  </div>
+                  <p className="mt-2 text-[13px] text-p1-text-3">Format accepted. Whether an account exists is not revealed here.</p>
                 )}
               </div>
 
-              <Input
+              <TextInput
                 label="Password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && submitCredentials()}
-                placeholder="••••••••••••"
+                placeholder="Your password"
+                leftIcon={<Lock size={17} />}
               />
 
-              {error && (
-                <div className="flex items-start gap-2 rounded-lg border border-red-300/60 bg-red-50 px-3 py-2 dark:border-red-900/60 dark:bg-red-950/25 vr-fade">
-                  <AlertTriangle size={13} className="mt-0.5 flex-shrink-0 text-red-600 dark:text-red-400" />
-                  <span className="text-[11px] text-red-700 dark:text-red-400">{error}</span>
-                </div>
-              )}
+              {error && <Callout tone="danger">{error}</Callout>}
 
-              <div className="flex items-center justify-between">
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                  <button
-                    type="button"
-                    onClick={() => setRemember((v) => !v)}
-                    aria-pressed={remember}
-                    className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
-                      remember ? 'border-brand-gold bg-brand-gold text-brand-navy-dark' : 'border-border'
-                    }`}
-                  >
-                    {remember && <Check size={10} strokeWidth={3} />}
-                  </button>
-                  Keep me signed in for 30 days
-                </label>
-                <button className="text-xs font-medium text-brand-gold hover:underline">Forgot password?</button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} label="Keep me signed in for 30 days" />
+                <button type="button" className="text-[14px] font-medium text-p1-accent-text underline-offset-4 hover:underline cursor-pointer">Forgot password?</button>
               </div>
 
-              <Button variant="gold" size="lg" onClick={submitCredentials} rightIcon={<ArrowRight size={15} />}>
-                Continue
-              </Button>
+              <Button type="submit" variant="accent" size="lg" block rightIcon={<ArrowRight size={17} />}>Continue</Button>
 
-              <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">
-                No account yet?{' '}
-                <Link href="/phase1/signup" className="font-semibold text-brand-gold hover:underline">
-                  Register as an agent
-                </Link>
+              <p className="text-center text-[14px] text-p1-text-2">
+                No account yet? <Link href="/phase1/signup" className="font-semibold text-p1-accent-text underline-offset-4 hover:underline">Register as an agent</Link>
               </p>
-            </div>
+            </form>
           ) : (
-            <div className="vr-rise">
-              <button
-                onClick={() => { setStage('credentials'); setError(''); setCode(''); }}
-                className="mb-4 text-xs text-neutral-500 hover:text-brand-gold"
-              >
-                ← Use a different account
-              </button>
-
-              <div className="mb-4 flex items-center gap-2.5">
-                <Smartphone size={16} className="text-brand-gold" />
-                <div>
-                  <div className="text-sm font-semibold text-foreground">Confirm it&apos;s you</div>
-                  <div className="text-xs text-neutral-500">
-                    Code sent to {matchedAgent?.mobile ?? state.profile.mobile}
-                  </div>
-                </div>
+            <form className="vr-rise grid gap-5" onSubmit={(e) => { e.preventDefault(); submitCode(); }}>
+              <div>
+                <label htmlFor="login-code" className="mb-1.5 block text-[14px] font-medium text-p1-text">Six-digit code</label>
+                <input
+                  id="login-code"
+                  value={code}
+                  onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+                  placeholder="000000"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  disabled={attempts >= 5}
+                  aria-invalid={!!error || undefined}
+                  aria-describedby={error ? 'login-code-err' : undefined}
+                  className="h-16 w-full rounded-[10px] border border-p1-border-strong bg-p1-surface text-center font-mono text-[28px] tracking-[0.4em] text-p1-text placeholder:text-p1-border-strong disabled:opacity-50"
+                />
+                {error && <p id="login-code-err" role="alert" className="mt-2 text-[14px] text-p1-danger">{error}</p>}
               </div>
 
-              <input
-                value={code}
-                onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
-                onKeyDown={(e) => e.key === 'Enter' && submitCode()}
-                placeholder="000000"
-                inputMode="numeric"
-                disabled={attempts >= 5}
-                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-center font-mono text-2xl tracking-[0.4em] text-foreground placeholder-neutral-300 transition-all focus:border-brand-gold focus:outline-none focus:ring-2 focus:ring-brand-gold/10 disabled:opacity-50 dark:placeholder-neutral-700"
-              />
+              <Button type="submit" variant="accent" size="lg" block disabled={code.length !== 6 || attempts >= 5}>Sign in</Button>
 
-              {error && <p className="mt-2 text-xs text-red-500 vr-fade">{error}</p>}
+              <Callout tone="neutral" title="Prototype code">Enter <span className="font-mono font-semibold text-p1-text">{DEMO_CODE}</span>. Try a wrong code first to show the attempt limit.</Callout>
 
-              <Button className="mt-4 w-full" variant="gold" size="lg" onClick={submitCode} disabled={code.length !== 6}>
-                Sign in
-              </Button>
-
-              <p className="mt-3 rounded-md bg-neutral-100 px-2.5 py-1.5 text-center font-mono text-[11px] text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
-                Prototype code: {DEMO_CODE}
-              </p>
-            </div>
+              <button type="button" onClick={() => { setStage('credentials'); setError(''); setCode(''); }} className="inline-flex items-center gap-1.5 self-start text-[14px] text-p1-text-2 hover:text-p1-text cursor-pointer">
+                <ArrowLeft size={15} aria-hidden /> Use a different account
+              </button>
+            </form>
           )}
-        </Card>
+        </SectionCard>
 
-        {/* how the incumbents do it */}
-        <div className="space-y-3 vr-stagger">
-          <Card className="border-brand-gold/30 bg-brand-gold/5">
-            <div className="mb-2 flex items-center gap-2">
-              <Info size={14} className="text-brand-gold" />
-              <span className="text-xs font-semibold text-foreground">How the incumbents do this</span>
-            </div>
-            <ul className="space-y-2.5 text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-              <li>
-                <strong className="text-foreground">PropertyGuru AgentNet</strong> is sales-led. An agent must
-                already be CEA-registered <em>and</em> a paying subscriber before an account exists; credentials
-                are then issued to them, with a shared default password to change on first sign-in.
-              </li>
-              <li>
-                Each paid account must belong to exactly <strong>one</strong> CEA-registered agent, and the
-                account name must match the name on the CEA register.
-              </li>
-              <li>
-                <strong className="text-foreground">99.co</strong> runs a self-serve agent sign-up page, with
-                CEA registration required to list.
-              </li>
+        <div className="space-y-4">
+          <Card>
+            <div className="text-[15px] font-semibold text-p1-text">Keeping your account safe</div>
+            <ul className="mt-3 space-y-2.5 text-[14px] leading-5 text-p1-text-2">
+              <li className="flex gap-2.5"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-p1-success" aria-hidden /> A code is sent to your verified mobile number on every new device.</li>
+              <li className="flex gap-2.5"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-p1-success" aria-hidden /> Repeated failed attempts lock the account temporarily.</li>
+              <li className="flex gap-2.5"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-p1-success" aria-hidden /> You can review and sign out of other sessions from your profile.</li>
             </ul>
           </Card>
-
-          <Card>
-            <div className="mb-2 flex items-center gap-2">
-              <KeyRound size={14} className="text-brand-gold" />
-              <span className="text-xs font-semibold text-foreground">What V-RENT does differently</span>
-            </div>
-            <ul className="space-y-2 text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-              <li>
-                <strong className="text-foreground">Self-serve from the start.</strong> An agent can register,
-                verify and be approved without talking to a salesperson. Payment comes after approval, not before
-                the account exists.
-              </li>
-              <li>
-                <strong className="text-foreground">No shared default password.</strong> The agent sets their own
-                at registration, hashed with Argon2id and checked against a breached-password list.
-              </li>
-              <li>
-                <strong className="text-foreground">Sign in by CEA number or email.</strong> Agents know their
-                registration number, and it is already the unique key on the account.
-              </li>
-              <li>
-                <strong className="text-foreground">One account per registration</strong> is enforced by a
-                database constraint, matching the incumbent rule but without relying on manual checking.
-              </li>
-            </ul>
-          </Card>
-
-          <Card>
-            <div className="mb-2 text-xs font-semibold text-foreground">Security on this screen</div>
-            <ul className="space-y-1.5 text-[11px] text-neutral-600 dark:text-neutral-400">
-              <li>Identical error whether the account exists or the password is wrong</li>
-              <li>Rate limited per address and per account, with lockout</li>
-              <li>Second factor required for every administrative role</li>
-              <li>Opaque session in an HttpOnly cookie, revocable server-side</li>
-              <li>Failed and successful attempts both written to the audit log</li>
-            </ul>
+          <Card className="bg-p1-subtle/60">
+            <div className="text-[14px] font-semibold text-p1-text">One account per CEA registration</div>
+            <p className="mt-1 text-[14px] leading-5 text-p1-text-2">Your registration number is the key to your account, so you can sign in with it directly.</p>
           </Card>
         </div>
       </div>
 
-      <SpecNote>
-        The account-enumeration protection is the reason the error message never says whether the identifier
-        was found. It is also why the CEA-format hint above only confirms the <em>shape</em> of the number, not
-        whether an account exists for it.
-      </SpecNote>
+      <PresenterNote title="Presenter note — how this compares with the incumbents">
+        <p><strong>PropertyGuru AgentNet</strong> is sales-led: an agent must be CEA-registered <em>and</em> a paying subscriber before an account exists, credentials are issued with a shared default password, each account belongs to exactly one CEA agent, and the account name must match the register. <strong>99.co</strong> is self-serve with CEA registration required to list.</p>
+        <p className="mt-2"><strong>V-RENT:</strong> self-serve from the start, payment after approval rather than before the account exists; no shared default password (Argon2id, breached-password check); sign in by CEA number or email; one account per registration enforced by a database constraint. Error text is identical whether the account exists or the password is wrong, so the screen cannot be used to enumerate accounts — which is also why the CEA-format hint only confirms the shape of the number. Attempts are rate-limited per address and per account; every attempt is written to the audit log.</p>
+      </PresenterNote>
     </>
   );
 }

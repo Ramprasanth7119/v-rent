@@ -1,12 +1,11 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { Input, Textarea, Select } from '../../../components/ui/Input';
-import { PageHead, SpecNote, StepRail } from '../../../components/phase1/bits';
+import { Avatar, Button, Callout, Card, PageHeader, PresenterNote, ProgressBar, SectionCard, SelectInput, Stepper, TextArea, TextInput } from '../../../components/phase1/kit';
+import { StatusBadge } from '../../../components/phase1/status';
+import { JOURNEY_STEPS, journeyCompleted } from '../../../components/phase1/journey';
 import { useDemo } from '../../../lib/phase1/DemoContext';
-import { BadgeCheck, Info } from 'lucide-react';
+import { User, Briefcase, Building2, BadgeCheck, ArrowRight, Camera } from 'lucide-react';
 
 const AGENCIES = [
   { value: 'Huttons Asia Pte Ltd|L3008899K', label: 'Huttons Asia Pte Ltd (L3008899K)' },
@@ -39,140 +38,107 @@ export default function ProfilePage() {
     router.push('/phase1/status');
   };
 
+  const agentStatus = state.profileSubmitted ? state.approval : 'not_submitted';
+
   return (
     <>
-      <PageHead
-        module="M6 · Agent Profile and Agency Directory"
-        title="Professional profile and CEA details"
-        blurb="This becomes the public agent profile in Phase 2, so it is captured properly now."
+      <PageHeader
+        eyebrow="Step 3 of 8"
+        title="Your professional profile"
+        description="Tell us who you are and where you practise. This becomes your public agent profile once tenants can search."
       />
-      <StepRail
-        current={2}
-        steps={[
-          { label: 'Account', done: true },
-          { label: 'Verify', done: true },
-          { label: 'Profile', done: state.profileSubmitted },
-          { label: 'Approval', done: state.approval === 'approved' },
-          { label: 'Plan', done: !!state.plan },
-          { label: 'Listings', done: false },
-        ]}
-      />
+      <Stepper steps={JOURNEY_STEPS} current={2} completed={journeyCompleted(state)} />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px]">
-        <div className="space-y-5">
-          <Card>
-            <div className="mb-4 text-sm font-semibold text-foreground">About you</div>
-            <div className="grid gap-4">
-              <Input label="Display name" value={p.fullName} onChange={(e) => setProfile({ fullName: e.target.value })} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Input label="Mobile" value={p.mobile} onChange={(e) => setProfile({ mobile: e.target.value })} />
-                <Input
-                  label="Years of experience"
-                  value={p.experienceYears}
-                  onChange={(e) => setProfile({ experienceYears: e.target.value.replace(/\D/g, '') })}
-                />
-              </div>
-              <Textarea
-                label="Professional biography"
-                rows={3}
-                value={p.bio}
-                onChange={(e) => setProfile({ bio: e.target.value })}
-              />
-            </div>
-          </Card>
-
-          <Card>
-            <div className="mb-1 text-sm font-semibold text-foreground">CEA registration</div>
-            <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
-              Checked against the CEA salesperson register published on data.gov.sg.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input
-                label="CEA registration number"
-                value={p.ceaNumber}
-                onChange={(e) => setProfile({ ceaNumber: e.target.value.toUpperCase() })}
-                error={p.ceaNumber && !ceaValid ? 'Expected format R123456A' : undefined}
-              />
-              <Select
-                label="Agency"
-                options={AGENCIES}
-                value={`${p.agency}|${p.agencyLicence}`}
-                onChange={(e) => {
-                  const [agency, agencyLicence] = e.target.value.split('|');
-                  setProfile({ agency, agencyLicence });
-                }}
-              />
-            </div>
-            <div className="mt-4 rounded-lg border border-border bg-neutral-50 p-3 dark:bg-neutral-950/40">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                Appears on every advertisement
-              </div>
-              <p className="mt-1.5 text-xs text-foreground">
-                {p.fullName} · {p.ceaNumber} · {p.agency} ({p.agencyLicence})
-              </p>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                Advertising rules require the salesperson name, registration number and agency licence
-                number on every listing. These three values are frozen into a compliance snapshot when a
-                listing is published.
-              </p>
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-3">
-          <Card>
-            <div className="mb-2 flex items-baseline justify-between">
-              <span className="text-xs font-semibold text-foreground">Profile completeness</span>
-              <span className="text-sm font-semibold tabular-nums text-brand-gold">{completeness}%</span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-              <div
-                className="h-full rounded-full bg-brand-gold transition-all duration-300"
-                style={{ width: `${completeness}%` }}
-              />
-            </div>
-            <p className="mt-2.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-              An agent should always know what is outstanding before they submit.
-            </p>
-          </Card>
-
-          <Card className="border-brand-gold/30 bg-brand-gold/5">
-            <div className="flex items-start gap-2.5">
-              <BadgeCheck size={16} className="mt-0.5 flex-shrink-0 text-brand-gold" />
-              <div>
-                <div className="text-xs font-semibold text-foreground">One agent per registration</div>
-                <p className="mt-1 text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-                  A unique constraint in the database prevents two accounts claiming the same CEA
-                  registration number.
-                </p>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); if (ready) submit(); }}>
+          <SectionCard title="Personal information" icon={<User size={18} />}>
+            <div className="grid gap-5">
+              <TextInput label="Display name" required value={p.fullName} onChange={(e) => setProfile({ fullName: e.target.value })} hint="Shown on your listings. Must match your name on the CEA register." />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <TextInput label="Email address" type="email" value={p.email} onChange={(e) => setProfile({ email: e.target.value })} hint="Confirmed in the previous step." />
+                <TextInput label="Mobile number" inputMode="tel" value={p.mobile} onChange={(e) => setProfile({ mobile: e.target.value })} hint="Where tenants and V-RENT will call you." />
               </div>
             </div>
-          </Card>
+          </SectionCard>
 
-          <Card>
-            <div className="flex items-start gap-2.5">
-              <Info size={16} className="mt-0.5 flex-shrink-0 text-neutral-400" />
-              <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-                Agency membership is stored in its own table even though Phase 1 supports individual
-                agents only. That is what makes agency accounts an added feature later rather than a
-                data migration.
-              </p>
+          <SectionCard title="Professional information" icon={<Briefcase size={18} />}>
+            <div className="grid gap-5">
+              <TextInput
+                label="Years of experience"
+                inputMode="numeric"
+                value={p.experienceYears}
+                onChange={(e) => setProfile({ experienceYears: e.target.value.replace(/\D/g, '') })}
+                hint="Helps tenants choose an agent they trust."
+                containerClassName="sm:max-w-xs"
+              />
+              <TextArea label="Professional biography" required rows={4} value={p.bio} onChange={(e) => setProfile({ bio: e.target.value })} hint="Two or three sentences about the areas and property types you focus on." />
             </div>
+          </SectionCard>
+
+          <SectionCard title="Agency" icon={<Building2 size={18} />}>
+            <SelectInput
+              label="Agency"
+              required
+              options={AGENCIES}
+              value={`${p.agency}|${p.agencyLicence}`}
+              onChange={(e) => {
+                const [agency, agencyLicence] = e.target.value.split('|');
+                setProfile({ agency, agencyLicence });
+              }}
+              hint="The agency licence number appears on every advertisement you publish."
+            />
+          </SectionCard>
+
+          <SectionCard title="CEA registration" description="We check this against the CEA salesperson register published on data.gov.sg." icon={<BadgeCheck size={18} />}>
+            <TextInput
+              label="CEA registration number"
+              required
+              value={p.ceaNumber}
+              onChange={(e) => setProfile({ ceaNumber: e.target.value.toUpperCase() })}
+              error={p.ceaNumber && !ceaValid ? 'Expected format R123456A — one letter, six digits, one letter.' : undefined}
+              hint="Found on your CEA card. One account per registration."
+              containerClassName="sm:max-w-sm"
+            />
+            <Callout tone="neutral" title="Appears on every advertisement" className="mt-5">
+              <span className="font-medium text-p1-text">{p.fullName} · {p.ceaNumber} · {p.agency} ({p.agencyLicence})</span>
+              <span className="mt-1 block">Singapore advertising rules require the salesperson name, registration number and agency licence number on every listing.</span>
+            </Callout>
+          </SectionCard>
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {!ready && <span className="text-[14px] text-p1-text-3">Complete the required fields to continue.</span>}
+            <Button type="submit" variant="accent" size="lg" disabled={!ready} rightIcon={<ArrowRight size={17} />}>Submit for verification</Button>
+          </div>
+        </form>
+
+        <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <Card>
+            <div className="flex flex-col items-center text-center">
+              <div className="relative">
+                <Avatar name={p.fullName || 'Agent'} size="xl" />
+                <button type="button" aria-label="Add profile photo" className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-p1-surface bg-p1-accent text-p1-accent-on shadow-p1-sm cursor-pointer"><Camera size={15} /></button>
+              </div>
+              <div className="mt-3 text-[17px] font-semibold text-p1-text">{p.fullName || 'Your name'}</div>
+              <div className="text-[14px] text-p1-text-2">{p.agency}</div>
+              <div className="mt-3"><StatusBadge kind="agent" value={agentStatus} /></div>
+            </div>
+            <ProgressBar value={completeness} label="Profile completeness" className="mt-5" tone={completeness === 100 ? 'success' : 'accent'} />
+            <p className="mt-2 text-[13px] leading-5 text-p1-text-3">A complete profile is reviewed faster and looks better to tenants.</p>
+          </Card>
+          <Card className="bg-p1-subtle/60">
+            <div className="text-[14px] font-semibold text-p1-text">What happens after you submit</div>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-[14px] leading-5 text-p1-text-2">
+              <li>Your CEA number is matched against the public register.</li>
+              <li>A verification officer confirms the match — usually within one business day.</li>
+              <li>You choose a plan and start listing.</li>
+            </ol>
           </Card>
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
-        <Button variant="gold" size="lg" disabled={!ready} onClick={submit}>
-          Submit for verification
-        </Button>
-      </div>
-
-      <SpecNote>
-        Changing the CEA number or the agency after approval re-triggers verification. A change of
-        agency is not an ordinary profile edit, because the agency licence number appears on every
-        advertisement already published.
-      </SpecNote>
+      <PresenterNote>
+        A unique constraint prevents two accounts claiming the same CEA registration number. Agency membership is stored in its own table even though Phase 1 supports individual agents only, so agency accounts later are an added feature rather than a data migration. Changing the CEA number or agency after approval re-triggers verification, because the agency licence number appears on every advertisement already published. Name, registration number and licence number are frozen into a compliance snapshot when a listing is published.
+      </PresenterNote>
     </>
   );
 }

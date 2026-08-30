@@ -9,6 +9,7 @@ export function useCountUp(target: number, ms = 900) {
   useEffect(() => {
     if (typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reduced-motion short-circuit
       setValue(target);
       return;
     }
@@ -38,6 +39,7 @@ export function useInView<T extends HTMLElement>(rootMargin = '-40px') {
   useEffect(() => {
     const el = ref.current;
     if (!el || seen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fallback
     if (typeof IntersectionObserver === 'undefined') { setSeen(true); return; }
 
     const io = new IntersectionObserver(
@@ -70,9 +72,8 @@ export function useTheme(applyDark: (d: boolean) => void, isDark: boolean) {
     const saved = localStorage.getItem(STORE_KEY);
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     desired.current = saved ? saved === 'dark' : prefersDark;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads localStorage once after mount
     setReady(true);
-    // Runs once; the reconciling effect below does the applying.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**

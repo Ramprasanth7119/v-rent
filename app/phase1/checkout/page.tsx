@@ -2,14 +2,20 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { PageHead, SpecNote, StepRail } from '../../../components/phase1/bits';
+import { CheckCircle2, CreditCard, Smartphone, ShieldCheck, Lock } from 'lucide-react';
+import {
+  Button, LinkButton, Card, SectionCard, PageHeader, Callout, ChoiceCard, Stepper, KeyValue, PresenterNote, Spinner, EmptyState,
+} from '../../../components/phase1/kit';
+import { Pill } from '../../../components/phase1/status';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
-import { Check, CreditCard, Smartphone, Loader2, ShieldCheck } from 'lucide-react';
 
 type Stage = 'choose' | 'redirect' | 'waiting' | 'done';
+
+const STEPS = [
+  { label: 'Create account' }, { label: 'Verify contact' }, { label: 'Professional details' },
+  { label: 'CEA verification' }, { label: 'Approval' }, { label: 'Subscribe' }, { label: 'Payment' }, { label: 'Start listing' },
+];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -17,27 +23,26 @@ export default function CheckoutPage() {
   const [method, setMethod] = useState<'PayNow' | 'Card'>('PayNow');
   const [stage, setStage] = useState<Stage>(state.subscription === 'active' ? 'done' : 'choose');
 
+  const completed = (i: number) => [
+    true, state.emailVerified && state.mobileVerified, state.profileSubmitted, state.profileSubmitted,
+    state.approval === 'approved', !!state.plan, state.subscription === 'active', false,
+  ][i];
+
   const plan = state.plan;
   if (!plan) {
     return (
       <>
-        <PageHead module="M10 · Subscription and Payments" title="Payment" />
+        <PageHeader eyebrow="Subscription" title="Payment" />
         <Card>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            No plan selected yet.{' '}
-            <button onClick={() => router.push('/phase1/plans')} className="font-semibold text-brand-gold underline">
-              Choose a plan
-            </button>{' '}
-            first.
-          </p>
+          <EmptyState title="No plan selected yet" description="Choose a plan first, then come back here to pay."
+            action={<LinkButton href="/phase1/plans" variant="accent">Choose a plan</LinkButton>} />
         </Card>
       </>
     );
   }
 
-  const fee = method === 'PayNow' ? plan.priceYearSgd * 0.013 : plan.priceYearSgd * 0.034 + 0.5;
-  const cardFee = plan.priceYearSgd * 0.034 + 0.5;
   const paynowFee = plan.priceYearSgd * 0.013;
+  const cardFee = plan.priceYearSgd * 0.034 + 0.5;
 
   const activate = () => {
     setStage('done');
@@ -46,162 +51,107 @@ export default function CheckoutPage() {
 
   return (
     <>
-      <PageHead
-        module="M10 · Subscription and Payments"
+      <PageHeader
+        eyebrow="Subscription"
         title="Payment"
-        blurb="The screen the browser returns to is never what activates a subscription. Only a verified webhook does that."
+        description="Pay securely on our payment provider's page. Your subscription is activated the moment the payment is confirmed."
       />
-      <StepRail
-        current={5}
-        steps={[
-          { label: 'Account', done: true },
-          { label: 'Verify', done: true },
-          { label: 'Profile', done: true },
-          { label: 'Approval', done: true },
-          { label: 'Plan', done: true },
-          { label: 'Listings', done: state.subscription === 'active' },
-        ]}
-      />
+      <Stepper steps={STEPS} current={6} completed={completed} />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <Card>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div>
           {stage === 'choose' && (
-            <>
-              <div className="mb-4 text-sm font-semibold text-foreground">Payment method</div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(['PayNow', 'Card'] as const).map((m) => {
-                  const on = method === m;
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => setMethod(m)}
-                      className={`rounded-xl border p-4 text-left transition-all ${
-                        on ? 'border-brand-gold bg-brand-gold/5 ring-2 ring-brand-gold/20' : 'border-border hover:border-neutral-300 dark:hover:border-neutral-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {m === 'PayNow' ? <Smartphone size={15} className="text-brand-gold" /> : <CreditCard size={15} className="text-neutral-400" />}
-                        <span className="text-sm font-medium text-foreground">{m}</span>
-                        {m === 'PayNow' && (
-                          <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                            Cheaper
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-                        {m === 'PayNow'
-                          ? 'Instant bank transfer. Processing 1.3%'
-                          : 'Visa, Mastercard, Amex. Processing 3.4% + S$0.50'}
-                      </div>
-                      <div className="mt-1.5 text-xs font-medium tabular-nums text-foreground">
-                        Cost to us: {sgd(Math.round(m === 'PayNow' ? paynowFee : cardFee))}
-                      </div>
-                    </button>
-                  );
-                })}
+            <SectionCard title="How would you like to pay?" description="Both options are processed by our payment provider. Card details never reach V-RENT.">
+              <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
+                <ChoiceCard
+                  selected={method === 'PayNow'} onSelect={() => setMethod('PayNow')}
+                  icon={<Smartphone size={20} />} title="PayNow" badge={<Pill tone="success">Recommended</Pill>}
+                  description="Instant bank transfer by QR code. No card needed."
+                />
+                <ChoiceCard
+                  selected={method === 'Card'} onSelect={() => setMethod('Card')}
+                  icon={<CreditCard size={20} />} title="Credit or debit card"
+                  description="Visa, Mastercard and American Express."
+                />
               </div>
-
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                <p className="text-[11px] leading-relaxed text-neutral-700 dark:text-neutral-300">
-                  Steering renewals to PayNow saves{' '}
-                  <strong className="tabular-nums">{sgd(Math.round(cardFee - paynowFee))}</strong> per agent
-                  per year on this plan. Across a few hundred agents that is a real margin line, which is
-                  why PayNow is presented as a first-class choice rather than a fallback.
-                </p>
-              </div>
-
-              <Button className="mt-5 w-full" variant="gold" size="lg" onClick={() => setStage('redirect')}>
+              <p className="mt-3 text-[13px] text-p1-text-3">
+                Processing cost to V-RENT: PayNow 1.3% ({sgd(Math.round(paynowFee))}) · Card 3.4% + S$0.50 ({sgd(Math.round(cardFee))}). Your price is the same either way.
+              </p>
+              <Button className="mt-6" variant="accent" size="lg" block leftIcon={<Lock size={16} />} onClick={() => setStage('redirect')}>
                 Continue to secure checkout
               </Button>
-              <p className="mt-2.5 text-center text-[11px] text-neutral-500 dark:text-neutral-400">
-                Card details are entered on the payment provider&apos;s hosted page and never reach our servers.
-              </p>
-            </>
+            </SectionCard>
           )}
 
           {stage === 'redirect' && (
-            <div className="py-8 text-center">
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-900">
-                <ShieldCheck size={19} className="text-brand-gold" />
+            <Card padding="lg">
+              <div className="py-6 text-center">
+                <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-p1-primary-soft text-p1-primary" aria-hidden><ShieldCheck size={30} /></span>
+                <h2 className="text-[20px] font-semibold text-p1-text">You are now on the payment provider&apos;s page</h2>
+                <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
+                  In the real product the agent completes payment here. This prototype stands in for that step.
+                </p>
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  <Button variant="primary" size="lg" onClick={() => setStage('waiting')}>Simulate successful payment</Button>
+                  <Button variant="outline" size="lg" onClick={() => setStage('choose')}>Cancel</Button>
+                </div>
               </div>
-              <div className="text-sm font-semibold text-foreground">Hosted checkout</div>
-              <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                In the real product the agent is now on the payment provider&apos;s page. This prototype
-                stands in for that step.
-              </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                <Button variant="gold" onClick={() => setStage('waiting')}>Simulate successful payment</Button>
-                <Button variant="outline" onClick={() => setStage('choose')}>Cancel</Button>
-              </div>
-            </div>
+            </Card>
           )}
 
           {stage === 'waiting' && (
-            <div className="py-8 text-center">
-              <Loader2 size={26} className="mx-auto mb-4 animate-spin text-brand-gold" />
-              <div className="text-sm font-semibold text-foreground">Confirming payment…</div>
-              <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                The browser has returned from checkout, but nothing has been granted yet. The application
-                is polling its own API and waiting for the provider&apos;s signed webhook to arrive.
-              </p>
-              <Button className="mt-5" variant="gold" onClick={activate}>
-                Deliver the verified webhook
-              </Button>
-              <p className="mt-2.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                This button is the point of the screen — access is granted here, not on the redirect.
-              </p>
-            </div>
+            <Card padding="lg">
+              <div className="py-6 text-center" role="status" aria-live="polite">
+                <Spinner size={32} className="mx-auto mb-5 text-p1-accent" />
+                <h2 className="text-[20px] font-semibold text-p1-text">Confirming your payment…</h2>
+                <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
+                  This usually takes a few seconds. Your subscription is activated only once the provider confirms the payment.
+                </p>
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  <Button variant="primary" size="lg" onClick={activate}>Deliver the verified webhook</Button>
+                  <Pill tone="neutral">Prototype control</Pill>
+                </div>
+              </div>
+            </Card>
           )}
 
           {stage === 'done' && (
-            <div className="py-8 text-center">
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
-                <Check size={20} strokeWidth={3} />
+            <Card padding="lg">
+              <div className="py-6 text-center">
+                <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden><CheckCircle2 size={32} /></span>
+                <h2 className="text-[22px] font-semibold text-p1-text">Your subscription is active</h2>
+                <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
+                  {plan.name} plan, paid by {state.paymentMethod ?? method}. A receipt has been emailed to {state.profile.email}.
+                </p>
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  <Button variant="accent" size="lg" onClick={() => router.push('/phase1/dashboard')}>Go to dashboard</Button>
+                  <Button variant="outline" size="lg" onClick={() => router.push('/phase1/listings/new')}>Create a listing</Button>
+                </div>
               </div>
-              <div className="text-sm font-semibold text-foreground">Subscription active</div>
-              <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-                {plan.name} plan, paid by {state.paymentMethod}. Invoice issued and receipt emailed.
-              </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                <Button variant="gold" onClick={() => router.push('/phase1/dashboard')}>Go to dashboard</Button>
-                <Button variant="outline" onClick={() => router.push('/phase1/listings/new')}>Create a listing</Button>
-              </div>
-            </div>
+            </Card>
           )}
-        </Card>
+        </div>
 
-        <div className="space-y-3">
-          <Card>
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">Order</div>
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-neutral-600 dark:text-neutral-400">{plan.name}, 12 months</span>
-              <span className="font-semibold tabular-nums text-foreground">{sgd(plan.priceYearSgd)}</span>
+        <div className="space-y-4">
+          <SectionCard title="Order summary">
+            <KeyValue rows={[
+              { k: `${plan.name} plan`, v: '12 months' },
+              { k: 'Subtotal', v: sgd(plan.priceYearSgd) },
+              { k: 'GST', v: <span className="text-p1-text-3">To be confirmed</span> },
+            ]} />
+            <div className="mt-3 flex items-baseline justify-between border-t border-p1-border pt-3">
+              <span className="text-[15px] font-semibold text-p1-text">Total today</span>
+              <span className="text-[22px] font-semibold tabular-nums text-p1-text">{sgd(plan.priceYearSgd)}</span>
             </div>
-            <div className="mt-2 border-t border-border pt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-              Prices shown before GST. Invoice format depends on whether V-RENT is GST-registered —
-              open question O2.
-            </div>
-          </Card>
-
-          <Card>
-            <div className="mb-2 text-xs font-semibold text-foreground">What the server does</div>
-            <ol className="space-y-2 text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-              <li><span className="font-mono text-neutral-400">1.</span> Verifies the webhook signature before parsing the body</li>
-              <li><span className="font-mono text-neutral-400">2.</span> Stores the raw payload, so a dispute months later has evidence</li>
-              <li><span className="font-mono text-neutral-400">3.</span> Ignores replays via a unique provider event id</li>
-              <li><span className="font-mono text-neutral-400">4.</span> Activates the subscription and grants entitlement</li>
-              <li><span className="font-mono text-neutral-400">5.</span> Reconciles against the provider daily and alerts on divergence</li>
-            </ol>
-          </Card>
+            <p className="mt-3 flex items-start gap-2 text-[13px] text-p1-text-3"><Lock size={14} className="mt-0.5 shrink-0" aria-hidden /> Secure checkout. Card details are entered on the provider&apos;s page and never stored by V-RENT.</p>
+          </SectionCard>
+          <Callout tone="info" title="Renews automatically in 12 months">You will be reminded by email 30 days before renewal and can cancel at any time.</Callout>
         </div>
       </div>
 
-      <SpecNote>
-        Webhooks arrive more than once and out of order — it is normal to be told an invoice was paid
-        before being told the subscription was created. Handlers are therefore idempotent and guard on
-        current state. Bugs in this module cost money in both directions, which is why it and listing
-        management are the critical path.
-      </SpecNote>
+      <PresenterNote>
+        The screen the browser returns to never activates a subscription; only a verified webhook does. The server verifies the webhook signature before parsing, stores the raw payload for later disputes, ignores replays via the provider event id, then activates the subscription and grants entitlement, and reconciles against the provider daily. Webhooks arrive out of order, so handlers are idempotent. Invoice format depends on whether V-RENT is GST-registered (open question O2).
+      </PresenterNote>
     </>
   );
 }
