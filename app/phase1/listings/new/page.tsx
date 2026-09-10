@@ -10,6 +10,7 @@ import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
 import { PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
+import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
 import { DemoListing, ListingStatus, sgd } from '../../../../lib/phase1/data';
@@ -100,6 +101,8 @@ function ListingWizard() {
         postal: editing.postalCode,
         project: editing.project,
         district: editing.district,
+        lat: editing.lat,
+        lng: editing.lng,
       }
     : null));
   const [unitNo, setUnitNo] = useState(() => editing?.unitNo ?? '');
@@ -244,6 +247,8 @@ function ListingWizard() {
     postalCode: addr!.postal,
     unitNo: normalisedUnit,
     district: addr!.district,
+    lat: addr!.lat,
+    lng: addr!.lng,
     propertyType,
     bedrooms: Number(beds),
     bathrooms: Number(baths),
@@ -463,10 +468,8 @@ function ListingWizard() {
                     <Field label="Postal code" value={addr.postal} mono />
                     <Field label="District" value={addr.district ? `D${String(addr.district).padStart(2, '0')} ${districtName(addr.district)}` : 'Not in a postal district'} />
                     <Field label="Address" value={addr.label} />
-                    {addr.lat !== undefined && addr.lng !== undefined && (
-                      <Field label="Map position" value={`${addr.lat.toFixed(5)}, ${addr.lng.toFixed(5)}`} mono />
-                    )}
                   </FieldGrid>
+                  <PropertyMap className="mt-4" lat={addr.lat} lng={addr.lng} label={addr.label} height={200} />
                 </div>
               )}
             </SectionCard>

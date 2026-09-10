@@ -12,6 +12,7 @@ import { DEAL_LABEL, dealOf, priceLabel, psf } from '../../../lib/phase1/pricing
 import { AgentProfile, preferredName } from '../../../lib/phase1/DemoContext';
 import { districtName } from '../../../lib/phase1/performance';
 import { Gallery, PropertyImage } from '../PropertyImage';
+import { PropertyMap } from './PropertyMap';
 import { Avatar, Button, cx } from '../kit';
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -62,6 +63,9 @@ export function PublicPreview({
             <div className="text-[12.5px] text-p1-text-3">{psf(l)}{deal === 'rent' && ` · min ${l.minLeaseMonths} months`}</div>
           </div>
         </div>
+
+        <PropertyMap className="mt-4" lat={l.lat} lng={l.lng} label={l.address} height={compact ? 150 : 220} />
+
 
         <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[13.5px] text-p1-text">
           {facts.map((f) => <li key={f.v} className="inline-flex items-center gap-1.5"><f.icon size={14} className="text-p1-text-3" aria-hidden />{f.v}</li>)}

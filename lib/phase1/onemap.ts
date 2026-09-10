@@ -13,6 +13,7 @@
  */
 
 const ENDPOINT = 'https://www.onemap.gov.sg/api/common/elastic/search';
+const STATIC_MAP = 'https://www.onemap.gov.sg/api/staticmap/getStaticImage';
 
 export interface AddressMatch {
   /** "2 MARINA BOULEVARD THE SAIL @ MARINA BAY SINGAPORE 018987" */
@@ -158,5 +159,42 @@ export async function searchAddress(term: string, limit = 8): Promise<AddressMat
       .slice(0, limit);
   } catch {
     return [];
+  }
+}
+
+/**
+ * A map image of one point, drawn by OneMap.
+ *
+ * A picture rather than an interactive map on purpose: it needs no map library
+ * in the bundle, it prints (the shortlist export uses it), and there is nothing
+ * on a listing page a tenant wants to pan around — they want to see where the
+ * flat is. Requested server-side so the token never reaches a browser.
+ */
+export function staticMapUrl(
+  lat: number,
+  lng: number,
+  { zoom = 16, width = 640, height = 360 }: { zoom?: number; width?: number; height?: number } = {},
+): string {
+  const url = new URL(STATIC_MAP);
+  url.searchParams.set('layerchosen', 'default');
+  url.searchParams.set('latitude', String(lat));
+  url.searchParams.set('longitude', String(lng));
+  url.searchParams.set('zoom', String(zoom));
+  url.searchParams.set('width', String(width));
+  url.searchParams.set('height', String(height));
+  // A marker in the V-RENT gold, so the pin reads as ours rather than generic.
+  url.searchParams.set('points', `[${lat},${lng},"240,198,116","V"]`);
+  return url.toString();
+}
+
+/** Fetch that image. Returns null rather than throwing: a missing map is not an error. */
+export async function fetchStaticMap(lat: number, lng: number, size?: { width?: number; height?: number }) {
+  try {
+    const res = await fetch(staticMapUrl(lat, lng, size), { headers: authHeaders(), cache: 'no-store' });
+    if (!res.ok) return null;
+    const type = res.headers.get('content-type') ?? 'image/png';
+    return { body: Buffer.from(await res.arrayBuffer()), type };
+  } catch {
+    return null;
   }
 }

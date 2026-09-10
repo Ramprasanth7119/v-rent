@@ -24,6 +24,9 @@ export interface DemoListing {
   postalCode: string;
   unitNo: string;
   district: number;
+  /** Where OneMap placed the address, when it was matched from the register. */
+  lat?: number;
+  lng?: number;
   propertyType: 'Condominium' | 'HDB' | 'Apartment' | 'Landed' | 'Executive Condominium';
   updatedAt?: string;
   bedrooms: number;
@@ -48,6 +51,10 @@ export interface DemoListing {
   rejectionReason?: string;
   /** Set when a moderator has looked at this version. Clears on every edit. */
   reviewedAt?: string;
+  /** Freehold or leasehold. Asked of a sale far more than of a rental. */
+  tenure?: 'Freehold' | '99-year leasehold' | '999-year leasehold';
+  /** Year the development was completed. */
+  builtYear?: number;
   /** Completeness signals used by Listing Health. */
   hasFloorPlan?: boolean;
   amenities?: string[];

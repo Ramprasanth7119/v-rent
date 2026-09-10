@@ -249,6 +249,8 @@ function cleanListing(raw: unknown): DemoListing | null {
     postalCode: str(l.postalCode, 12),
     unitNo: str(l.unitNo, 24),
     district: num(l.district),
+    lat: typeof l.lat === 'number' ? num(l.lat) : undefined,
+    lng: typeof l.lng === 'number' ? num(l.lng) : undefined,
     propertyType: type,
     bedrooms: num(l.bedrooms),
     bathrooms: num(l.bathrooms),
@@ -276,6 +278,10 @@ function cleanListing(raw: unknown): DemoListing | null {
       : undefined,
     depositMonths: typeof l.depositMonths === 'number' ? num(l.depositMonths) : undefined,
     nearestMrt: str(l.nearestMrt, 80) || undefined,
+    tenure: ['Freehold', '99-year leasehold', '999-year leasehold'].includes(l.tenure as string)
+      ? (l.tenure as DemoListing['tenure'])
+      : undefined,
+    builtYear: typeof l.builtYear === 'number' ? num(l.builtYear) : undefined,
     archived: l.archived === true || undefined,
   };
 }
