@@ -79,11 +79,11 @@ export async function POST(req: Request) {
   }
 
   const existing = listing.photos ?? [];
-  const { saved, rejected } = await savePhotos(user.id, listingId, existing, files);
+  const { saved, rejected, warnings } = await savePhotos(user.id, listingId, existing, files);
   const photos = [...existing, ...saved];
 
   await commit(account, listingId, photos);
   await pruneOrphans(user.id, listingId, photos);
 
-  return NextResponse.json({ photos, rejected });
+  return NextResponse.json({ photos, rejected, warnings });
 }

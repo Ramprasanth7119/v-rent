@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -9,7 +9,7 @@ import {
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
-import { PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
+import { PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
@@ -122,6 +122,13 @@ function ListingWizard() {
     () => (editing?.photos ?? []).map((id) => ({ kind: 'saved', id }) as Shot),
   );
   const [uploading, setUploading] = useState(false);
+  const [photoNotes, setPhotoNotes] = useState<PhotoNote[]>([]);
+  /** Building facts taken from a previous listing, or from the one being edited. */
+  const [carried, setCarried] = useState<Pick<DemoListing, 'nearestMrt' | 'tenure' | 'builtYear'>>(() => ({
+    nearestMrt: editing?.nearestMrt,
+    tenure: editing?.tenure,
+    builtYear: editing?.builtYear,
+  }));
   const [confirmPublish, setConfirmPublish] = useState(false);
 
   /**
@@ -138,7 +145,47 @@ function ListingWizard() {
   const searchSeq = useRef(0);
 
   useEffect(() => {
-    const term = query.trim();
+    /**
+   * A property template: what this agent already recorded about this building.
+   *
+   * Agents list many units in the same condominium, and everything that is true
+   * of the building rather than the unit — the district, the station, the
+   * tenure, the year it was completed, most of the amenities — is the same
+   * every time. Offering it beats asking for it again, and it is offered rather
+   * than applied because the previous listing might have been wrong.
+   */
+  const template = useMemo(() => {
+    if (!addr) return null;
+    const sameBuilding = state.listings
+      .filter((l) => !l.archived && l.id !== editing?.id)
+      .filter((l) => l.postalCode === addr.postal || l.project.toLowerCase() === addr.project.toLowerCase())
+      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
+    return sameBuilding[0] ?? null;
+  }, [addr, state.listings, editing?.id]);
+
+  const [templateUsed, setTemplateUsed] = useState(false);
+
+  const applyTemplate = () => {
+    if (!template) return;
+    setPropertyType(template.propertyType);
+    if (template.amenities?.length) setAmenities(template.amenities);
+    if (template.nearestMrt || template.tenure || template.builtYear) {
+      // Carried onto the saved record through `fields()` below.
+      setCarried({
+        nearestMrt: template.nearestMrt,
+        tenure: template.tenure,
+        builtYear: template.builtYear,
+      });
+    }
+    setTemplateUsed(true);
+    push({
+      tone: 'success',
+      title: 'Filled in from your last listing here',
+      body: `Taken from ${template.project} ${template.unitNo}. Change anything that differs for this unit.`,
+    });
+  };
+
+  const term = query.trim();
     if (addr || term.length < 3) return;
 
     const seq = ++searchSeq.current;
@@ -160,6 +207,46 @@ function ListingWizard() {
     }, 250);
     return () => clearTimeout(timer);
   }, [query, addr]);
+
+  /**
+   * A property template: what this agent already recorded about this building.
+   *
+   * Agents list many units in the same condominium, and everything that is true
+   * of the building rather than the unit — the district, the station, the
+   * tenure, the year it was completed, most of the amenities — is the same
+   * every time. Offering it beats asking for it again, and it is offered rather
+   * than applied because the previous listing might have been wrong.
+   */
+  const template = useMemo(() => {
+    if (!addr) return null;
+    const sameBuilding = state.listings
+      .filter((l) => !l.archived && l.id !== editing?.id)
+      .filter((l) => l.postalCode === addr.postal || l.project.toLowerCase() === addr.project.toLowerCase())
+      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
+    return sameBuilding[0] ?? null;
+  }, [addr, state.listings, editing?.id]);
+
+  const [templateUsed, setTemplateUsed] = useState(false);
+
+  const applyTemplate = () => {
+    if (!template) return;
+    setPropertyType(template.propertyType);
+    if (template.amenities?.length) setAmenities(template.amenities);
+    if (template.nearestMrt || template.tenure || template.builtYear) {
+      // Carried onto the saved record through `fields()` below.
+      setCarried({
+        nearestMrt: template.nearestMrt,
+        tenure: template.tenure,
+        builtYear: template.builtYear,
+      });
+    }
+    setTemplateUsed(true);
+    push({
+      tone: 'success',
+      title: 'Filled in from your last listing here',
+      body: `Taken from ${template.project} ${template.unitNo}. Change anything that differs for this unit.`,
+    });
+  };
 
   const term = query.trim();
   const showMatches = !addr && term.length >= 3 && searchedTerm === term ? matches : [];
@@ -196,8 +283,13 @@ function ListingWizard() {
         added.forEach((f) => form.append('file', f));
         const res = await fetch('/api/phase1/photos', { method: 'POST', body: form });
         if (!res.ok) throw new Error(String(res.status));
-        const body = (await res.json()) as { photos: string[]; rejected?: { name: string; reason: string }[] };
+        const body = (await res.json()) as {
+          photos: string[];
+          rejected?: { name: string; reason: string }[];
+          warnings?: PhotoNote[];
+        };
         setShots(body.photos.map((id) => ({ kind: 'saved', id }) as Shot));
+        setPhotoNotes(body.warnings ?? []);
         if (body.rejected?.length) {
           push({ tone: 'warn', title: 'Some photographs were not added', body: body.rejected.map((r) => r.name).join(', ') });
         } else {
@@ -233,7 +325,15 @@ function ListingWizard() {
     form.append('listingId', listingId);
     files.forEach((f) => form.append('file', f));
     try {
-      await fetch('/api/phase1/photos', { method: 'POST', body: form });
+      const res = await fetch('/api/phase1/photos', { method: 'POST', body: form });
+      const body = (await res.json().catch(() => null)) as { warnings?: PhotoNote[] } | null;
+      if (body?.warnings?.length) {
+        push({
+          tone: 'warn',
+          title: 'Some photographs are worth a second look',
+          body: body.warnings.map((w) => w.name).join(', '),
+        });
+      }
     } catch {
       push({ tone: 'warn', title: 'Listing saved without photographs', body: 'The upload did not go through. Open the listing and add them again.' });
     }
@@ -260,6 +360,9 @@ function ListingWizard() {
     minLeaseMonths: Number(lease),
     furnishing,
     amenities,
+    nearestMrt: carried.nearestMrt,
+    tenure: carried.tenure,
+    builtYear: carried.builtYear,
     images: shots.length,
     photos: savedIds(shots),
     updatedAt: TODAY_ISO,
@@ -470,6 +573,24 @@ function ListingWizard() {
                     <Field label="Address" value={addr.label} />
                   </FieldGrid>
                   <PropertyMap className="mt-4" lat={addr.lat} lng={addr.lng} label={addr.label} height={200} />
+
+                  {template && !templateUsed && (
+                    <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-p1-accent/40 bg-p1-accent-soft/40 px-4 py-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-[13.5px] font-semibold text-p1-text">
+                          <Sparkles size={14} className="text-p1-accent-text" aria-hidden />
+                          You have listed here before
+                        </div>
+                        <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">
+                          {template.project} {template.unitNo} has the property type
+                          {template.nearestMrt ? ', nearest station' : ''}
+                          {template.tenure ? ', tenure' : ''} and amenities already recorded. Copy them across and
+                          change what differs for this unit.
+                        </p>
+                      </div>
+                      <Button size="sm" variant="accent" onClick={applyTemplate}>Use those details</Button>
+                    </div>
+                  )}
                 </div>
               )}
             </SectionCard>
@@ -541,6 +662,7 @@ function ListingWizard() {
                 ownerId={user?.id ?? ''}
                 listingId={editing?.id}
                 busy={uploading}
+                notes={photoNotes}
               />
               {!editing && shots.length > 0 && (
                 <p className="mt-3 text-[13px] leading-5 text-p1-text-3">

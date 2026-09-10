@@ -56,6 +56,20 @@ export const PAYNOW = {
   },
 };
 
+/**
+ * Stripe, test mode only for the proof of concept. The provider refuses a key
+ * that is not `sk_test_`, so no real money can move from here.
+ */
+export const STRIPE = {
+  get secretKey() {
+    return process.env.STRIPE_SECRET_KEY ?? '';
+  },
+  get webhookSecret() {
+    return process.env.STRIPE_WEBHOOK_SECRET ?? '';
+  },
+  apiBase: 'https://api.stripe.com/v1',
+};
+
 export const RAZORPAY = {
   get keyId() {
     return process.env.RAZORPAY_KEY_ID ?? '';
@@ -89,11 +103,14 @@ export const DODO = {
  *   razorpay  Razorpay Singapore domestic card, 2.90% + S$0.40.
  *   dodo      Merchant of record: 4% + US$0.40, +1.5% international, +0.5% subscription.
  *             Modelled here at 6% + S$0.55 for an SGD yearly subscription.
+ *   stripe    Singapore standard card pricing, 3.4% + S$0.50. Quoted for
+ *             comparison; nothing is collected while the POC runs in test mode.
  */
 export const FEE_MODEL: Record<ProviderId, { percent: number; fixedCents: number; note: string }> = {
   paynow: { percent: 0.006, fixedCents: 30, note: 'PayNow via Razorpay SG — 0.60% + S$0.30' },
   razorpay: { percent: 0.029, fixedCents: 40, note: 'Razorpay SG domestic card — 2.90% + S$0.40' },
   dodo: { percent: 0.06, fixedCents: 55, note: 'Dodo MoR — 4% + $0.40, +1.5% intl, +0.5% subscription' },
+  stripe: { percent: 0.034, fixedCents: 50, note: 'Stripe SG card — 3.4% + S$0.50 (test mode: nothing is collected)' },
 };
 
 export function estimateFeeCents(provider: ProviderId, totalCents: number): number {

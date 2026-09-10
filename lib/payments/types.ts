@@ -1,6 +1,6 @@
 /** Shared vocabulary for the payment layer. Providers implement this contract. */
 
-export type ProviderId = 'paynow' | 'razorpay' | 'dodo';
+export type ProviderId = 'paynow' | 'razorpay' | 'dodo' | 'stripe';
 
 export type IntentStatus =
   | 'created'          // row exists, provider not yet called

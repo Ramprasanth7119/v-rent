@@ -1,11 +1,13 @@
 import { dodoProvider } from './providers/dodo';
 import { paynowProvider } from './providers/paynow';
 import { razorpayProvider } from './providers/razorpay';
+import { stripeProvider } from './providers/stripe';
 import type { PaymentProvider, ProviderId } from './types';
 
 export const PROVIDERS: Record<ProviderId, PaymentProvider> = {
   paynow: paynowProvider,
   razorpay: razorpayProvider,
+  stripe: stripeProvider,
   dodo: dodoProvider,
 };
 

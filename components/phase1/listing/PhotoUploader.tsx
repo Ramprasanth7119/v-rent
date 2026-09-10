@@ -28,6 +28,15 @@ export type Shot =
   | { kind: 'saved'; id: string }
   | { kind: 'pending'; file: File; url: string };
 
+/** What the server noticed about a photograph, once it has looked at it. */
+export interface PhotoNote { id: string; name: string; issue: 'dark' | 'blurry' | 'duplicate' }
+
+const NOTE_TEXT: Record<PhotoNote['issue'], string> = {
+  dark: 'looks underexposed — shoot with the lights on, or in daylight',
+  blurry: 'looks soft or out of focus',
+  duplicate: 'is the same photograph as one already on this listing',
+};
+
 export const photoUrl = (ownerId: string, listingId: string, id: string) =>
   `/api/phase1/photos/${ownerId}/${listingId}/${id}`;
 
@@ -50,6 +59,7 @@ export function PhotoUploader({
   listingId,
   busy = false,
   className = '',
+  notes = [],
 }: {
   shots: Shot[];
   onChange: (next: Shot[], added: File[]) => void;
@@ -58,6 +68,8 @@ export function PhotoUploader({
   listingId?: string;
   busy?: boolean;
   className?: string;
+  /** Quality findings from the last upload. */
+  notes?: PhotoNote[];
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -158,6 +170,22 @@ export function PhotoUploader({
       )}
 
       {/* --------------------------------------------------------- the set */}
+      {notes.length > 0 && (
+        <div className="mt-3 rounded-lg border border-p1-warning-border bg-p1-warning-soft/60 px-3.5 py-2.5">
+          <div className="flex items-center gap-2 text-[13.5px] font-semibold text-p1-text">
+            <AlertTriangle size={15} className="text-p1-warning" aria-hidden />
+            Worth a second look
+          </div>
+          <ul className="mt-1.5 space-y-0.5 text-[13.5px] leading-5 text-p1-text-2">
+            {notes.map((n) => <li key={n.id}>{n.name} {NOTE_TEXT[n.issue]}.</li>)}
+          </ul>
+          <p className="mt-1.5 text-[12.5px] leading-5 text-p1-text-3">
+            Nothing is blocked — photograph quality is the most common reason a listing comes back from moderation,
+            so it is worth knowing now rather than tomorrow.
+          </p>
+        </div>
+      )}
+
       {shots.length > 0 && (
         <>
           <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Photographs on this listing">

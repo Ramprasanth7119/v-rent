@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 const notFound = () => new NextResponse('Not found', { status: 404 });
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ owner: string; listing: string; photo: string }> },
 ) {
   const { owner, listing: listingId, photo } = await params;
@@ -34,7 +34,9 @@ export async function GET(
     if (!mayLook) return notFound();
   }
 
-  const file = await readPhoto(owner, listingId, photo);
+  // Lists and cards ask for the small one; the gallery asks for the full size.
+  const size = new URL(req.url).searchParams.get('size') === 'thumb' ? 'thumb' : 'full';
+  const file = await readPhoto(owner, listingId, photo, size);
   if (!file) return notFound();
 
   return new NextResponse(new Uint8Array(file.body), {
