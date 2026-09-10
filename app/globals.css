@@ -202,22 +202,22 @@ body {
    ============================================================ */
 
 .p1 {
-  --p1-bg: #F5F7FA;
+  --p1-bg: #F7F8FA;
   --p1-surface: #FFFFFF;
   --p1-elevated: #FFFFFF;
-  --p1-subtle: #EEF1F5;
-  --p1-border: #E2E7EE;
-  --p1-border-strong: #C9D2DD;
-  --p1-text: #0F172A;
-  --p1-text-2: #475467;
-  --p1-text-3: #667085;
-  --p1-primary: #0B1E3F;
-  --p1-primary-hover: #15305F;
-  --p1-primary-soft: #E9EEF8;
+  --p1-subtle: #F1F3F7;
+  --p1-border: #E4E7EC;
+  --p1-border-strong: #CDD3DC;
+  --p1-text: #111827;
+  --p1-text-2: #4B5563;
+  --p1-text-3: #6B7280;
+  --p1-primary: #14346B;
+  --p1-primary-hover: #1B4489;
+  --p1-primary-soft: #EAF0FB;
   --p1-primary-on: #FFFFFF;
   --p1-accent: #D4AF37;
   --p1-accent-hover: #C6A22C;
-  --p1-accent-text: #8A6A11;
+  --p1-accent-text: #7A5C0E;
   --p1-accent-soft: #FBF4DE;
   --p1-accent-on: #0B1E3F;
   --p1-success: #067647;
@@ -232,17 +232,18 @@ body {
   --p1-info: #175CD3;
   --p1-info-soft: #EFF4FF;
   --p1-info-border: #B2CCFF;
-  --p1-sidebar: #0B1E3F;
-  --p1-sidebar-2: #08172F;
-  --p1-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --p1-shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
-  --p1-shadow-lg: 0 16px 40px -12px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.06);
-  --p1-ring: rgba(212, 175, 55, 0.35);
+  --p1-sidebar: #0E2350;
+  --p1-sidebar-2: #0A1A3C;
+  --p1-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --p1-shadow-md: 0 2px 6px -1px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
+  --p1-shadow-lg: 0 12px 28px -10px rgba(17, 24, 39, 0.16), 0 2px 5px rgba(17, 24, 39, 0.05);
+  --p1-ring: rgba(20, 52, 107, 0.28);
   --font-p1-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-p1-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-p1-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   font-family: var(--font-p1-sans);
-  font-feature-settings: 'cv11', 'ss01', 'tnum' 0;
+  font-feature-settings: 'cv11', 'ss03', 'cv05';
+  letter-spacing: -0.006em;
   background-color: var(--p1-bg);
   color: var(--p1-text);
   -webkit-font-smoothing: antialiased;
@@ -367,5 +368,81 @@ body {
   .p1 * { transition-duration: .01ms !important; }
 }
 
-/* Screen-reader only helper (Tailwind has sr-only, kept for clarity in markup) */
-.p1 .p1-tabular { font-variant-numeric: tabular-nums; }
+/* Metric strip: hairline dividers between cells, wrapping cleanly on small screens. */
+.p1-strip > * { position: relative; }
+.p1-strip > * + *::before {
+  content: ""; position: absolute; left: 0; top: 12%; bottom: 12%; width: 1px; background: var(--p1-border);
+}
+.p1-strip > *:nth-child(2n+1)::before { display: none; }
+@media (min-width: 768px) {
+  .p1-strip.md\:grid-cols-3 > *:nth-child(2n+1)::before { display: block; }
+  .p1-strip.md\:grid-cols-3 > *:nth-child(3n+1)::before { display: none; }
+}
+@media (min-width: 1024px) {
+  .p1-strip.lg\:grid-cols-4 > *:nth-child(2n+1)::before { display: block; }
+  .p1-strip.lg\:grid-cols-4 > *:nth-child(4n+1)::before { display: none; }
+}
+@media (min-width: 1280px) {
+  .p1-strip.xl\:grid-cols-5 > *:nth-child(n)::before { display: block; }
+  .p1-strip.xl\:grid-cols-5 > *:nth-child(5n+1)::before { display: none; }
+  .p1-strip.xl\:grid-cols-6 > *:nth-child(n)::before { display: block; }
+  .p1-strip.xl\:grid-cols-6 > *:nth-child(6n+1)::before { display: none; }
+}
+.p1-strip > * + * { border-top: 1px solid var(--p1-border); }
+.p1-strip > *:nth-child(-n+2) { border-top: 0; }
+@media (min-width: 768px) { .p1-strip.md\:grid-cols-3 > *:nth-child(-n+3) { border-top: 0; } }
+@media (min-width: 1024px) { .p1-strip.lg\:grid-cols-4 > *:nth-child(-n+4) { border-top: 0; } }
+@media (min-width: 1280px) {
+  .p1-strip.xl\:grid-cols-5 > *:nth-child(-n+5) { border-top: 0; }
+  .p1-strip.xl\:grid-cols-6 > *:nth-child(-n+6) { border-top: 0; }
+}
+
+/* Sticky wizard footer and detail action bars. */
+.p1-sticky-bar {
+  position: sticky; bottom: 0; z-index: 20;
+  background: color-mix(in srgb, var(--p1-surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+/* Tabular figures everywhere numbers are compared. */
+.p1 .p1-tabular, .p1 .tabular-nums { font-variant-numeric: tabular-nums; }
+
+
+/* ============================================================
+   V-RENT Phase 1 — geometry and type calibration
+   Portal conventions (99.co, PropertyGuru): tight radii, hairline
+   borders, flat surfaces, one sans family, numerals that line up.
+   Scoped to `.p1` so the consumer application is untouched.
+   ============================================================ */
+
+.p1 .rounded-2xl { border-radius: 12px; }
+.p1 .rounded-xl  { border-radius: 10px; }
+.p1 .rounded-lg  { border-radius: 8px; }
+.p1 .rounded-md  { border-radius: 6px; }
+
+/* Display face carries weight, not a different family. */
+.p1 .font-p1display {
+  font-family: var(--font-p1-display);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+}
+
+/* Prices, areas, counts and dates are read in columns — line them up. */
+.p1 .tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Section labels: quiet and sentence case, not tracked-out capitals. */
+.p1 .p1-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--p1-text-3);
+}
+
+/* Inputs sit flush with buttons at the same height. */
+.p1 input:focus-visible,
+.p1 select:focus-visible,
+.p1 textarea:focus-visible {
+  outline: 2px solid var(--p1-primary);
+  outline-offset: 1px;
+}

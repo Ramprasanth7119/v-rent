@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { Button, Callout, Card, Field, FieldGrid, PageHeader, PresenterNote, SectionCard, Stepper, cx } from '../../../components/phase1/kit';
+import { Button, Callout, Card, Field, FieldGrid, PageHeader, SectionCard, Stepper, cx } from '../../../components/phase1/kit';
 import { Pill, StatusBadge } from '../../../components/phase1/status';
 import { JOURNEY_STEPS, journeyCompleted } from '../../../components/phase1/journey';
 import { useDemo } from '../../../lib/phase1/DemoContext';
@@ -124,9 +124,6 @@ export default function StatusPage() {
         </div>
       </div>
 
-      <PresenterNote>
-        The system never approves or rejects automatically. The registry establishes that a registration exists and who holds it; it cannot establish that the person filling in the form is that individual, so a human decision stays in the loop. A scheduled job re-checks every approved agent against each new copy of the register; a lapsed registration withdraws publication rights but not account access.
-      </PresenterNote>
     </>
   );
 }

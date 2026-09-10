@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, CreditCard, Smartphone, ShieldCheck, Lock } from 'lucide-react';
 import {
-  Button, LinkButton, Card, SectionCard, PageHeader, Callout, ChoiceCard, Stepper, KeyValue, PresenterNote, Spinner, EmptyState,
-} from '../../../components/phase1/kit';
+  Button, LinkButton, Card, SectionCard, PageHeader, Callout, ChoiceCard, Stepper, KeyValue, Spinner, EmptyState } from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
@@ -149,9 +148,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      <PresenterNote>
-        The screen the browser returns to never activates a subscription; only a verified webhook does. The server verifies the webhook signature before parsing, stores the raw payload for later disputes, ignores replays via the provider event id, then activates the subscription and grants entitlement, and reconciles against the provider daily. Webhooks arrive out of order, so handlers are idempotent. Invoice format depends on whether V-RENT is GST-registered (open question O2).
-      </PresenterNote>
     </>
   );
 }

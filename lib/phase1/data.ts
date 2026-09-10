@@ -29,16 +29,32 @@ export interface DemoListing {
   bedrooms: number;
   bathrooms: number;
   sizeSqft: number;
+  /** Rent or sale. Absent on older records, which are all rentals. */
+  dealType?: 'rent' | 'sale';
   monthlyRent: number;
+  /** The asking price, on a sale listing. */
+  salePriceSgd?: number;
   availableFrom: string;
   minLeaseMonths: number;
   furnishing: 'Unfurnished' | 'Partially furnished' | 'Fully furnished';
   status: ListingStatus;
+  /** How many photographs the listing has. Derived from `photos` once real ones are uploaded. */
   images: number;
+  /** Stored photograph ids, in display order. The first is the cover. */
+  photos?: string[];
   createdAt: string;
   publishedAt?: string;
   expiresAt?: string;
   rejectionReason?: string;
+  /** Set when a moderator has looked at this version. Clears on every edit. */
+  reviewedAt?: string;
+  /** Completeness signals used by Listing Health. */
+  hasFloorPlan?: boolean;
+  amenities?: string[];
+  depositMonths?: number;
+  nearestMrt?: string;
+  /** Set once an agent has archived the listing from their workspace. */
+  archived?: boolean;
 }
 
 export interface PlanOption {
@@ -135,7 +151,7 @@ export const INCUMBENT_PRICING = [
 
 /* --------------------------------------------------------------- listings */
 
-export const SEED_LISTINGS: DemoListing[] = [
+const RAW_LISTINGS: DemoListing[] = [
   {
     id: 'lst-1',
     reference: "VR-24081",
@@ -312,6 +328,24 @@ export const SEED_LISTINGS: DemoListing[] = [
   },
 ];
 
+
+/** Completeness details per listing — the inputs to Listing Health. */
+const EXTRAS: Record<string, Partial<DemoListing>> = {
+  "lst-1": { hasFloorPlan: true, amenities: ["Swimming pool", "Gymnasium", "24-hour security", "Covered parking", "Balcony"], depositMonths: 2, nearestMrt: "Downtown (DT17)" },
+  "lst-2": { hasFloorPlan: false, amenities: ["Covered parking", "Children playground"], depositMonths: 2, nearestMrt: "Rumbia LRT" },
+  "lst-3": { hasFloorPlan: false, amenities: ["Swimming pool"], depositMonths: 1 },
+  "lst-4": { hasFloorPlan: true, amenities: ["Swimming pool", "Gymnasium", "BBQ pits", "Children playground"], depositMonths: 2, nearestMrt: "Tampines West (DT31)" },
+  "lst-5": { hasFloorPlan: true, amenities: ["Swimming pool", "Gymnasium", "24-hour security"], depositMonths: 2, nearestMrt: "Tanjong Katong (TE24)" },
+  "lst-6": { hasFloorPlan: true, amenities: ["Covered parking", "Air conditioning", "24-hour security"], depositMonths: 2, nearestMrt: "Bedok South (TE30)" },
+  "lst-7": { hasFloorPlan: true, amenities: ["Swimming pool", "Gymnasium", "Covered parking", "BBQ pits"], depositMonths: 2, nearestMrt: "Sengkang (NE16)" },
+  "lst-8": { hasFloorPlan: false, amenities: ["Air conditioning"], depositMonths: 2, nearestMrt: "Bedok (EW5)" },
+  "lst-9": { hasFloorPlan: false, amenities: [], nearestMrt: "Tiong Bahru (EW17)" },
+  "lst-10": { hasFloorPlan: true, amenities: ["Swimming pool", "Gymnasium", "24-hour security", "Balcony"], depositMonths: 2, nearestMrt: "Newton (DT11)" },
+  "lst-11": { hasFloorPlan: true, amenities: ["Balcony", "Air conditioning", "Covered parking"], depositMonths: 2, nearestMrt: "Marine Parade (TE26)" },
+  "lst-12": { hasFloorPlan: false, amenities: ["Swimming pool", "Gymnasium"], depositMonths: 2 },
+};
+
+export const SEED_LISTINGS: DemoListing[] = RAW_LISTINGS.map((l) => ({ ...l, ...(EXTRAS[l.id] ?? {}) }));
 
 /* --------------------------------------------------- admin: verification */
 

@@ -3,8 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Check, Lock, Sparkles } from 'lucide-react';
 import {
-  Button, LinkButton, Card, PageHeader, Callout, Stepper, PresenterNote, cx,
-} from '../../../components/phase1/kit';
+  Button, LinkButton, Card, PageHeader, Callout, Stepper, cx } from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { INCUMBENT_PRICING, PLANS, sgd } from '../../../lib/phase1/data';
@@ -123,9 +122,6 @@ export default function PlansPage() {
         </p>
       </Card>
 
-      <PresenterNote>
-        Plan limits are stored as keyed entitlements against a plan version (for example <code>active_listing_limit = 30</code>), not as columns. Adding a plan or changing a limit is an administrative form, not a database migration. Subscriptions reference a plan version, so repricing never changes what an existing subscriber bought. Final commercial terms are open question Q5.
-      </PresenterNote>
     </>
   );
 }

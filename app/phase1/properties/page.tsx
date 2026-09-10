@@ -4,8 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Plus, MapPinned, Building2, Check, Map as MapIcon, ArrowRight } from 'lucide-react';
 import {
-  LinkButton, Card, PageHeader, StatCard, SearchInput, FilterChips, FilterBar, SortButton, usePagination, Pagination, EmptyState, PresenterNote,
-} from '../../../components/phase1/kit';
+  LinkButton, Card, PageHeader, StatCard, SearchInput, FilterChips, FilterBar, SortButton, usePagination, Pagination, EmptyState } from '../../../components/phase1/kit';
 import { StatusDot, Pill } from '../../../components/phase1/status';
 import { PropertyImage } from '../../../components/phase1/PropertyImage';
 import { useDemo } from '../../../lib/phase1/DemoContext';
@@ -121,9 +120,6 @@ export default function PropertiesPage() {
 
       <Pagination className="mt-6" page={pg.page} pages={pg.pages} onChange={pg.setPage} from={pg.from} to={pg.to} total={pg.total} />
 
-      <PresenterNote>
-        Property, unit and listing are three separate records. An address is matched against OneMap once and reused; the unit carries floor area and configuration; each listing is a rental offer against a unit. This is what makes per-unit price history and duplicate detection possible later.
-      </PresenterNote>
     </>
   );
 }
