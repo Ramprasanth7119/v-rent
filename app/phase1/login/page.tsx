@@ -1,166 +1,107 @@
 "use client";
 
+/**
+ * Sign in.
+ *
+ * A real credential check against a stored scrypt hash. The failure message is
+ * the same whether the address is unknown or the password is wrong, so the form
+ * cannot be used to find out who has an account.
+ */
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button, Callout, Card, Checkbox, PageHeader, PresenterNote, SectionCard, TextInput } from '../../../components/phase1/kit';
-import { useToast } from '../../../components/phase1/Toast';
-import { useDemo } from '../../../lib/phase1/DemoContext';
-import { AGENTS } from '../../../lib/phase1/agents';
-import { ShieldCheck, Smartphone, ArrowRight, ArrowLeft, Lock, KeyRound, IdCard } from 'lucide-react';
-
-type Stage = 'credentials' | 'mfa';
-const DEMO_CODE = '481902';
+import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
+import { Button, TextInput, Callout } from '../../../components/phase1/kit';
+import { ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { push } = useToast();
-  const { state, skipToActive } = useDemo();
-
-  const [identifier, setIdentifier] = useState('R052184C');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [stage, setStage] = useState<Stage>('credentials');
-  const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [attempts, setAttempts] = useState(0);
-  const [remember, setRemember] = useState(true);
+  const [busy, setBusy] = useState(false);
 
-  /** The identifier may be an email address or a CEA registration number. */
-  const looksLikeCea = /^R\d{6}[A-Z]$/i.test(identifier.trim());
-  const matchedAgent = AGENTS.find(
-    (a) =>
-      a.ceaNumber.toLowerCase() === identifier.trim().toLowerCase() ||
-      a.email.toLowerCase() === identifier.trim().toLowerCase()
-  );
-
-  const submitCredentials = () => {
-    if (!identifier || password.length < 4) {
-      // Deliberately identical whether the account exists or the password is wrong.
-      setError('Invalid credentials. Check your email or CEA number and password.');
-      return;
-    }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
     setError('');
-    setStage('mfa');
-  };
-
-  const submitCode = () => {
-    if (code !== DEMO_CODE) {
-      const n = attempts + 1;
-      setAttempts(n);
-      setError(n >= 5 ? 'Too many attempts. Request a new code.' : `Incorrect code. ${5 - n} attempts remaining.`);
-      return;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string; user?: { role: string } };
+      if (!res.ok || !body.ok) {
+        setError(body.error ?? 'Could not sign you in. Try again.');
+        return;
+      }
+      router.replace(body.user?.role === 'admin' ? '/phase1/admin' : '/phase1/dashboard');
+      router.refresh();
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.');
+    } finally {
+      setBusy(false);
     }
-    skipToActive();
-    push({ tone: 'success', title: 'Signed in', body: 'Welcome back. Your workspace is ready.' });
-    router.push('/phase1/dashboard');
   };
 
   return (
-    <>
-      <PageHeader
-        eyebrow="Agent sign in"
-        title="Welcome back"
-        description="Sign in with your email address or CEA registration number. We will then send a code to your verified mobile number."
-      />
+    <AuthLayout
+      title="Sign in to V-RENT"
+      subtitle="Manage your listings, your subscription and your CEA verification in one place."
+      footer={
+        <span>
+          New to V-RENT?{' '}
+          <Link href="/phase1/signup" className="font-semibold text-p1-primary underline-offset-4 hover:underline">
+            Create an agent account
+          </Link>
+        </span>
+      }
+    >
+      <form onSubmit={submit} className="grid gap-5" noValidate>
+        {error && <Callout tone="danger" compact>{error}</Callout>}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <SectionCard
-          title={stage === 'credentials' ? 'Sign in' : 'Confirm it’s you'}
-          description={stage === 'credentials' ? undefined : `A six-digit code was sent to ${matchedAgent?.mobile ?? state.profile.mobile}.`}
-          icon={stage === 'credentials' ? <KeyRound size={18} /> : <Smartphone size={18} />}
-        >
-          {stage === 'credentials' ? (
-            <form className="grid gap-5" onSubmit={(e) => { e.preventDefault(); submitCredentials(); }}>
-              <div>
-                <TextInput
-                  label="Email address or CEA registration number"
-                  value={identifier}
-                  autoComplete="username"
-                  onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
-                  placeholder="R123456A or you@agency.com.sg"
-                  leftIcon={<IdCard size={17} />}
-                />
-                {looksLikeCea && matchedAgent && (
-                  <p className="vr-fade mt-2 flex items-center gap-2 text-[14px] text-p1-success"><ShieldCheck size={15} aria-hidden /> Recognised registration — {matchedAgent.agency}</p>
-                )}
-                {looksLikeCea && !matchedAgent && (
-                  <p className="mt-2 text-[13px] text-p1-text-3">Format accepted. Whether an account exists is not revealed here.</p>
-                )}
-              </div>
+        <TextInput
+          label="Email address"
+          type="email"
+          required
+          autoComplete="email"
+          autoFocus
+          placeholder="you@agency.com.sg"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-              <TextInput
-                label="Password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                placeholder="Your password"
-                leftIcon={<Lock size={17} />}
-              />
-
-              {error && <Callout tone="danger">{error}</Callout>}
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Checkbox checked={remember} onChange={(e) => setRemember(e.target.checked)} label="Keep me signed in for 30 days" />
-                <button type="button" className="text-[14px] font-medium text-p1-accent-text underline-offset-4 hover:underline cursor-pointer">Forgot password?</button>
-              </div>
-
-              <Button type="submit" variant="accent" size="lg" block rightIcon={<ArrowRight size={17} />}>Continue</Button>
-
-              <p className="text-center text-[14px] text-p1-text-2">
-                No account yet? <Link href="/phase1/signup" className="font-semibold text-p1-accent-text underline-offset-4 hover:underline">Register as an agent</Link>
-              </p>
-            </form>
-          ) : (
-            <form className="vr-rise grid gap-5" onSubmit={(e) => { e.preventDefault(); submitCode(); }}>
-              <div>
-                <label htmlFor="login-code" className="mb-1.5 block text-[14px] font-medium text-p1-text">Six-digit code</label>
-                <input
-                  id="login-code"
-                  value={code}
-                  onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
-                  placeholder="000000"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  disabled={attempts >= 5}
-                  aria-invalid={!!error || undefined}
-                  aria-describedby={error ? 'login-code-err' : undefined}
-                  className="h-16 w-full rounded-[10px] border border-p1-border-strong bg-p1-surface text-center font-mono text-[28px] tracking-[0.4em] text-p1-text placeholder:text-p1-border-strong disabled:opacity-50"
-                />
-                {error && <p id="login-code-err" role="alert" className="mt-2 text-[14px] text-p1-danger">{error}</p>}
-              </div>
-
-              <Button type="submit" variant="accent" size="lg" block disabled={code.length !== 6 || attempts >= 5}>Sign in</Button>
-
-              <Callout tone="neutral" title="Prototype code">Enter <span className="font-mono font-semibold text-p1-text">{DEMO_CODE}</span>. Try a wrong code first to show the attempt limit.</Callout>
-
-              <button type="button" onClick={() => { setStage('credentials'); setError(''); setCode(''); }} className="inline-flex items-center gap-1.5 self-start text-[14px] text-p1-text-2 hover:text-p1-text cursor-pointer">
-                <ArrowLeft size={15} aria-hidden /> Use a different account
-              </button>
-            </form>
-          )}
-        </SectionCard>
-
-        <div className="space-y-4">
-          <Card>
-            <div className="text-[15px] font-semibold text-p1-text">Keeping your account safe</div>
-            <ul className="mt-3 space-y-2.5 text-[14px] leading-5 text-p1-text-2">
-              <li className="flex gap-2.5"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-p1-success" aria-hidden /> A code is sent to your verified mobile number on every new device.</li>
-              <li className="flex gap-2.5"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-p1-success" aria-hidden /> Repeated failed attempts lock the account temporarily.</li>
-              <li className="flex gap-2.5"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-p1-success" aria-hidden /> You can review and sign out of other sessions from your profile.</li>
-            </ul>
-          </Card>
-          <Card className="bg-p1-subtle/60">
-            <div className="text-[14px] font-semibold text-p1-text">One account per CEA registration</div>
-            <p className="mt-1 text-[14px] leading-5 text-p1-text-2">Your registration number is the key to your account, so you can sign in with it directly.</p>
-          </Card>
+        <div>
+          <TextInput
+            label="Password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="mt-2 text-right">
+            <button
+              type="button"
+              className="cursor-pointer text-[13px] text-p1-text-2 underline-offset-4 hover:text-p1-text hover:underline"
+              onClick={() => setError('Password reset by email is part of the full build. For the proof of concept, create a new account instead.')}
+            >
+              Forgotten your password?
+            </button>
+          </div>
         </div>
-      </div>
 
-      <PresenterNote title="Presenter note — how this compares with the incumbents">
-        <p><strong>PropertyGuru AgentNet</strong> is sales-led: an agent must be CEA-registered <em>and</em> a paying subscriber before an account exists, credentials are issued with a shared default password, each account belongs to exactly one CEA agent, and the account name must match the register. <strong>99.co</strong> is self-serve with CEA registration required to list.</p>
-        <p className="mt-2"><strong>V-RENT:</strong> self-serve from the start, payment after approval rather than before the account exists; no shared default password (Argon2id, breached-password check); sign in by CEA number or email; one account per registration enforced by a database constraint. Error text is identical whether the account exists or the password is wrong, so the screen cannot be used to enumerate accounts — which is also why the CEA-format hint only confirms the shape of the number. Attempts are rate-limited per address and per account; every attempt is written to the audit log.</p>
-      </PresenterNote>
-    </>
+        <Button type="submit" variant="primary" size="lg" block loading={busy} rightIcon={<ArrowRight size={16} />}>
+          Sign in
+        </Button>
+      </form>
+
+      <p className="mt-8 border-t border-p1-border pt-5 text-[13px] leading-6 text-p1-text-3">
+        Signing in creates a session that lasts twelve hours. Two-factor authentication for administrators, single sign-on
+        for agencies and Singpass sign-in are part of the full build.
+      </p>
+    </AuthLayout>
   );
 }
