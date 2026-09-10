@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 import {
-  Button, LinkButton, Card, SectionCard, PageHeader, StatCard, Callout, DataTable, Column, EmptyState, PresenterNote,
-} from '../../../../components/phase1/kit';
+  Button, LinkButton, Card, SectionCard, PageHeader, StatCard, Callout, DataTable, Column, EmptyState } from '../../../../components/phase1/kit';
 import { Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
-import { useDemo } from '../../../../lib/phase1/DemoContext';
+import { useDemo, preferredName } from '../../../../lib/phase1/DemoContext';
 import { sgd } from '../../../../lib/phase1/data';
 import { Upload, Check, AlertTriangle, X, FileSpreadsheet, Download, CheckCircle2, ListChecks, FilePlus2 } from 'lucide-react';
 
@@ -63,7 +62,7 @@ export default function ImportPage() {
       addListing({
         id: `imp-${i}-${Math.random().toString(36).slice(2, 6)}`,
         reference: `VR-${24200 + i}`,
-        agent: state.profile.fullName,
+        agent: preferredName(state.profile.fullName),
         project: r.project,
         address: r.project,
         postalCode: r.postal,
@@ -205,13 +204,6 @@ export default function ImportPage() {
         </Card>
       )}
 
-      <PresenterNote>
-        Bulk import was added after the competitive review: an agent already carrying thirty listings elsewhere will not retype them,
-        which makes this the single biggest barrier to switching. Import accepts data the agent supplies for their <strong>own</strong>
-        listings — it does not scrape competing portals, which would breach their terms; that boundary is written into the specification.
-        Every imported row passes through the same validation and publish gate as a manual listing, and the dry-run preview is what keeps
-        a mistyped column from creating fifty bad listings.
-      </PresenterNote>
     </>
   );
 }

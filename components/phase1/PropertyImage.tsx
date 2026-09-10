@@ -33,12 +33,19 @@ export function PropertyImage({
   variant = 0,
   className = '',
   rounded = 'rounded-lg',
+  src,
+  alt,
 }: {
   seed: string;
   variant?: number;
   className?: string;
   rounded?: string;
+  /** A real photograph. When present the generated artwork is not drawn. */
+  src?: string;
+  alt?: string;
 }) {
+  // A listing with photographs shows them; generated artwork is what stands in
+  // until an agent has uploaded any.
   const art = useMemo(() => {
     const h = hash(seed + '::' + variant);
     const p = PALETTES[h % PALETTES.length];
@@ -58,6 +65,14 @@ export function PropertyImage({
 
   const { p, bars, h } = art;
   const uid = `pi${h % 100000}${variant}`;
+
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- served by our own
+      // route, already sized, and must render without the optimiser in the path.
+      <img src={src} alt={alt ?? ''} className={`${rounded} object-cover ${className}`} />
+    );
+  }
 
   return (
     <svg
@@ -119,9 +134,9 @@ export function PropertyImage({
 }
 
 /** Photo gallery: one large frame, a thumbnail strip, and keyboard navigation. */
-export function Gallery({ seed, count }: { seed: string; count: number }) {
+export function Gallery({ seed, count, srcs = [] }: { seed: string; count: number; srcs?: string[] }) {
   const [active, setActive] = React.useState(0);
-  const shown = Math.max(1, Math.min(count, 8));
+  const shown = srcs.length > 0 ? srcs.length : Math.max(1, Math.min(count, 8));
 
   const step = (d: number) => setActive((a) => (a + d + shown) % shown);
 
@@ -135,7 +150,7 @@ export function Gallery({ seed, count }: { seed: string; count: number }) {
           if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
         }}
       >
-        <PropertyImage seed={seed} variant={active} rounded="rounded-2xl" className="aspect-[16/10] w-full" />
+        <PropertyImage seed={seed} variant={active} rounded="rounded-2xl" className="aspect-[16/10] w-full" src={srcs[active]} alt={`Photograph ${active + 1}`} />
 
         <button
           onClick={() => step(-1)}
@@ -170,7 +185,7 @@ export function Gallery({ seed, count }: { seed: string; count: number }) {
               i === active ? 'ring-2 ring-p1-accent ring-offset-2 ring-offset-p1-surface' : 'opacity-60 hover:opacity-100'
             }`}
           >
-            <PropertyImage seed={seed} variant={i} rounded="rounded-lg" className="h-14 w-20" />
+            <PropertyImage seed={seed} variant={i} rounded="rounded-lg" className="h-14 w-20" src={srcs[i]} alt="" />
           </button>
         ))}
       </div>
