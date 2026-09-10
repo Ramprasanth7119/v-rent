@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import {
   PageHeader, StatCard, Callout, Button, FilterBar, SearchInput, FilterChips, DataTable, Column,
-  usePagination, Pagination, EmptyState, PresenterNote,
-} from '../../../../components/phase1/kit';
+  usePagination, Pagination, EmptyState } from '../../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
@@ -93,9 +92,6 @@ export default function SubscriptionsPage() {
         description="The refund is sent through the payment provider and the subscription is cancelled at the end of the current period. This is written to the audit log."
         onConfirm={() => { push({ tone: 'success', title: 'Refund issued', body: `${sgd(refund!.amountSgd)} returned to ${refund!.agent}.` }); setRefund(null); }} />
 
-      <PresenterNote>
-        Refunds are restricted to the finance operator role and audited. A moderator signed in to this console would not see the refund control — permissions are checked on the server, not hidden in the interface. Grace period length is open question O5.
-      </PresenterNote>
     </>
   );
 }

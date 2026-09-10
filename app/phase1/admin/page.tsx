@@ -1,21 +1,29 @@
-"use client";
+/**
+ * The operations overview. A server component: the agent counts are read from
+ * the account store so the console reflects who has actually registered, not
+ * only the sample roster.
+ */
 
 import Link from 'next/link';
-import { PageHeader, StatCard, SectionCard, Card, KeyValue, LinkButton, PresenterNote } from '../../../components/phase1/kit';
+import { PageHeader, StatCard, SectionCard, Card, KeyValue, LinkButton } from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
 import { AUDIT_LOG, MODERATION_QUEUE, SUBSCRIPTIONS, VERIFICATION_QUEUE } from '../../../lib/phase1/data';
-import { AGENTS } from '../../../lib/phase1/agents';
+import { agentDirectory } from '../../../lib/phase1/admin-directory';
 import { ShieldCheck, Gavel, Receipt, Users, ArrowRight, Database, RefreshCw, Building2, UserPlus } from 'lucide-react';
 
-export default function AdminOverviewPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function AdminOverviewPage() {
+  const agents = await agentDirectory();
+  const registered = agents.filter((a) => a.real).length;
   const attention = SUBSCRIPTIONS.filter((s) => s.status === 'past_due' || s.status === 'expired').length;
-  const approved = AGENTS.filter((a) => a.status === 'approved').length;
+  const approved = agents.filter((a) => a.status === 'approved').length;
 
   const queues = [
     { icon: ShieldCheck, title: 'Verification queue', count: VERIFICATION_QUEUE.length, oldest: 'Oldest waiting 2 days', href: '/phase1/admin/verification' },
     { icon: Gavel, title: 'Moderation queue', count: MODERATION_QUEUE.length, oldest: 'Oldest waiting 1 day', href: '/phase1/admin/moderation' },
     { icon: Receipt, title: 'Subscriptions needing attention', count: attention, oldest: 'Oldest past due 4 days', href: '/phase1/admin/subscriptions' },
-    { icon: Users, title: 'Agents awaiting a decision', count: AGENTS.filter((a) => a.status === 'under_review').length, oldest: 'Newest registered today', href: '/phase1/admin/agents' },
+    { icon: Users, title: 'Agents awaiting a decision', count: agents.filter((a) => a.status === 'under_review').length, oldest: 'Newest registered today', href: '/phase1/admin/agents' },
   ];
 
   return (
@@ -30,7 +38,7 @@ export default function AdminOverviewPage() {
         <StatCard label="Verification queue" value={VERIFICATION_QUEUE.length} hint="pending decisions" tone="warning" icon={<ShieldCheck size={16} />} href="/phase1/admin/verification" />
         <StatCard label="Moderation queue" value={MODERATION_QUEUE.length} hint="listings to review" icon={<Gavel size={16} />} href="/phase1/admin/moderation" />
         <StatCard label="Subscriptions" value={attention} hint="past due or expired" tone="danger" icon={<Receipt size={16} />} href="/phase1/admin/subscriptions" />
-        <StatCard label="Agents" value={AGENTS.length} hint={`${approved} verified`} icon={<Users size={16} />} href="/phase1/admin/agents" />
+        <StatCard label="Agents" value={agents.length} hint={`${approved} verified · ${registered} registered here`} icon={<Users size={16} />} href="/phase1/admin/agents" />
       </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -85,9 +93,6 @@ export default function AdminOverviewPage() {
         </div>
       </div>
 
-      <PresenterNote>
-        Every screen in the console reads from the same audit log the actions write to, in the same transaction. Administrator accounts require two-factor authentication and permissions are checked on the server — a moderator never sees refund controls.
-      </PresenterNote>
     </>
   );
 }
