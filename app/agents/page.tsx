@@ -240,7 +240,7 @@ export default function AgentDirectoryPage() {
                   ))}
                   {agent.languages.map((lang, index) => (
                     <Badge key={`lang-${index}`} variant="gold" className="text-[8px] tracking-wider py-0.5 font-bold uppercase">
-                      🗣️ {lang}
+                      {lang}
                     </Badge>
                   ))}
                 </div>

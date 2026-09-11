@@ -9,7 +9,7 @@ import { usePersona } from '../../components/layout/PersonaContext';
 import { 
   ShieldCheck, Compass, Briefcase, Mail, Key, Sparkles, 
   Smartphone, Fingerprint, Lock, Upload, User, ArrowRight, 
-  ShieldAlert, Award, FileText, CheckCircle 
+  ShieldAlert, Award, FileText, CheckCircle, Globe, AtSign, Apple,
 } from 'lucide-react';
 
 export default function OnboardingAuthPage() {
@@ -305,7 +305,7 @@ export default function OnboardingAuthPage() {
               <Button 
                 variant="outline" 
                 className="w-full font-bold justify-start"
-                leftIcon={<span className="text-base mr-1">🌐</span>}
+                leftIcon={<Globe size={16} className="mr-1" />}
                 onClick={() => handleSocialLogin('Google')}
               >
                 Sign in with Google OAuth
@@ -313,7 +313,7 @@ export default function OnboardingAuthPage() {
               <Button 
                 variant="outline" 
                 className="w-full font-bold justify-start"
-                leftIcon={<span className="text-base mr-1">📘</span>}
+                leftIcon={<AtSign size={16} className="mr-1" />}
                 onClick={() => handleSocialLogin('Facebook')}
               >
                 Sign in with Facebook Auth
@@ -321,7 +321,7 @@ export default function OnboardingAuthPage() {
               <Button 
                 variant="outline" 
                 className="w-full font-bold justify-start"
-                leftIcon={<span className="text-base mr-1">🍎</span>}
+                leftIcon={<Apple size={16} className="mr-1" />}
                 onClick={() => handleSocialLogin('Apple')}
               >
                 Sign in with Apple Sign-In

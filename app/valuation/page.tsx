@@ -237,9 +237,9 @@ function ForecastTab() {
               </div>
               <div className="divide-y divide-border">
                 {[
-                  { name: '🐂 Bull Case', psf12: forecastResult.forecast12m.bull, psf24: forecastResult.forecast24m.bull, color: 'text-emerald-500', desc: 'Rate cuts, strong demand, minimal new supply' },
-                  { name: '📊 Base Case', psf12: forecastResult.forecast12m.base, psf24: forecastResult.forecast24m.base, color: 'text-brand-gold', desc: 'Stable rates, moderate supply, healthy HDB upgrade demand' },
-                  { name: '🐻 Bear Case', psf12: forecastResult.forecast12m.bear, psf24: forecastResult.forecast24m.bear, color: 'text-red-400', desc: 'Rate spikes, excess supply, subdued sentiment' },
+                  { name: 'Bull Case', psf12: forecastResult.forecast12m.bull, psf24: forecastResult.forecast24m.bull, color: 'text-emerald-500', desc: 'Rate cuts, strong demand, minimal new supply' },
+                  { name: 'Base Case', psf12: forecastResult.forecast12m.base, psf24: forecastResult.forecast24m.base, color: 'text-brand-gold', desc: 'Stable rates, moderate supply, healthy HDB upgrade demand' },
+                  { name: 'Bear Case', psf12: forecastResult.forecast12m.bear, psf24: forecastResult.forecast24m.bear, color: 'text-red-400', desc: 'Rate spikes, excess supply, subdued sentiment' },
                 ].map(s => (
                   <div key={s.name} className="px-4 py-3 flex items-start gap-4">
                     <div className="flex-1">
@@ -326,8 +326,8 @@ export default function ValuationPage() {
       {/* Tabs */}
       <div className="flex border-b border-border gap-1">
         {[
-          { key: 'valuation', label: '🏠 Instant Valuation', icon: Landmark },
-          { key: 'forecast', label: '📈 Price Forecast', icon: BarChart3 },
+          { key: 'valuation', label: 'Instant Valuation', icon: Landmark },
+          { key: 'forecast', label: 'Price Forecast', icon: BarChart3 },
         ].map(tab => (
           <button
             key={tab.key}

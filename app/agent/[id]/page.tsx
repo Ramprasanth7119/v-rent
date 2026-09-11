@@ -175,7 +175,7 @@ function AgentProfilePage() {
               <Badge key={idx} variant="secondary" className="text-[8px] bg-neutral-900 border-neutral-800 text-neutral-300 uppercase font-bold py-0.5">{spec}</Badge>
             ))}
             {agent.languages.map((lang, idx) => (
-              <Badge key={`l-${idx}`} variant="gold" className="text-[8px] font-black uppercase py-0.5">🗣️ {lang}</Badge>
+              <Badge key={`l-${idx}`} variant="gold" className="text-[8px] font-black uppercase py-0.5">{lang}</Badge>
             ))}
           </div>
 

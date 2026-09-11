@@ -388,7 +388,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
           >
             <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-[10px] font-black uppercase tracking-wider">
-              🎭 Persona: {persona === 'consumer' ? 'Consumer' : persona === 'agent' ? 'Agent CRM' : persona === 'agency' ? 'Agency ERP' : persona === 'investor' ? 'Investor' : 'Admin'}
+              Persona: {persona === 'consumer' ? 'Consumer' : persona === 'agent' ? 'Agent CRM' : persona === 'agency' ? 'Agency ERP' : persona === 'investor' ? 'Investor' : 'Admin'}
             </span>
             <svg className="h-3 w-3 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7" />

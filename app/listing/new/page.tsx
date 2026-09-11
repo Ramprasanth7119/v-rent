@@ -235,7 +235,7 @@ export default function NewListingWizardPage() {
                 className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
                 onClick={triggerSingpassAuth}
               >
-                🔒 Authenticate with Singpass
+                Authenticate with Singpass
               </Button>
             </div>
           </div>
@@ -589,7 +589,7 @@ export default function NewListingWizardPage() {
                   </div>
                   <div className="flex justify-between font-semibold border-b border-border pb-1.5">
                     <span>Singpass KYC:</span>
-                    <span>{singpassVerified ? '✅ VERIFIED' : '❌ PENDING'}</span>
+                    <span>{singpassVerified ? 'VERIFIED' : 'PENDING'}</span>
                   </div>
                   <div className="flex justify-between font-semibold border-b border-border pb-1.5">
                     <span>Auto-Repost Mode:</span>

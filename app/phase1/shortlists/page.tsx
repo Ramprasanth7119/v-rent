@@ -19,7 +19,7 @@ import {
   FileText, Check, Trash2, Users, Plus, Search, FolderOpen, Printer, Info, X,
 } from 'lucide-react';
 import {
-  Button, Card, SectionCard, PageHeader, Callout, MetricStrip, Metric, EmptyState,
+  Button, SectionCard, PageHeader, Callout, MetricStrip, Metric, EmptyState,
   TextInput, TextArea, SelectInput, SearchInput, LinkButton, IconButton, cx,
 } from '../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../components/phase1/status';
@@ -116,7 +116,14 @@ export default function ShortlistsPage() {
     setRemoving(null);
   };
 
-  const exportIds = (ids: string[]) => router.push(`/phase1/listings/export?ids=${ids.join(',')}`);
+  /* The client's name and the covering note travel with the ids, so the
+     document can be addressed rather than anonymous. */
+  const exportIds = (ids: string[], client = '', message = '') => {
+    const query = new URLSearchParams({ ids: ids.join(',') });
+    if (client.trim()) query.set('for', client.trim());
+    if (message.trim()) query.set('note', message.trim());
+    router.push(`/phase1/listings/export?${query.toString()}`);
+  };
 
   const total = picked.reduce((n, id) => n + (byId.get(id)?.monthlyRent ?? 0), 0);
 
@@ -132,7 +139,7 @@ export default function ShortlistsPage() {
             size="lg"
             leftIcon={<Printer size={17} />}
             disabled={picked.length === 0}
-            onClick={() => exportIds(picked)}
+            onClick={() => exportIds(picked, client, note)}
           >
             Export {picked.length || ''} as PDF
           </Button>
@@ -258,7 +265,7 @@ export default function ShortlistsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Button size="sm" variant="ghost" onClick={() => load(s)}>Open</Button>
-                        <Button size="sm" variant="outline" leftIcon={<Printer size={14} />} disabled={alive.length === 0} onClick={() => exportIds(alive)}>
+                        <Button size="sm" variant="outline" leftIcon={<Printer size={14} />} disabled={alive.length === 0} onClick={() => exportIds(alive, s.clientName, s.note)}>
                           Export
                         </Button>
                         <IconButton label={`Delete ${s.name}`} onClick={() => setRemoving(s)}>
@@ -308,7 +315,7 @@ export default function ShortlistsPage() {
                 <Button variant="primary" block disabled={picked.length === 0} onClick={save} leftIcon={<Plus size={16} />}>
                   {editingId ? 'Save the changes' : 'Save the shortlist'}
                 </Button>
-                <Button variant="outline" block disabled={picked.length === 0} onClick={() => exportIds(picked)} leftIcon={<Printer size={16} />}>
+                <Button variant="outline" block disabled={picked.length === 0} onClick={() => exportIds(picked, client, note)} leftIcon={<Printer size={16} />}>
                   Export as PDF now
                 </Button>
               </div>

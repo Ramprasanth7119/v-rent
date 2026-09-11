@@ -492,7 +492,7 @@ function AgentDashboardContent() {
                       setIsFeaturedSlot(current.featured);
                     }}
                   >
-                    🚀 Boost
+                    Boost
                   </Button>
                 </div>
               )}

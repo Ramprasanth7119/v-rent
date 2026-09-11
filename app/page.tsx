@@ -722,9 +722,9 @@ export default function HomePage() {
             <div className="space-y-3 flex-shrink-0 pt-2 border-t border-border">
               <div className="flex flex-wrap gap-1.5 justify-start">
                 {[
-                  { label: "📊 ABSD Rates", prompt: "What are the latest ABSD rates for second property?" },
-                  { label: "💰 Max Loan", prompt: "How much loan can I get with $10k salary?" },
-                  { label: "🏢 Clementi HDB", prompt: "What is the average resale HDB price in Clementi?" }
+                  { label: "ABSD Rates", prompt: "What are the latest ABSD rates for second property?" },
+                  { label: "Max Loan", prompt: "How much loan can I get with $10k salary?" },
+                  { label: "Clementi HDB", prompt: "What is the average resale HDB price in Clementi?" }
                 ].map(p => (
                   <button
                     key={p.label}

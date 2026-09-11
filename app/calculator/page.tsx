@@ -918,7 +918,7 @@ function MortgagePreQualTab() {
                   <div>
                     <span className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">{result.bank.logo} {result.bank.name}</span>
                     <h3 className={`text-sm font-black uppercase mt-1 ${ result.passed ? 'text-emerald-500' : 'text-red-500'}`}>
-                      {result.passed ? '✅ Conditionally Approved' : '❌ Declined'}
+                      {result.passed ? 'Conditionally Approved' : 'Declined'}
                     </h3>
                   </div>
                   <span className="text-[8px] font-mono text-neutral-400 border border-border rounded px-2 py-1">Ref: {result.refNo}</span>
@@ -1044,19 +1044,19 @@ function HomeownerWizard360Tab() {
 
     if (profile === 'foreigner') {
       finalScore -= 30;
-      tips.push("⚠️ Subject to 60% ABSD unless covered by FTA treaties (US Citizens, Swiss, Norwegian).");
+      tips.push("Subject to 60% ABSD unless covered by FTA treaties (US Citizens, Swiss, Norwegian).");
     } else if (profile === 'citizen_married' && intent === 'upgrade') {
-      tips.push("💡 Upgrader Concession: You can claim full ABSD remission on your second residential purchase if you sell your first HDB flat within 6 months of completion.");
+      tips.push("Upgrader Concession: You can claim full ABSD remission on your second residential purchase if you sell your first HDB flat within 6 months of completion.");
     }
 
     if (ownCount >= 1 && intent === 'invest') {
-      tips.push("💡 Decoupling Strategy: Consider holding properties under separate individual names to avoid the 20% ABSD rate on second residential properties.");
+      tips.push("Decoupling Strategy: Consider holding properties under separate individual names to avoid the 20% ABSD rate on second residential properties.");
     }
 
     const netWorth = cash + cpf;
     if (netWorth < 200000) {
       finalScore -= 15;
-      tips.push("⚠️ Low liquidity bounds detected. Consider HDB resale routes rather than high-leverage private launch contracts.");
+      tips.push("Low liquidity bounds detected. Consider HDB resale routes rather than high-leverage private launch contracts.");
     }
 
     if (income * 0.55 < 2000) {
