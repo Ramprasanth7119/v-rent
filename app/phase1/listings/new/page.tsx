@@ -447,7 +447,7 @@ function ListingWizard() {
           Its own band rather than the standard page header: this screen is a
           task with a start and an end, and the band carries the one thing the
           standard header cannot — what has been filled in so far. */}
-      <section className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E8F0FF] to-p1-surface px-5 py-6 ring-1 ring-p1-border sm:px-7 sm:py-7 dark:from-[#16254A] dark:to-p1-surface">
+      <section className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E1EFF4] to-p1-surface px-5 py-6 ring-1 ring-p1-border sm:px-7 sm:py-7 dark:from-[#0F2F3B] dark:to-p1-surface">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <nav aria-label="Breadcrumb" className="text-[12.5px] text-p1-text-3">

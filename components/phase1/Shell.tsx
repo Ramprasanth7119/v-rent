@@ -19,6 +19,8 @@ import {
   FileSpreadsheet, Home, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Upload, Plus, Gavel, Receipt, BarChart3, Users,
   Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, ChevronDown, LogOut, LayoutGrid, MapPinned,
   Search, BookOpen, MessageCircle, Phone, Settings, TrendingUp, ChevronRight, ArrowLeftRight,
+  Rocket, RefreshCw, FileText, CalendarClock, LineChart, GitCompareArrows, LayoutPanelTop, Trees,
+  QrCode, Star, LifeBuoy, Video,
 } from 'lucide-react';
 import { useDemo } from '../../lib/phase1/DemoContext';
 import { usePersona } from '../layout/PersonaContext';
@@ -42,6 +44,12 @@ const TITLES: Record<string, string> = {
   status: 'Verification', plans: 'Plans', checkout: 'Subscription', payment: 'Payment', sandbox: 'Sandbox checkout', dashboard: 'Dashboard', properties: 'Properties',
   listings: 'Listings', new: 'Create listing', import: 'Bulk import', reports: 'Reports', admin: 'Operations', agents: 'Agents', performance: 'Performance', settings: 'Settings',
   verification: 'Verification queue', moderation: 'Moderation queue', subscriptions: 'Subscriptions',
+  featured: 'Featured placement', refresh: 'Automatic refresh', placement: 'Search placement',
+  viewings: 'Viewing scheduler', whatsapp: 'WhatsApp handover', shortlists: 'Client shortlists',
+  market: 'Market data', transactions: 'Rental transactions', compare: 'Project comparison',
+  floorplans: 'Floor plans', neighbourhood: 'Neighbourhood', agent: 'Public agent page', qr: 'QR code',
+  learn: 'Guides', sessions: 'Product sessions', support: 'Support', print: 'Printable report',
+  export: 'Export', shortlist: 'Shortlist',
 };
 
 /** Account ids are UUIDs; a raw one in a breadcrumb tells a reader nothing. */
@@ -260,6 +268,23 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
       { href: '/phase1/listings/new', label: 'Create listing', icon: Plus },
       { href: '/phase1/listings/import', label: 'Bulk import', icon: Upload },
     ] },
+    { title: 'Reach', items: [
+      { href: '/phase1/featured', label: 'Featured placement', icon: Rocket },
+      { href: '/phase1/refresh', label: 'Automatic refresh', icon: RefreshCw },
+      { href: '/phase1/placement', label: 'Search placement', icon: Star },
+    ] },
+    { title: 'Clients', items: [
+      { href: '/phase1/performance', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'warning' },
+      { href: '/phase1/viewings', label: 'Viewings', icon: CalendarClock },
+      { href: '/phase1/whatsapp', label: 'WhatsApp handover', icon: Phone },
+      { href: '/phase1/shortlists', label: 'Client shortlists', icon: FileText },
+    ] },
+    { title: 'Market data', items: [
+      { href: '/phase1/market/transactions', label: 'Transactions', icon: LineChart },
+      { href: '/phase1/market/compare', label: 'Compare projects', icon: GitCompareArrows },
+      { href: '/phase1/floorplans', label: 'Floor plans', icon: LayoutPanelTop },
+      { href: '/phase1/neighbourhood', label: 'Neighbourhood', icon: Trees },
+    ] },
     { title: 'Business', items: [
       { href: '/phase1/checkout', label: 'Subscription', icon: CreditCard },
       { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
@@ -267,8 +292,15 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     ] },
     { title: 'Account', items: [
       { href: '/phase1/profile', label: 'Profile', icon: IdCard },
+      { href: '/phase1/agent', label: 'Public page', icon: Users },
+      { href: '/phase1/qr', label: 'QR code', icon: QrCode },
       { href: '/phase1/status', label: 'Verification', icon: ShieldCheck },
       { href: '/phase1/settings', label: 'Settings', icon: Settings },
+    ] },
+    { title: 'Help', items: [
+      { href: '/phase1/learn', label: 'Guides', icon: BookOpen, exact: true },
+      { href: '/phase1/learn/sessions', label: 'Sessions', icon: Video },
+      { href: '/phase1/support', label: 'Support', icon: LifeBuoy },
     ] },
   ];
 
@@ -300,7 +332,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     <div className={cx('flex h-full flex-col text-white', isAdmin ? 'bg-p1-sidebar-2' : 'bg-p1-sidebar')}>
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2.5 rounded-lg" aria-label="V-RENT home">
-          <span className={cx('flex h-9 w-9 items-center justify-center rounded-lg font-p1display text-[20px] font-semibold', isAdmin ? 'bg-white/10 text-p1-accent ring-1 ring-white/20' : 'bg-p1-accent text-[#0B1E3F]')}>V</span>
+          <span className={cx('flex h-9 w-9 items-center justify-center rounded-lg font-p1display text-[20px] font-semibold', isAdmin ? 'bg-white/10 text-p1-accent ring-1 ring-white/20' : 'bg-p1-accent text-[#062B3A]')}>V</span>
           <span>
             <span className="block text-[15px] font-semibold leading-5 tracking-tight">V-RENT</span>
             <span className={cx('block text-[11.5px] font-medium', isAdmin ? 'text-white/55' : 'text-p1-accent')}>{isAdmin ? 'Operations console' : 'Agent workspace'}</span>
@@ -367,10 +399,10 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="flex min-h-screen">
-        <aside className="sticky top-0 hidden h-screen w-[256px] shrink-0 xl:block">{sidebar}</aside>
+        <aside data-print-hide className="sticky top-0 hidden h-screen w-[256px] shrink-0 xl:block">{sidebar}</aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b border-p1-border bg-p1-surface/90 backdrop-blur supports-[backdrop-filter]:bg-p1-surface/80">
+          <header data-print-hide className="sticky top-0 z-40 border-b border-p1-border bg-p1-surface/90 backdrop-blur supports-[backdrop-filter]:bg-p1-surface/80">
             <div className="flex h-14 items-center gap-2 px-3 sm:px-5 lg:px-6">
               <button type="button" onClick={() => setDrawer(true)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle xl:hidden cursor-pointer" aria-label="Open menu"><MenuIcon size={21} /></button>
               <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2 xl:hidden" aria-label="V-RENT home">
@@ -491,12 +523,12 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
           </header>
 
           <main id="p1-main" className="flex-1 pb-24 xl:pb-10" tabIndex={-1}>
-            <div key={pathname} className="vr-fade mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">{children}</div>
+            <div key={pathname} className="vr-fade mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 print:max-w-none print:p-0">{children}</div>
           </main>
         </div>
       </div>
 
-      <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-p1-border bg-p1-surface/95 backdrop-blur xl:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav data-print-hide aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-p1-border bg-p1-surface/95 backdrop-blur xl:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <ul className="grid grid-cols-5">
           {bottomNav.map((item, i) => {
             if ('menu' in item) {

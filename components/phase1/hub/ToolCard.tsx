@@ -3,10 +3,14 @@
 /**
  * Hub tool card and its detail panel.
  *
- * A card is one of two things and looks like it: a working tool, which opens,
- * or a tool scheduled for the production build, which explains itself instead
- * of dead-ending. The difference is carried by the footer text and a border,
- * never by colour alone.
+ * Every tool in the catalogue opens a working screen, so the card's job is to
+ * get you there in one click. The second question — what does this actually do,
+ * and what does it depend on — is answered by a panel behind a small button in
+ * the corner rather than by making the whole card a detour.
+ *
+ * The link is stretched over the card with a pseudo-element rather than the
+ * card being a `<Link>`, because a button inside an anchor is invalid markup
+ * and browsers disagree about which one a click belongs to.
  */
 
 import Link from 'next/link';
@@ -45,54 +49,51 @@ export function ToolCard({ tool, onOpenDetail }: { tool: HubTool; onOpenDetail: 
     <>
       <div className="flex items-start justify-between gap-3">
         <IconTile tool={tool} />
-        {tool.badge && (
-          <Pill tone={live ? 'accent' : 'neutral'} className="mt-0.5">
-            {tool.badge}
-          </Pill>
-        )}
+        <div className="flex items-center gap-1.5">
+          {tool.badge && <Pill tone={live ? 'accent' : 'neutral'} className="mt-0.5">{tool.badge}</Pill>}
+          {/* Above the stretched link, so this button wins the click. */}
+          <button
+            type="button"
+            onClick={() => onOpenDetail(tool)}
+            aria-label={`What ${tool.name} does`}
+            className="relative z-10 -mr-1 -mt-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-p1-text-3 transition-colors hover:bg-p1-subtle hover:text-p1-text"
+          >
+            <Info size={15} />
+          </button>
+        </div>
       </div>
       <div className="mt-3.5 font-p1display text-[15.5px] font-bold leading-5 tracking-[-0.01em] text-p1-text">{tool.name}</div>
       <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">{tool.blurb}</p>
-      <span
-        className={cx(
-          'mt-auto flex items-center gap-1.5 pt-4 text-[13px] font-medium',
-          live ? 'text-p1-primary dark:text-p1-info' : 'text-p1-text-3',
-        )}
-      >
-        {live ? (
-          <>
-            Open
-            <ArrowRight size={14} className="transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
-          </>
-        ) : (
-          <>
-            <Info size={13} aria-hidden />
-            What this will do
-          </>
-        )}
-      </span>
     </>
   );
 
   if (live && tool.href) {
     return (
-      <Link
-        href={tool.href}
-        className={cx(CARD_BASE, 'shadow-p1-sm ring-1 ring-p1-border hover:-translate-y-1 hover:shadow-p1-md hover:ring-p1-primary/30')}
-      >
+      <div className={cx(CARD_BASE, 'shadow-p1-sm ring-1 ring-p1-border transition-transform hover:-translate-y-1 hover:shadow-p1-md hover:ring-p1-primary/30')}>
         {body}
-      </Link>
+        <Link
+          href={tool.href}
+          className="mt-auto flex items-center gap-1.5 pt-4 text-[13px] font-medium text-p1-primary after:absolute after:inset-0 after:content-[''] focus-visible:outline-none dark:text-p1-info"
+        >
+          Open
+          <ArrowRight size={14} className="transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
+        </Link>
+      </div>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpenDetail(tool)}
-      className={cx(CARD_BASE, 'cursor-pointer border border-dashed border-p1-border bg-p1-surface/50 hover:-translate-y-0.5 hover:border-p1-border-strong hover:bg-p1-surface')}
-    >
+    <div className={cx(CARD_BASE, 'border border-dashed border-p1-border bg-p1-surface/50')}>
       {body}
-    </button>
+      <button
+        type="button"
+        onClick={() => onOpenDetail(tool)}
+        className="mt-auto flex cursor-pointer items-center gap-1.5 pt-4 text-[13px] font-medium text-p1-text-3 after:absolute after:inset-0 after:content-['']"
+      >
+        <Info size={13} aria-hidden />
+        What this will do
+      </button>
+    </div>
   );
 }
 
@@ -107,7 +108,10 @@ export function ToolDetail({ tool, onClose }: { tool: HubTool | null; onClose: (
       width="md"
       footer={
         tool && live && tool.href ? (
-          <LinkButton href={tool.href} rightIcon={<ArrowUpRight size={16} />}>Open it</LinkButton>
+          <>
+            <Button variant="outline" onClick={onClose}>Close</Button>
+            <LinkButton href={tool.href} rightIcon={<ArrowUpRight size={16} />}>Open it</LinkButton>
+          </>
         ) : (
           <Button variant="outline" onClick={onClose}>Close</Button>
         )
@@ -132,17 +136,13 @@ export function ToolDetail({ tool, onClose }: { tool: HubTool | null; onClose: (
             </ul>
           </div>
 
-          {!live && (
+          {tool.needs && (
             <div className="rounded-lg border border-p1-border bg-p1-subtle/60 px-4 py-3.5">
               <div className="flex items-center gap-2 text-[13.5px] font-semibold text-p1-text">
                 <Clock size={14} aria-hidden />
-                Not in this prototype
+                {live ? 'What it depends on' : 'Not in this prototype'}
               </div>
-              <p className="mt-1 text-[13.5px] leading-6 text-p1-text-2">
-                The screen is designed but not wired up here. It is part of the production implementation and is
-                costed in the build estimate.
-              </p>
-              {tool.needs && <p className="mt-2 text-[13.5px] leading-6 text-p1-text-3">{tool.needs}</p>}
+              <p className="mt-1 text-[13.5px] leading-6 text-p1-text-2">{tool.needs}</p>
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@
 import type { PublicAccount } from '../auth/store';
 import { displayAgency, displayName } from '../auth/cea';
 import { DemoListing, ListingStatus, PLANS, PlanOption, SEED_LISTINGS } from './data';
+import { EMPTY_TOOLS, type ToolsState } from './tools';
 
 /** The prototype's fixed "today", so every relative date reads the same in every run. */
 export const TODAY_ISO = '2026-08-28';
@@ -107,6 +108,8 @@ export interface WorkspaceState {
   enquiries: Enquiry[];
   /** What has happened to this account, newest first. */
   alerts: Alert[];
+  /** Featuring, refreshes, viewings, shortlists and the rest. See `tools.ts`. */
+  tools: ToolsState;
 }
 
 /**
@@ -140,7 +143,10 @@ function registrationIsCurrent(endDate?: string): boolean {
  * agents there are (see `verification-policy`) and passed in; the mobile number
  * was never confirmed, so it is not.
  */
-export function seedWorkspace(user: PublicAccount, opts: { autoApprove: boolean } = { autoApprove: false }): WorkspaceState {
+export function seedWorkspace(
+  user: PublicAccount,
+  opts: { autoApprove: boolean; demo?: boolean } = { autoApprove: false },
+): WorkspaceState {
   const name = displayName(user.cea?.name ?? user.fullName);
   const agency = user.cea ? displayAgency(user.cea.agencyName) : '';
 
@@ -179,6 +185,7 @@ export function seedWorkspace(user: PublicAccount, opts: { autoApprove: boolean 
       notifications: { ...DEFAULT_NOTIFICATIONS },
       enquiries: [],
       alerts: [],
+      tools: { ...EMPTY_TOOLS },
     };
   }
 
@@ -188,7 +195,7 @@ export function seedWorkspace(user: PublicAccount, opts: { autoApprove: boolean 
     // before a message can be delivered at all.
     mobileVerified: false,
     profileSubmitted: true,
-    approval: opts.autoApprove ? 'approved' : 'under_review',
+    approval: opts.autoApprove || opts.demo ? 'approved' : 'under_review',
     ceaValid: registrationIsCurrent(user.cea.registrationEnd),
     ceaValidUntil: user.cea.registrationEnd,
     // A Starter subscription so the account is usable from the first minute.
@@ -199,13 +206,17 @@ export function seedWorkspace(user: PublicAccount, opts: { autoApprove: boolean 
     subscription: 'active',
     paymentMethod: 'PayNow',
     profile,
-    listings: SEED_LISTINGS.map((l) => asDraft(l, preferredName(name))),
+    listings: opts.demo
+      ? demoPortfolio(preferredName(name))
+      : SEED_LISTINGS.map((l) => asDraft(l, preferredName(name))),
     notifications: { ...DEFAULT_NOTIFICATIONS },
-    // Empty on purpose. An enquiry means a real person asked about a real
-    // listing; inventing a few would put words in a stranger's mouth, and the
-    // inbox fills the moment a share link is used.
-    enquiries: [],
+    // Empty on purpose for a real agent. An enquiry means a real person asked
+    // about a real listing; inventing a few would put words in a stranger's
+    // mouth, and the inbox fills the moment a share link is used. The declared
+    // demo account is the exception — see `demoPortfolio`.
+    enquiries: opts.demo ? demoEnquiries(demoPortfolio(preferredName(name))) : [],
     alerts: [],
+    tools: { ...EMPTY_TOOLS },
   };
 }
 
@@ -225,6 +236,105 @@ function asDraft(l: DemoListing, agent: string): DemoListing {
   delete draft.rejectionReason;
   delete draft.archived;
   return draft;
+}
+
+/* --------------------------------------------------------- the demo account
+
+   One account, named in `.env.local` and nowhere else, starts with a portfolio
+   that has been used: some listings live, one paused, one rejected, the rest
+   drafts, and a handful of enquiries against the live ones.
+
+   Every other account — including a real agent who signs up with their own CEA
+   number — still starts with drafts and an empty inbox, for the reason given
+   above. This exception exists so the product can be shown end to end without
+   somebody having to publish twelve listings by hand before the meeting, and
+   the people in the enquiries are invented, which is only acceptable because
+   the account they belong to is invented too.                                */
+
+const DEMO_PUBLISHED = 5;
+const DEMO_PAUSED = 1;
+
+function demoPortfolio(agent: string): DemoListing[] {
+  return SEED_LISTINGS.map((l, i) => {
+    const draft = asDraft(l, agent);
+    if (i < DEMO_PUBLISHED) {
+      const published = new Date(TODAY.getTime() - (9 + i * 6) * 86_400_000);
+      const expires = new Date(published.getTime() + 90 * 86_400_000);
+      return {
+        ...draft,
+        status: 'published' as ListingStatus,
+        publishedAt: published.toISOString(),
+        expiresAt: expires.toISOString(),
+        reviewedAt: published.toISOString(),
+      };
+    }
+    if (i < DEMO_PUBLISHED + DEMO_PAUSED) {
+      const published = new Date(TODAY.getTime() - 52 * 86_400_000);
+      return {
+        ...draft,
+        status: 'paused' as ListingStatus,
+        publishedAt: published.toISOString(),
+        expiresAt: new Date(published.getTime() + 90 * 86_400_000).toISOString(),
+        reviewedAt: published.toISOString(),
+      };
+    }
+    if (i === DEMO_PUBLISHED + DEMO_PAUSED) {
+      return {
+        ...draft,
+        status: 'rejected' as ListingStatus,
+        rejectionReason: 'Photographs show a different unit from the one advertised.',
+        reviewedAt: new Date(TODAY.getTime() - 4 * 86_400_000).toISOString(),
+      };
+    }
+    return draft;
+  });
+}
+
+const DEMO_ENQUIRIES: {
+  name: string; contact: string; message: string; daysAgo: number;
+  channel: Enquiry['channel']; status: EnquiryStatus; budget?: number; moveIn?: string;
+}[] = [
+  {
+    name: 'Adeline Koh', contact: '+65 9123 8842', daysAgo: 0, channel: 'V-RENT', status: 'new',
+    message: 'Is this unit still available from the start of next month? I am relocating with my husband and we would like a viewing this weekend if possible.',
+    budget: 5500, moveIn: '2026-10-01',
+  },
+  {
+    name: 'Rahul Menon', contact: '+65 8845 2201', daysAgo: 1, channel: 'WhatsApp', status: 'new',
+    message: 'Hi, saw the listing. Is the rent negotiable for a two-year lease? Also is there a second car park lot.',
+    budget: 6200, moveIn: '2026-09-20',
+  },
+  {
+    name: 'Tan Wei Ling', contact: '+65 9077 3316', daysAgo: 3, channel: 'V-RENT', status: 'replied',
+    message: 'Could you send the floor plan and tell me which direction the bedrooms face? I am comparing two units in the same project.',
+    moveIn: '2026-11-01',
+  },
+  {
+    name: 'James Whitfield', contact: '+65 8332 9014', daysAgo: 6, channel: 'Phone', status: 'viewing',
+    message: 'Booked to view on Saturday. Please confirm whether the unit is tenanted at the moment.',
+    budget: 7000, moveIn: '2026-10-15',
+  },
+  {
+    name: 'Nurul Aisyah', contact: 'nurul.aisyah@example.sg', daysAgo: 9, channel: 'V-RENT', status: 'closed',
+    message: 'Thank you for showing me the unit. We have decided on somewhere closer to my office.',
+  },
+];
+
+function demoEnquiries(listings: DemoListing[]): Enquiry[] {
+  const live = listings.filter((l) => l.status === 'published');
+  if (!live.length) return [];
+  return DEMO_ENQUIRIES.map((e, i) => ({
+    id: `enq-demo-${i + 1}`,
+    listingId: live[i % live.length].id,
+    name: e.name,
+    contact: e.contact,
+    message: e.message,
+    at: new Date(TODAY.getTime() - e.daysAgo * 86_400_000 - i * 3_600_000).toISOString(),
+    channel: e.channel,
+    status: e.status,
+    budget: e.budget,
+    moveIn: e.moveIn,
+  }));
 }
 
 /* -------------------------------------------------------------- validation */
@@ -409,5 +519,50 @@ export function sanitisePatch(raw: unknown): Partial<WorkspaceState> {
       .map(cleanListing)
       .filter((l): l is DemoListing => l !== null);
   }
+  if (b.tools && typeof b.tools === 'object') patch.tools = cleanTools(b.tools);
   return patch;
+}
+
+/**
+ * The tools bag, bounded rather than field-by-field.
+ *
+ * Everything in it is prototype surface — a featured run, a viewing slot, a
+ * saved shortlist — and its shape is still moving. Validating each field by
+ * hand would be a second copy of `tools.ts` that drifts from it. What actually
+ * has to be guaranteed is that nothing unserialisable, unbounded or deeply
+ * nested lands on disk, because that is what would break every later read. So:
+ * re-serialise through JSON with a depth limit, an array limit and a string
+ * limit, and fill the result out from the empty shape.
+ */
+function bounded(value: unknown, depth = 0): unknown {
+  if (depth > 6) return null;
+  if (typeof value === 'string') return value.slice(0, 4000);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'boolean' || value === null) return value;
+  if (Array.isArray(value)) return value.slice(0, 400).map((v) => bounded(v, depth + 1));
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 60)) {
+      out[k.slice(0, 64)] = bounded(v, depth + 1);
+    }
+    return out;
+  }
+  return null;
+}
+
+function cleanTools(raw: unknown): ToolsState {
+  const b = bounded(raw) as Partial<ToolsState> | null;
+  if (!b || typeof b !== 'object') return { ...EMPTY_TOOLS };
+  const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+  return {
+    featured: arr(b.featured),
+    refresh: arr(b.refresh),
+    slots: arr(b.slots),
+    shortlists: arr(b.shortlists),
+    placements: arr(b.placements),
+    tickets: arr(b.tickets),
+    publicPage: { ...EMPTY_TOOLS.publicPage, ...(b.publicPage ?? {}) },
+    guidesDone: arr<string>(b.guidesDone).filter((g) => typeof g === 'string'),
+    sessionsWatched: arr<string>(b.sessionsWatched).filter((g) => typeof g === 'string'),
+  };
 }

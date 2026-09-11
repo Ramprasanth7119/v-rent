@@ -21,6 +21,7 @@ import {
   Alert, AgentProfile, ApprovalStatus, DEFAULT_NOTIFICATIONS, Enquiry, EnquiryStatus, NotificationPrefs,
   SubscriptionStatus, TODAY, TODAY_ISO, WorkspaceState, planByCode, preferredName,
 } from './workspace';
+import { EMPTY_TOOLS, type ToolsState } from './tools';
 
 export type { Alert, AgentProfile, ApprovalStatus, Enquiry, EnquiryStatus, NotificationPrefs, SubscriptionStatus };
 export { TODAY, TODAY_ISO, preferredName };
@@ -40,6 +41,7 @@ export interface DemoState {
   notifications: NotificationPrefs;
   enquiries: Enquiry[];
   alerts: Alert[];
+  tools: ToolsState;
 }
 
 const EMPTY_PROFILE: AgentProfile = {
@@ -65,6 +67,7 @@ const SIGNED_OUT: DemoState = {
   notifications: { ...DEFAULT_NOTIFICATIONS },
   enquiries: [],
   alerts: [],
+  tools: { ...EMPTY_TOOLS },
 };
 
 const fromWorkspace = (w: WorkspaceState): DemoState => ({
@@ -82,6 +85,7 @@ const fromWorkspace = (w: WorkspaceState): DemoState => ({
   notifications: w.notifications ?? { ...DEFAULT_NOTIFICATIONS },
   enquiries: w.enquiries ?? [],
   alerts: w.alerts ?? [],
+  tools: { ...EMPTY_TOOLS, ...(w.tools ?? {}) },
 });
 
 const toWorkspace = (s: DemoState): WorkspaceState => ({
@@ -99,6 +103,7 @@ const toWorkspace = (s: DemoState): WorkspaceState => ({
   notifications: s.notifications,
   enquiries: s.enquiries,
   alerts: s.alerts,
+  tools: s.tools,
 });
 
 /** A single condition of the publish gate. */
@@ -122,6 +127,8 @@ interface DemoContextValue {
   updateListing: (id: string, patch: Partial<DemoListing>) => void;
   setListingStatus: (id: string, status: ListingStatus, reason?: string) => void;
   setEnquiryStatus: (id: string, status: EnquiryStatus) => void;
+  /** Change one part of the tools bag; the rest is carried through untouched. */
+  setTools: (patch: Partial<ToolsState>) => void;
   markAlertsRead: () => void;
   activeListings: number;
   listingLimit: number;
@@ -185,6 +192,9 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
 
   const setProfile = (patch: Partial<AgentProfile>) =>
     apply((s) => ({ ...s, profile: { ...s.profile, ...patch } }));
+
+  const setTools = (patch: Partial<ToolsState>) =>
+    apply((s) => ({ ...s, tools: { ...s.tools, ...patch } }));
 
   /** Reset is server-side: the workspace is seeded again from the account. */
   const reset = () => {
@@ -349,6 +359,7 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
     updateListing,
     setListingStatus,
     setEnquiryStatus,
+    setTools,
     markAlertsRead,
     activeListings,
     listingLimit,

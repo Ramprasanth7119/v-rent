@@ -13,6 +13,7 @@ import path from 'node:path';
 import type { PublicAccount } from '../auth/store';
 import { KeyedMutex } from '../payments/concurrency';
 import { AgentProfile, DEFAULT_NOTIFICATIONS, seedWorkspace, WorkspaceState } from './workspace';
+import { EMPTY_TOOLS } from './tools';
 import { verificationPolicy } from './verification-policy';
 import type { DemoListing } from './data';
 
@@ -69,6 +70,7 @@ function strip(stored: StoredWorkspace): WorkspaceState {
     enquiries: w.enquiries ?? [],
     alerts: w.alerts ?? [],
     listings: w.listings ?? [],
+    tools: { ...EMPTY_TOOLS, ...(w.tools ?? {}) },
   };
 }
 
@@ -80,6 +82,16 @@ function strip(stored: StoredWorkspace): WorkspaceState {
  * become auto-approved later, and one admitted after the threshold keeps their
  * approval if the platform shrinks.
  */
+/**
+ * The one account that starts with a portfolio that has been used, named in the
+ * environment so it can be changed without a deploy and cannot be guessed from
+ * the code. Everyone else starts with drafts.
+ */
+export const isDemoAccount = (email: string) => {
+  const declared = process.env.VRENT_DEMO_AGENT_EMAIL?.trim().toLowerCase();
+  return Boolean(declared) && email.trim().toLowerCase() === declared;
+};
+
 export async function loadWorkspace(user: PublicAccount): Promise<WorkspaceState> {
   const policy = await verificationPolicy();
   return lock.run(user.id, async () => {
@@ -87,7 +99,7 @@ export async function loadWorkspace(user: PublicAccount): Promise<WorkspaceState
     const existing = data.workspaces[user.id];
     if (existing) return strip(existing);
 
-    const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove });
+    const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove, demo: isDemoAccount(user.email) });
     data.workspaces[user.id] = { ...seeded, updatedAt: new Date().toISOString() };
     await writeAll(data);
     return seeded;
@@ -144,7 +156,7 @@ export async function resetWorkspace(user: PublicAccount): Promise<WorkspaceStat
   const policy = await verificationPolicy();
   return lock.run(user.id, async () => {
     const data = await readAll();
-    const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove });
+    const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove, demo: isDemoAccount(user.email) });
     data.workspaces[user.id] = { ...seeded, updatedAt: new Date().toISOString() };
     await writeAll(data);
     return seeded;

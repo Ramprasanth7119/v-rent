@@ -116,7 +116,7 @@ export function LocationPicker({
         className: '',
         html:
           '<span style="display:block;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);' +
-          'background:#1355FF;border:3px solid #fff;box-shadow:0 4px 10px rgba(11,27,69,.45)"></span>',
+          'background:#0A5C73;border:3px solid #fff;box-shadow:0 4px 10px rgba(8,36,48,.45)"></span>',
         iconSize: [28, 28],
         iconAnchor: [14, 28],
       });

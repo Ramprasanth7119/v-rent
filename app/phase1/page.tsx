@@ -104,7 +104,7 @@ export default function AgentHubPage() {
           Light rather than a slab of colour. A full-bleed saturated panel
           shouts; the Singapore portals open on a pale sky with the skyline
           behind the words, and let one blue button do the asking. */}
-      <section className="relative mb-7 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E8F0FF] to-p1-surface ring-1 ring-p1-border dark:from-[#16254A] dark:to-p1-surface">
+      <section className="relative mb-7 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E1EFF4] to-p1-surface ring-1 ring-p1-border dark:from-[#0F2F3B] dark:to-p1-surface">
         <Skyline />
 
         <div className="relative grid gap-8 p-6 sm:p-9 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center lg:p-11">
@@ -253,8 +253,8 @@ export default function AgentHubPage() {
           <div>
             <h2 className="font-p1display text-[21px] font-bold tracking-[-0.018em] text-p1-text">Everything in the platform</h2>
             <p className="mt-0.5 text-[13.5px] text-p1-text-3">
-              {LIVE_TOOL_COUNT} tools are working in this build. The rest are designed and costed for the production
-              implementation.
+              All {LIVE_TOOL_COUNT} tools open and work. Where one depends on something outside this build — a
+              payment provider, the public tenant site — the screen says so on the screen itself.
             </p>
           </div>
           <div className="w-full sm:w-[320px]">

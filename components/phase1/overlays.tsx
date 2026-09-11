@@ -3,11 +3,34 @@
 /**
  * Dialog, confirmation and drawer with the accessibility basics:
  * Escape closes, focus moves in and returns, background scroll locks, role/aria-modal set.
+ *
+ * Every overlay is rendered into `document.body` rather than where it is
+ * written. A `position: fixed` element is only positioned against the viewport
+ * while no ancestor has a transform, a filter or a backdrop-filter; any of
+ * those makes that ancestor the containing block instead. The hub cards lift on
+ * hover with `translate-y`, so a drawer opened from a card was being positioned
+ * against the card — off the top of the screen, with the dim layer covering the
+ * wrong rectangle. A portal is the only reliable fix, and it also lifts the
+ * panel clear of every stacking context on the way up.
  */
 
 import React, { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle } from 'lucide-react';
 import { Button, cx } from './kit';
+
+/**
+ * Renders into the document body.
+ *
+ * No mounted guard is needed and none is wanted: every overlay here returns
+ * null while it is closed, and it is only ever opened by a user event on the
+ * client. So this is never reached during the server render or during
+ * hydration, and the `document` check is belt and braces for a test renderer.
+ */
+function Portal({ children }: { children: React.ReactNode }) {
+  if (typeof document === 'undefined') return null;
+  return createPortal(children, document.body);
+}
 
 function useOverlay(open: boolean, onClose: () => void) {
   const panel = useRef<HTMLDivElement>(null);
@@ -51,8 +74,9 @@ export function Dialog({
   if (!open) return null;
   const w = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' }[size];
   return (
-    <div className="p1 fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-6">
-      <div className="p1-overlay fixed inset-0 bg-[#0B1E3F]/55 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
+    <Portal>
+    <div className="p1 fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
+      <div className="p1-overlay fixed inset-0 bg-[#062B3A]/60 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={tid} aria-describedby={description ? did : undefined} tabIndex={-1}
         className={cx('p1-panel relative w-full rounded-t-2xl border border-p1-border bg-p1-surface text-p1-text shadow-p1-lg sm:rounded-2xl', w)}>
         <div className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6">
@@ -66,6 +90,7 @@ export function Dialog({
         {footer && <div className="flex flex-col-reverse gap-2 border-t border-p1-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">{footer}</div>}
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -96,8 +121,9 @@ export function Drawer({
   if (!open) return null;
   const w = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl' }[width];
   return (
-    <div className="p1 fixed inset-0 z-[70]">
-      <div className="p1-overlay fixed inset-0 bg-[#0B1E3F]/55 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
+    <Portal>
+    <div className="p1 fixed inset-0 z-[100]">
+      <div className="p1-overlay fixed inset-0 bg-[#062B3A]/60 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={tid} tabIndex={-1}
         className={cx('fixed inset-y-0 flex w-full flex-col border-p1-border bg-p1-surface text-p1-text shadow-p1-lg', w,
           side === 'right' ? 'right-0 border-l p1-drawer' : 'left-0 border-r p1-drawer-left')}>
@@ -112,5 +138,6 @@ export function Drawer({
         {footer && <div className="flex flex-col-reverse gap-2 border-t border-p1-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">{footer}</div>}
       </div>
     </div>
+    </Portal>
   );
 }

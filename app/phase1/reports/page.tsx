@@ -5,60 +5,47 @@
  *
  * Agents are asked for numbers by people who are not in the product: an agency
  * team leader wants the month's inventory, a landlord wants every enquiry on
- * their unit, an accountant wants what was live in a quarter. Before this they
- * screenshotted a dashboard or retyped it into a spreadsheet.
+ * their unit, an accountant wants what was live in a quarter, a compliance
+ * officer wants what is about to expire.
  *
  * The screen is built around one idea: choose what you want, watch the count
  * change, then take the file. Nothing is generated until the filters read the
  * way the agent expects, so there is no cycle of downloading, opening, finding
  * it wrong and downloading again.
  *
- * CSV is produced in the browser from data that is already loaded — no round
- * trip, works offline, and opens in Excel with the columns already named. The
- * printable version reuses the branded shortlist, which carries the CEA
- * compliance block the advertising rules require.
+ * Three ways out, and each is right for a different reader. CSV is produced in
+ * the browser from data already loaded, so it works offline and opens in Excel
+ * with the columns named. PDF renders the same rows as a document with the CEA
+ * compliance block on it, for sending to somebody outside the agency. The
+ * property shortlist is the photographed version, for a client.
  */
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Building2, MessageSquare, TrendingUp, Download, Printer, FileSpreadsheet, RotateCcw, Info,
+  Building2, MessageSquare, TrendingUp, ShieldCheck, Download, Printer, FileSpreadsheet,
+  RotateCcw, Info, FileText, ArrowDownUp, Search,
 } from 'lucide-react';
 import {
-  Button, Card, SectionCard, PageHeader, SelectInput, TextInput, FilterChips, EmptyState, cx,
+  Button, Card, SectionCard, PageHeader, SelectInput, TextInput, FilterChips, EmptyState,
+  SearchInput, cx,
 } from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
 import { useDemo, TODAY } from '../../../lib/phase1/DemoContext';
 import { useSession } from '../../../lib/phase1/SessionContext';
-import { sgd } from '../../../lib/phase1/data';
-import { dealOf } from '../../../lib/phase1/pricing';
-import { districtName, listingStats, ENQUIRY_STATUS } from '../../../lib/phase1/performance';
-import { listingHealth } from '../../../lib/phase1/health';
-import type { Enquiry } from '../../../lib/phase1/workspace';
+import { sgd, LISTING_STATUS_LABEL, type ListingStatus } from '../../../lib/phase1/data';
+import {
+  KIND_LABEL, PERIODS, PROPERTY_TYPES, FURNISHINGS, LISTING_STATUSES, ENQUIRY_STATUSES, CHANNELS, SORTS,
+  buildTable, countFilters, defaultFilters, filtersToQuery, reportWindow, selectEnquiries, selectListings,
+  type ReportFilters, type ReportKind,
+} from '../../../lib/phase1/reporting';
 
-/* ------------------------------------------------------------------- types */
-
-type ReportKind = 'inventory' | 'enquiries' | 'performance';
-
-const KINDS: { key: ReportKind; label: string; icon: typeof Building2; blurb: string }[] = [
-  { key: 'inventory', label: 'Listing inventory', icon: Building2, blurb: 'Every listing with its address, price, size and standing.' },
-  { key: 'enquiries', label: 'Enquiries', icon: MessageSquare, blurb: 'Who asked about what, when, and whether they have been answered.' },
-  { key: 'performance', label: 'Performance', icon: TrendingUp, blurb: 'Views, enquiries and conversion for each listing.' },
+const KINDS: { key: ReportKind; icon: typeof Building2; blurb: string }[] = [
+  { key: 'inventory', icon: Building2, blurb: 'Every listing with its address, price, size and standing.' },
+  { key: 'enquiries', icon: MessageSquare, blurb: 'Who asked about what, when, and whether they were answered.' },
+  { key: 'performance', icon: TrendingUp, blurb: 'Views, enquiries and conversion for each listing.' },
+  { key: 'compliance', icon: ShieldCheck, blurb: 'What expires when, and what each listing is still missing.' },
 ];
-
-const PERIODS = [
-  { key: '7', label: 'Last 7 days' },
-  { key: '30', label: 'Last 30 days' },
-  { key: '90', label: 'Last 90 days' },
-  { key: 'all', label: 'Everything' },
-  { key: 'custom', label: 'Custom range' },
-];
-
-const STATUSES = ['published', 'draft', 'pending', 'paused', 'rejected', 'expired'] as const;
-
-/* --------------------------------------------------------------- utilities */
-
-const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** RFC 4180 enough for Excel: quote anything with a comma, quote or newline. */
 function toCsv(columns: string[], rows: (string | number)[][]): string {
@@ -78,171 +65,115 @@ function download(name: string, body: string) {
   URL.revokeObjectURL(url);
 }
 
-/* -------------------------------------------------------------------- page */
+/** A group of toggles that behave like checkboxes but read like chips. */
+function ChipSet({
+  label, options, value, onChange, note,
+}: {
+  label: string;
+  options: { key: string; label: string }[];
+  value: string[];
+  onChange: (v: string[]) => void;
+  note?: string;
+}) {
+  return (
+    <div>
+      <span className="mb-2 block text-[12.5px] font-semibold text-p1-text-2">{label}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const on = value.includes(o.key);
+          return (
+            <button
+              key={o.key}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(on ? value.filter((x) => x !== o.key) : [...value, o.key])}
+              className={cx(
+                'cursor-pointer rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+                on ? 'bg-p1-primary text-white' : 'bg-p1-subtle text-p1-text-2 hover:text-p1-text',
+              )}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+      {value.length === 0 && note && <p className="mt-2 text-[12px] text-p1-text-3">{note}</p>}
+    </div>
+  );
+}
 
 export default function ReportsPage() {
   const router = useRouter();
   const { state } = useDemo();
   const { user } = useSession();
 
-  const [kind, setKind] = useState<ReportKind>('inventory');
-  const [period, setPeriod] = useState('30');
-  const [from, setFrom] = useState(iso(new Date(TODAY.getTime() - 30 * 86_400_000)));
-  const [to, setTo] = useState(iso(TODAY));
-  const [status, setStatus] = useState<string[]>([]);
-  const [deal, setDeal] = useState('all');
-  const [district, setDistrict] = useState('all');
-  const [beds, setBeds] = useState('all');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [f, setF] = useState<ReportFilters>(() => defaultFilters(TODAY));
+  const patch = (p: Partial<ReportFilters>) => setF((cur) => ({ ...cur, ...p }));
 
-  /* The window the period controls resolve to. One place, so the three report
-     kinds cannot drift apart on what "last 30 days" means. */
-  const window = useMemo(() => {
-    if (period === 'all') return null;
-    if (period === 'custom') return { from, to };
-    const days = Number(period);
-    return { from: iso(new Date(TODAY.getTime() - days * 86_400_000)), to: iso(TODAY) };
-  }, [period, from, to]);
+  const listings = useMemo(() => selectListings(state.listings, f, TODAY), [state.listings, f]);
+  const enquiries = useMemo(() => selectEnquiries(state.enquiries, listings, f, TODAY), [state.enquiries, listings, f]);
+  const table = useMemo(() => buildTable(f, listings, enquiries), [f, listings, enquiries]);
 
-  const inWindow = (date?: string) => {
-    if (!window || !date) return true;
-    const d = date.slice(0, 10);
-    return d >= window.from && d <= window.to;
-  };
-
-  const live = useMemo(() => state.listings.filter((l) => !l.archived), [state.listings]);
-
-  /** The listing filters, shared by all three reports. */
-  const listings = useMemo(() => {
-    const min = Number(minPrice) || 0;
-    const max = Number(maxPrice) || Infinity;
-    return live.filter((l) => {
-      if (status.length && !status.includes(l.status)) return false;
-      if (deal !== 'all' && dealOf(l) !== deal) return false;
-      if (district !== 'all' && String(l.district) !== district) return false;
-      if (beds !== 'all' && (beds === '4' ? l.bedrooms < 4 : String(l.bedrooms) !== beds)) return false;
-      const price = dealOf(l) === 'sale' ? (l.salePriceSgd ?? 0) : l.monthlyRent;
-      if (price < min || price > max) return false;
-      // The inventory and performance reports are windowed on when the listing
-      // was created; enquiries are windowed on the enquiry, not the listing.
-      if (kind !== 'enquiries' && !inWindow(l.createdAt)) return false;
-      return true;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, status, deal, district, beds, minPrice, maxPrice, kind, window]);
-
-  const enquiries = useMemo(() => {
-    const ids = new Set(listings.map((l) => l.id));
-    return state.enquiries.filter((e) => ids.has(e.listingId) && inWindow(e.at));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.enquiries, listings, window]);
-
-  const rowCount = kind === 'enquiries' ? enquiries.length : listings.length;
+  const rowCount = f.kind === 'enquiries' ? enquiries.length : listings.length;
+  const win = reportWindow(f, TODAY);
+  const activeFilters = countFilters(f);
 
   const districts = useMemo(
-    () => [...new Set(live.map((l) => l.district))].sort((a, b) => a - b),
-    [live],
+    () => [...new Set(state.listings.filter((l) => !l.archived).map((l) => l.district))].sort((a, b) => a - b),
+    [state.listings],
   );
 
-  /* ------------------------------------------------------------- the file */
+  const sorts = SORTS.filter((s) => s.kinds.includes(f.kind));
+  const sortKey = sorts.some((s) => s.key === f.sort) ? f.sort : sorts[0].key;
 
-  const build = (): { columns: string[]; rows: (string | number)[][] } => {
-    const byId = new Map(live.map((l) => [l.id, l]));
+  const filename = () => `v-rent-${f.kind}-${win ? `${win.from}_to_${win.to}` : 'all-time'}.csv`;
+  const reset = () => setF(defaultFilters(TODAY));
 
-    if (kind === 'inventory') {
-      return {
-        columns: ['Reference', 'Status', 'Deal', 'Project', 'Unit', 'Address', 'Postal code', 'District',
-          'Property type', 'Bedrooms', 'Bathrooms', 'Size (sqft)', 'Price (S$)', 'Furnishing', 'Photos',
-          'Created', 'Published', 'Expires'],
-        rows: listings.map((l) => [
-          l.reference, l.status, dealOf(l), l.project, l.unitNo, l.address, l.postalCode,
-          `D${String(l.district).padStart(2, '0')} ${districtName(l.district)}`,
-          l.propertyType, l.bedrooms, l.bathrooms, l.sizeSqft,
-          dealOf(l) === 'sale' ? (l.salePriceSgd ?? 0) : l.monthlyRent,
-          l.furnishing, l.photos?.length ?? l.images, l.createdAt, l.publishedAt ?? '', l.expiresAt ?? '',
-        ]),
-      };
-    }
+  const openPdf = () => router.push(`/phase1/reports/print?${filtersToQuery({ ...f, sort: sortKey })}`);
 
-    if (kind === 'enquiries') {
-      return {
-        columns: ['Received', 'Listing', 'Reference', 'Unit', 'Name', 'Contact', 'Channel', 'Status',
-          'Budget (S$)', 'Move in', 'Message'],
-        rows: enquiries.map((e: Enquiry) => {
-          const l = byId.get(e.listingId);
-          return [
-            e.at, l?.project ?? e.listingId, l?.reference ?? '', l?.unitNo ?? '',
-            e.name, e.contact, e.channel, ENQUIRY_STATUS[e.status].label,
-            e.budget ?? '', e.moveIn ?? '', e.message.replace(/\s+/g, ' ').trim(),
-          ];
-        }),
-      };
-    }
-
-    return {
-      columns: ['Reference', 'Project', 'Unit', 'Status', 'Views (30 days)', 'Views (7 days)',
-        'Enquiries (30 days)', 'Saves', 'Enquiries per 100 views', 'Listing health'],
-      rows: listings.map((l) => {
-        const s = listingStats(l);
-        return [
-          l.reference, l.project, l.unitNo, l.status, s.views30d, s.views7d,
-          s.enquiries30d, s.saves, s.conversion.toFixed(1), listingHealth(l).score,
-        ];
-      }),
-    };
-  };
-
-  const preview = useMemo(() => build(), [kind, listings, enquiries]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-  const filename = () => {
-    const stamp = window ? `${window.from}_to_${window.to}` : 'all-time';
-    return `v-rent-${kind}-${stamp}.csv`;
-  };
-
-  const reset = () => {
-    setStatus([]); setDeal('all'); setDistrict('all'); setBeds('all');
-    setMinPrice(''); setMaxPrice(''); setPeriod('30');
-  };
-
-  const activeFilters = [
-    status.length > 0, deal !== 'all', district !== 'all', beds !== 'all',
-    minPrice !== '', maxPrice !== '',
-  ].filter(Boolean).length;
-
-  /* The printable version is the branded shortlist, which already carries the
-     compliance block. Only listings can be printed that way. */
-  const printable = kind !== 'enquiries' && listings.length > 0;
+  /* The photographed shortlist only makes sense for listings, and only when
+     there are some. Enquiries have no photographs to put on a page. */
+  const shortlistable = f.kind !== 'enquiries' && listings.length > 0;
 
   return (
     <>
       <PageHeader
-        crumbs={[{ label: 'Reports' }]}
         eyebrow="Business"
         title="Download a report"
-        description="Choose what you need and narrow it down. The count below updates as you go, so you can see what you are about to take before you take it."
+        description="Choose what you need and narrow it down. The count updates as you go, so you can see what you are about to take before you take it."
         actions={
-          <Button
-            variant="primary"
-            size="lg"
-            leftIcon={<Download size={17} />}
-            disabled={rowCount === 0}
-            onClick={() => download(filename(), toCsv(preview.columns, preview.rows))}
-          >
-            Download CSV
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              leftIcon={<FileText size={17} />}
+              disabled={rowCount === 0}
+              onClick={openPdf}
+            >
+              Export as PDF
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              leftIcon={<Download size={17} />}
+              disabled={rowCount === 0}
+              onClick={() => download(filename(), toCsv(table.columns, table.rows))}
+            >
+              Download CSV
+            </Button>
+          </>
         }
       />
 
       {/* ------------------------------------------------------ what to report */}
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {KINDS.map((k) => {
-          const on = kind === k.key;
+          const on = f.kind === k.key;
           return (
             <button
               key={k.key}
               type="button"
-              onClick={() => setKind(k.key)}
+              onClick={() => patch({ kind: k.key })}
               aria-pressed={on}
               className={cx(
                 'flex cursor-pointer flex-col items-start rounded-xl bg-p1-surface p-4 text-left transition-[box-shadow,transform,border-color] duration-200',
@@ -260,22 +191,23 @@ export default function ReportsPage() {
               >
                 <k.icon size={19} />
               </span>
-              <span className="mt-3 font-p1display text-[15.5px] font-bold text-p1-text">{k.label}</span>
+              <span className="mt-3 font-p1display text-[15.5px] font-bold text-p1-text">{KIND_LABEL[k.key]}</span>
               <span className="mt-1 text-[13px] leading-5 text-p1-text-2">{k.blurb}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
         {/* ---------------------------------------------------------- filters */}
         <div className="space-y-4">
           <SectionCard
             title="Filters"
+            description={activeFilters ? `${activeFilters} applied` : 'Everything you own'}
             padding="sm"
             actions={
-              activeFilters > 0 || period !== '30' ? (
-                <button type="button" onClick={reset} className="inline-flex cursor-pointer items-center gap-1.5 text-[12.5px] font-semibold text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">
+              activeFilters > 0 || f.period !== '30' ? (
+                <button type="button" onClick={reset} className="inline-flex cursor-pointer items-center gap-1.5 text-[12.5px] font-semibold text-p1-primary underline-offset-4 hover:underline dark:text-p1-info">
                   <RotateCcw size={12} aria-hidden />
                   Reset
                 </button>
@@ -285,45 +217,66 @@ export default function ReportsPage() {
             <div className="space-y-5">
               <div>
                 <span className="mb-2 block text-[12.5px] font-semibold text-p1-text-2">
-                  {kind === 'enquiries' ? 'Enquiries received' : 'Listings created'}
+                  {f.kind === 'enquiries' ? 'Enquiries received' : 'Listings created'}
                 </span>
-                <FilterChips options={PERIODS} value={period} onChange={setPeriod} label="Period" size="sm" />
-                {period === 'custom' && (
+                <FilterChips options={PERIODS} value={f.period} onChange={(v) => patch({ period: v })} label="Period" size="sm" />
+                {f.period === 'custom' && (
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <TextInput label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-                    <TextInput label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                    <TextInput label="From" type="date" value={f.from} onChange={(e) => patch({ from: e.target.value })} />
+                    <TextInput label="To" type="date" value={f.to} onChange={(e) => patch({ to: e.target.value })} />
                   </div>
                 )}
               </div>
 
-              <div>
-                <span className="mb-2 block text-[12.5px] font-semibold text-p1-text-2">Standing</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {STATUSES.map((s) => {
-                    const on = status.includes(s);
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => setStatus((cur) => (on ? cur.filter((x) => x !== s) : [...cur, s]))}
-                        className={cx(
-                          'cursor-pointer rounded-full px-3 py-1.5 text-[12.5px] font-semibold capitalize transition-colors',
-                          on ? 'bg-p1-primary text-white' : 'bg-p1-subtle text-p1-text-2 hover:text-p1-text',
-                        )}
-                      >
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
-                {status.length === 0 && <p className="mt-2 text-[12px] text-p1-text-3">Nothing chosen means every standing.</p>}
-              </div>
+              <SearchInput
+                size="sm"
+                label="Find"
+                value={f.q}
+                onChange={(v) => patch({ q: v })}
+                placeholder={f.kind === 'enquiries' ? 'Name, number or message' : 'Reference, project or road'}
+              />
+
+              <ChipSet
+                label="Listing standing"
+                value={f.status}
+                onChange={(v) => patch({ status: v })}
+                note="Nothing chosen means every standing."
+                options={LISTING_STATUSES.map((s) => ({
+                  key: s,
+                  label: LISTING_STATUS_LABEL[s as ListingStatus] ?? s.replace(/_/g, ' '),
+                }))}
+              />
+
+              <ChipSet
+                label="Property type"
+                value={f.types}
+                onChange={(v) => patch({ types: v })}
+                note="Nothing chosen means every type."
+                options={PROPERTY_TYPES.map((t) => ({ key: t, label: t === 'Executive Condominium' ? 'EC' : t }))}
+              />
+
+              {f.kind === 'enquiries' && (
+                <>
+                  <ChipSet
+                    label="Enquiry standing"
+                    value={f.enquiryStatus}
+                    onChange={(v) => patch({ enquiryStatus: v })}
+                    note="Nothing chosen means all of them."
+                    options={ENQUIRY_STATUSES.map((s) => ({ key: s, label: s }))}
+                  />
+                  <SelectInput
+                    label="Channel"
+                    value={f.channel}
+                    onChange={(e) => patch({ channel: e.target.value })}
+                    options={[{ value: 'all', label: 'Any channel' }, ...CHANNELS.map((c) => ({ value: c, label: c }))]}
+                  />
+                </>
+              )}
 
               <SelectInput
                 label="Sale or rent"
-                value={deal}
-                onChange={(e) => setDeal(e.target.value)}
+                value={f.deal}
+                onChange={(e) => patch({ deal: e.target.value as ReportFilters['deal'] })}
                 options={[
                   { value: 'all', label: 'Both' },
                   { value: 'rent', label: 'For rent' },
@@ -334,8 +287,8 @@ export default function ReportsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <SelectInput
                   label="District"
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
+                  value={f.district}
+                  onChange={(e) => patch({ district: e.target.value })}
                   options={[
                     { value: 'all', label: 'Any' },
                     ...districts.map((d) => ({ value: String(d), label: `D${String(d).padStart(2, '0')}` })),
@@ -343,8 +296,8 @@ export default function ReportsPage() {
                 />
                 <SelectInput
                   label="Bedrooms"
-                  value={beds}
-                  onChange={(e) => setBeds(e.target.value)}
+                  value={f.beds}
+                  onChange={(e) => patch({ beds: e.target.value })}
                   options={[
                     { value: 'all', label: 'Any' },
                     { value: '1', label: '1' },
@@ -355,9 +308,52 @@ export default function ReportsPage() {
                 />
               </div>
 
+              <SelectInput
+                label="Furnishing"
+                value={f.furnishing}
+                onChange={(e) => patch({ furnishing: e.target.value })}
+                options={[{ value: 'all', label: 'Any' }, ...FURNISHINGS.map((x) => ({ value: x, label: x }))]}
+              />
+
               <div className="grid grid-cols-2 gap-3">
-                <TextInput label="Price from" inputMode="numeric" placeholder="Any" value={minPrice} onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ''))} />
-                <TextInput label="Price to" inputMode="numeric" placeholder="Any" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ''))} />
+                <TextInput label="Price from" inputMode="numeric" placeholder="Any" value={f.minPrice} onChange={(e) => patch({ minPrice: e.target.value.replace(/\D/g, '') })} />
+                <TextInput label="Price to" inputMode="numeric" placeholder="Any" value={f.maxPrice} onChange={(e) => patch({ maxPrice: e.target.value.replace(/\D/g, '') })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <TextInput label="Size from (sqft)" inputMode="numeric" placeholder="Any" value={f.minSize} onChange={(e) => patch({ minSize: e.target.value.replace(/\D/g, '') })} />
+                <TextInput label="Size to (sqft)" inputMode="numeric" placeholder="Any" value={f.maxSize} onChange={(e) => patch({ maxSize: e.target.value.replace(/\D/g, '') })} />
+              </div>
+
+              <SelectInput
+                label="Listing health"
+                value={f.minHealth}
+                onChange={(e) => patch({ minHealth: e.target.value })}
+                hint="Useful for finding the listings that need work."
+                options={[
+                  { value: '', label: 'Any score' },
+                  { value: '90', label: '90 and above' },
+                  { value: '70', label: '70 and above' },
+                  { value: '50', label: '50 and above' },
+                ]}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <SelectInput
+                  label="Sort by"
+                  value={sortKey}
+                  onChange={(e) => patch({ sort: e.target.value })}
+                  options={sorts.map((s) => ({ value: s.key, label: s.label }))}
+                />
+                <SelectInput
+                  label="Order"
+                  value={f.dir}
+                  onChange={(e) => patch({ dir: e.target.value as 'asc' | 'desc' })}
+                  options={[
+                    { value: 'desc', label: 'Highest first' },
+                    { value: 'asc', label: 'Lowest first' },
+                  ]}
+                />
               </div>
             </div>
           </SectionCard>
@@ -368,9 +364,8 @@ export default function ReportsPage() {
               What comes out
             </div>
             <p className="mt-1.5 text-[12.5px] leading-[1.5] text-p1-text-2">
-              CSV opens in Excel and Numbers with the columns already named. The printable version carries your CEA
-              registration and agency licence on every page, which the advertising rules require on anything you send
-              a client.
+              CSV opens in Excel and Numbers with the columns already named. The PDF carries your CEA registration and
+              agency licence on every page, which the advertising rules require on anything you send a client.
             </p>
           </div>
         </div>
@@ -381,36 +376,38 @@ export default function ReportsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-p1-border px-5 py-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="font-p1display text-[17px] font-bold text-p1-text">
-                    {KINDS.find((k) => k.key === kind)!.label}
-                  </h2>
+                  <h2 className="font-p1display text-[17px] font-bold text-p1-text">{KIND_LABEL[f.kind]}</h2>
                   <Pill tone={rowCount > 0 ? 'info' : 'neutral'}>
                     {rowCount} {rowCount === 1 ? 'row' : 'rows'}
                   </Pill>
                 </div>
                 <p className="mt-0.5 text-[12.5px] text-p1-text-3">
-                  {window ? `${window.from} to ${window.to}` : 'All time'}
+                  {win ? `${win.from} to ${win.to}` : 'All time'}
                   {activeFilters > 0 && ` · ${activeFilters} ${activeFilters === 1 ? 'filter' : 'filters'} applied`}
-                  {' · '}{preview.columns.length} columns
+                  {' · '}{table.columns.length} columns
+                  {' · '}sorted by {sorts.find((s) => s.key === sortKey)?.label.toLowerCase()}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {printable && (
+                {shortlistable && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     leftIcon={<Printer size={16} />}
                     onClick={() => router.push(`/phase1/listings/export?ids=${listings.map((l) => l.id).join(',')}`)}
                   >
-                    Printable version
+                    Photo shortlist
                   </Button>
                 )}
+                <Button variant="outline" leftIcon={<FileText size={16} />} disabled={rowCount === 0} onClick={openPdf}>
+                  PDF
+                </Button>
                 <Button
                   variant="primary"
                   leftIcon={<FileSpreadsheet size={16} />}
                   disabled={rowCount === 0}
-                  onClick={() => download(filename(), toCsv(preview.columns, preview.rows))}
+                  onClick={() => download(filename(), toCsv(table.columns, table.rows))}
                 >
-                  Download CSV
+                  CSV
                 </Button>
               </div>
             </div>
@@ -418,7 +415,7 @@ export default function ReportsPage() {
             {rowCount === 0 ? (
               <EmptyState
                 className="border-0"
-                icon={<FileSpreadsheet size={22} />}
+                icon={<Search size={22} />}
                 title="Nothing matches those filters"
                 description="Widen the period, or clear a filter or two. The count updates as you change them."
                 action={<Button variant="outline" leftIcon={<RotateCcw size={15} />} onClick={reset}>Reset the filters</Button>}
@@ -429,17 +426,17 @@ export default function ReportsPage() {
                   <table className="w-full text-left text-[13px]">
                     <thead>
                       <tr className="border-b border-p1-border bg-p1-subtle/60">
-                        {preview.columns.map((c) => (
+                        {table.columns.map((c) => (
                           <th key={c} className="whitespace-nowrap px-3.5 py-2.5 font-semibold text-p1-text-2">{c}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.rows.slice(0, 8).map((r, i) => (
+                      {table.rows.slice(0, 8).map((r, i) => (
                         <tr key={i} className="border-b border-p1-border last:border-b-0">
                           {r.map((cell, j) => (
                             <td key={j} className="max-w-[220px] truncate whitespace-nowrap px-3.5 py-2.5 text-p1-text">
-                              {typeof cell === 'number' && preview.columns[j].includes('S$') ? sgd(cell) : String(cell || '—')}
+                              {typeof cell === 'number' && table.columns[j].includes('S$') ? sgd(cell) : String(cell === '' || cell === undefined ? '—' : cell)}
                             </td>
                           ))}
                         </tr>
@@ -447,9 +444,10 @@ export default function ReportsPage() {
                     </tbody>
                   </table>
                 </div>
-                {preview.rows.length > 8 && (
-                  <p className="border-t border-p1-border px-5 py-3 text-[12.5px] text-p1-text-3">
-                    Showing the first 8 of {preview.rows.length}. The download has all of them.
+                {table.rows.length > 8 && (
+                  <p className="flex items-center gap-2 border-t border-p1-border px-5 py-3 text-[12.5px] text-p1-text-3">
+                    <ArrowDownUp size={13} aria-hidden />
+                    Showing the first 8 of {table.rows.length}. Both downloads have all of them.
                   </p>
                 )}
               </>

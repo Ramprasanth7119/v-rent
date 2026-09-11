@@ -73,7 +73,7 @@ export function AuthLayout({
   wide?: boolean;
 }) {
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-b from-[#E8F0FF] to-p1-bg px-4 py-6 sm:px-6 sm:py-10 dark:from-[#101B38]">
+    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-b from-[#E1EFF4] to-p1-bg px-4 py-6 sm:px-6 sm:py-10 dark:from-[#0C2630]">
       <Skyline />
 
       <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1120px] flex-col sm:min-h-[calc(100vh-5rem)]">
@@ -102,7 +102,7 @@ export function AuthLayout({
               />
 
               <Link href="/phase1" className="relative flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-accent font-p1display text-[19px] font-bold text-[#0B1B45]">V</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-accent font-p1display text-[19px] font-bold text-[#062B3A]">V</span>
                 <span>
                   <span className="block font-p1display text-[15.5px] font-bold leading-5 tracking-[-0.02em]">V-RENT</span>
                   <span className="block text-[11.5px] text-p1-accent">Singapore rental platform for agents</span>
