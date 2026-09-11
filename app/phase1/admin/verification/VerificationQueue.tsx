@@ -238,7 +238,7 @@ export default function VerificationQueue({
                   {/* decision */}
                   <div className="flex flex-wrap items-center gap-2 border-t border-p1-border bg-p1-subtle/40 px-5 py-3.5">
                     <Button
-                      variant="accent"
+                      variant="primary"
                       leftIcon={<Check size={15} />}
                       loading={busy === app.accountId}
                       disabled={app.match === 'not_found'}

@@ -63,7 +63,7 @@ function SandboxCheckout() {
 
       <div className="mt-7 space-y-2">
         <Button
-          variant="accent"
+          variant="primary"
           size="lg"
           block
           disabled={busy !== null}

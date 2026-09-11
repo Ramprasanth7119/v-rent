@@ -51,7 +51,7 @@ export default function PropertiesPage() {
         eyebrow="Workspace"
         title="Properties"
         description="Every building and development you have units in. Listings attach to a property, so one address is never entered twice."
-        actions={<LinkButton href="/phase1/listings/new" variant="accent" leftIcon={<Plus size={16} />}>Add property</LinkButton>}
+        actions={<LinkButton href="/phase1/listings/new" variant="primary" leftIcon={<Plus size={16} />}>Add property</LinkButton>}
       />
 
       <div className="vr-stagger mb-6 grid gap-4 grid-cols-2 xl:grid-cols-4">
@@ -78,7 +78,7 @@ export default function PropertiesPage() {
             icon={<MapPinned size={26} />}
             title={properties.length === 0 ? 'No properties yet' : 'No properties match'}
             description={properties.length === 0 ? 'Add your first property to start creating rental listings.' : 'Try a different search or clear the filters.'}
-            action={<LinkButton href="/phase1/listings/new" variant="accent" leftIcon={<Plus size={16} />}>Add your first property</LinkButton>}
+            action={<LinkButton href="/phase1/listings/new" variant="primary" leftIcon={<Plus size={16} />}>Add your first property</LinkButton>}
           />
         </Card>
       ) : (

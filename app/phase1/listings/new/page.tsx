@@ -548,7 +548,7 @@ function ListingWizard() {
                           change what differs for this unit.
                         </p>
                       </div>
-                      <Button size="sm" variant="accent" onClick={applyTemplate}>Use those details</Button>
+                      <Button size="sm" variant="primary" onClick={applyTemplate}>Use those details</Button>
                     </div>
                   )}
                 </div>
@@ -702,20 +702,20 @@ function ListingWizard() {
                   )}
                   <Button variant="outline" leftIcon={<Save size={16} />} disabled={!addr} onClick={saveChanges}>Save changes</Button>
                   {editing.status === 'rejected' && (
-                    <Button variant="accent" leftIcon={<Send size={16} />} disabled={!addr} onClick={resubmit}>Resubmit for review</Button>
+                    <Button variant="primary" leftIcon={<Send size={16} />} disabled={!addr} onClick={resubmit}>Resubmit for review</Button>
                   )}
                   {editing.status === 'draft' && (
-                    <Button variant="accent" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish || !addr} onClick={() => setConfirmPublish(true)}>
+                    <Button variant="primary" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish || !addr} onClick={() => setConfirmPublish(true)}>
                       {canPublish ? 'Publish listing' : 'Publication blocked'}
                     </Button>
                   )}
                 </div>
               ) : step < STEPS.length - 1 ? (
-                <Button variant="accent" rightIcon={<ChevronRight size={16} />} disabled={!canAdvance} onClick={() => setStep((s) => s + 1)}>Continue</Button>
+                <Button variant="primary" rightIcon={<ChevronRight size={16} />} disabled={!canAdvance} onClick={() => setStep((s) => s + 1)}>Continue</Button>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => void saveDraft()}>Save as draft</Button>
-                  <Button variant="accent" size="md" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish} onClick={() => setConfirmPublish(true)}>
+                  <Button variant="primary" size="md" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish} onClick={() => setConfirmPublish(true)}>
                     {canPublish ? 'Publish listing' : 'Publication blocked'}
                   </Button>
                 </div>

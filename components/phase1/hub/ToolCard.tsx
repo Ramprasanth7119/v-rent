@@ -23,11 +23,11 @@ function IconTile({ tool, size = 'md' }: { tool: HubTool; size?: 'md' | 'lg' }) 
     <span
       aria-hidden
       className={cx(
-        'flex shrink-0 items-center justify-center rounded-lg border',
-        size === 'lg' ? 'h-12 w-12' : 'h-10 w-10',
+        'flex shrink-0 items-center justify-center rounded-xl transition-colors duration-150',
+        size === 'lg' ? 'h-12 w-12' : 'h-11 w-11',
         live
-          ? 'border-p1-primary/15 bg-p1-primary-soft text-p1-primary dark:text-p1-text'
-          : 'border-p1-border bg-p1-subtle text-p1-text-3',
+          ? 'bg-p1-primary-soft text-p1-primary group-hover:bg-p1-primary group-hover:text-white dark:text-p1-text'
+          : 'bg-p1-subtle text-p1-text-3',
       )}
     >
       <Icon size={size === 'lg' ? 22 : 19} />
@@ -36,7 +36,7 @@ function IconTile({ tool, size = 'md' }: { tool: HubTool; size?: 'md' | 'lg' }) 
 }
 
 const CARD_BASE =
-  'group flex h-full flex-col rounded-xl border bg-p1-surface p-4 text-left transition-[border-color,box-shadow] duration-150';
+  'group relative flex h-full flex-col overflow-hidden rounded-xl bg-p1-surface p-4 text-left transition-[box-shadow,transform,background-color] duration-200';
 
 export function ToolCard({ tool, onOpenDetail }: { tool: HubTool; onOpenDetail: (t: HubTool) => void }) {
   const live = tool.status === 'live';
@@ -51,7 +51,7 @@ export function ToolCard({ tool, onOpenDetail }: { tool: HubTool; onOpenDetail: 
           </Pill>
         )}
       </div>
-      <div className="mt-3.5 text-[15px] font-semibold leading-5 text-p1-text">{tool.name}</div>
+      <div className="mt-3.5 font-p1display text-[15.5px] font-bold leading-5 tracking-[-0.01em] text-p1-text">{tool.name}</div>
       <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">{tool.blurb}</p>
       <span
         className={cx(
@@ -78,7 +78,7 @@ export function ToolCard({ tool, onOpenDetail }: { tool: HubTool; onOpenDetail: 
     return (
       <Link
         href={tool.href}
-        className={cx(CARD_BASE, 'border-p1-border hover:border-p1-border-strong hover:shadow-p1-sm')}
+        className={cx(CARD_BASE, 'shadow-p1-sm ring-1 ring-p1-border hover:-translate-y-1 hover:shadow-p1-md hover:ring-p1-primary/30')}
       >
         {body}
       </Link>
@@ -89,7 +89,7 @@ export function ToolCard({ tool, onOpenDetail }: { tool: HubTool; onOpenDetail: 
     <button
       type="button"
       onClick={() => onOpenDetail(tool)}
-      className={cx(CARD_BASE, 'cursor-pointer border-dashed border-p1-border hover:border-p1-border-strong hover:bg-p1-subtle/40')}
+      className={cx(CARD_BASE, 'cursor-pointer border border-dashed border-p1-border bg-p1-surface/50 hover:-translate-y-0.5 hover:border-p1-border-strong hover:bg-p1-surface')}
     >
       {body}
     </button>

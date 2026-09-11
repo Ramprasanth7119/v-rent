@@ -132,7 +132,7 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
           <>
             <Button variant="outline" leftIcon={<MessageSquare size={15} />} onClick={() => setMessage(true)}>Message agent</Button>
             {isSuspended ? (
-              <Button variant="accent" loading={busy} leftIcon={<RotateCcw size={15} />} onClick={() => setConfirm('reinstate')}>Reinstate</Button>
+              <Button variant="primary" loading={busy} leftIcon={<RotateCcw size={15} />} onClick={() => setConfirm('reinstate')}>Reinstate</Button>
             ) : (
               <Button variant="danger" loading={busy} leftIcon={<Ban size={15} />} onClick={() => setConfirm('suspend')}>Suspend</Button>
             )}

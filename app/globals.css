@@ -202,24 +202,47 @@ body {
    ============================================================ */
 
 .p1 {
-  --p1-bg: #F7F8FA;
+  /* --------------------------------------------------------------- surfaces
+     A page is white with a faint blue cast, not grey. Grey backgrounds read as
+     administrative; the Singapore portals sit on near-white with blue-tinted
+     panels, and the tint is what makes a card feel placed rather than drawn. */
+  --p1-bg: #F5F8FE;
   --p1-surface: #FFFFFF;
   --p1-elevated: #FFFFFF;
-  --p1-subtle: #F1F3F7;
-  --p1-border: #E4E7EC;
-  --p1-border-strong: #CDD3DC;
-  --p1-text: #111827;
-  --p1-text-2: #4B5563;
-  --p1-text-3: #6B7280;
-  --p1-primary: #14346B;
-  --p1-primary-hover: #1B4489;
-  --p1-primary-soft: #EAF0FB;
+  --p1-subtle: #EFF4FF;
+  --p1-border: #E2E9F7;
+  --p1-border-strong: #C3D1EC;
+
+  /* ------------------------------------------------------------------- ink
+     Headings are navy rather than near-black. It is the one thing that makes a
+     property page look like a property page here. */
+  --p1-text: #0B1B45;
+  --p1-text-2: #47557A;
+  --p1-text-3: #77849F;
+
+  /* ---------------------------------------------------------------- action
+     One action colour, and it is bright. The previous navy primary was the
+     same value as the ink, so nothing on the page looked clickable. */
+  --p1-primary: #1355FF;
+  --p1-primary-hover: #0B45D8;
+  --p1-primary-soft: #E7EFFF;
   --p1-primary-on: #FFFFFF;
-  --p1-accent: #D4AF37;
-  --p1-accent-hover: #C6A22C;
-  --p1-accent-text: #7A5C0E;
-  --p1-accent-soft: #FBF4DE;
-  --p1-accent-on: #0B1E3F;
+
+  /* ----------------------------------------------------------------- accent
+     Gold is the brand mark, and it now earns its place by appearing only where
+     blue cannot: on the navy hero and the navy sidebar. Two competing call-to-
+     action colours on one light screen is what made this look generic. */
+  --p1-accent: #F2B322;
+  --p1-accent-hover: #E0A310;
+  --p1-accent-text: #8A6410;
+  --p1-accent-soft: #FEF6E0;
+  --p1-accent-on: #0B1B45;
+
+  /* A badge colour, for the one label per screen that should catch the eye. */
+  --p1-highlight: #E8347F;
+  --p1-highlight-soft: #FFEAF3;
+  --p1-highlight-border: #FFC7DF;
+
   --p1-success: #067647;
   --p1-success-soft: #ECFDF3;
   --p1-success-border: #ABEFC6;
@@ -229,15 +252,20 @@ body {
   --p1-danger: #B42318;
   --p1-danger-soft: #FEF3F2;
   --p1-danger-border: #FECDCA;
-  --p1-info: #175CD3;
-  --p1-info-soft: #EFF4FF;
-  --p1-info-border: #B2CCFF;
-  --p1-sidebar: #0E2350;
-  --p1-sidebar-2: #0A1A3C;
-  --p1-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
-  --p1-shadow-md: 0 2px 6px -1px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
-  --p1-shadow-lg: 0 12px 28px -10px rgba(17, 24, 39, 0.16), 0 2px 5px rgba(17, 24, 39, 0.05);
-  --p1-ring: rgba(20, 52, 107, 0.28);
+  --p1-info: #1355FF;
+  --p1-info-soft: #E7EFFF;
+  --p1-info-border: #BBD1FF;
+
+  --p1-sidebar: #0A1B44;
+  --p1-sidebar-2: #06122F;
+
+  /* Shadows carry a little of the page's blue, so a raised card reads as lit
+     rather than smudged. Cards lean on these instead of a hairline border. */
+  --p1-shadow-sm: 0 1px 2px rgba(11, 27, 69, 0.06);
+  --p1-shadow-md: 0 4px 16px -4px rgba(11, 27, 69, 0.10), 0 1px 3px rgba(11, 27, 69, 0.05);
+  --p1-shadow-lg: 0 20px 44px -16px rgba(11, 27, 69, 0.24), 0 4px 10px rgba(11, 27, 69, 0.07);
+  --p1-ring: rgba(19, 85, 255, 0.30);
+
   --font-p1-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-p1-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
@@ -249,25 +277,29 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+
 .dark .p1 {
-  --p1-bg: #0B1017;
-  --p1-surface: #121923;
-  --p1-elevated: #182230;
-  --p1-subtle: #1A2330;
-  --p1-border: #243040;
-  --p1-border-strong: #364659;
-  --p1-text: #EEF2F7;
-  --p1-text-2: #B3BECD;
-  --p1-text-3: #8593A6;
-  --p1-primary: #4C72CC;
-  --p1-primary-hover: #5B81DB;
-  --p1-primary-soft: #1A2740;
-  --p1-primary-on: #FFFFFF;
-  --p1-accent: #E2BC4E;
-  --p1-accent-hover: #ECC85F;
-  --p1-accent-text: #E2BC4E;
-  --p1-accent-soft: #2B2410;
-  --p1-accent-on: #0B1E3F;
+  --p1-bg: #070C18;
+  --p1-surface: #0F1626;
+  --p1-elevated: #162033;
+  --p1-subtle: #172136;
+  --p1-border: #223049;
+  --p1-border-strong: #33456A;
+  --p1-text: #EDF1FA;
+  --p1-text-2: #AEBBD4;
+  --p1-text-3: #8090AE;
+  --p1-primary: #5E8BFF;
+  --p1-primary-hover: #7AA0FF;
+  --p1-primary-soft: #16254A;
+  --p1-primary-on: #06122F;
+  --p1-accent: #F2B322;
+  --p1-accent-hover: #FFC340;
+  --p1-accent-text: #F2B322;
+  --p1-accent-soft: #2C2410;
+  --p1-accent-on: #06122F;
+  --p1-highlight: #FF6FA8;
+  --p1-highlight-soft: #33162A;
+  --p1-highlight-border: #6B2447;
   --p1-success: #4ADE80;
   --p1-success-soft: #0D2A1C;
   --p1-success-border: #1E5A3A;
@@ -277,16 +309,17 @@ body {
   --p1-danger: #F87171;
   --p1-danger-soft: #2C1414;
   --p1-danger-border: #7A2626;
-  --p1-info: #7AA7FF;
-  --p1-info-soft: #101F3A;
-  --p1-info-border: #23407A;
-  --p1-sidebar: #0A1220;
-  --p1-sidebar-2: #070D18;
+  --p1-info: #5E8BFF;
+  --p1-info-soft: #16254A;
+  --p1-info-border: #2B4685;
+  --p1-sidebar: #070F22;
+  --p1-sidebar-2: #040A17;
   --p1-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --p1-shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.5);
   --p1-shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.7);
-  --p1-ring: rgba(226, 188, 78, 0.4);
+  --p1-ring: rgba(94, 139, 255, 0.45);
 }
+
 
 @theme inline {
   --color-p1-bg: var(--p1-bg);
@@ -307,6 +340,9 @@ body {
   --color-p1-accent-text: var(--p1-accent-text);
   --color-p1-accent-soft: var(--p1-accent-soft);
   --color-p1-accent-on: var(--p1-accent-on);
+  --color-p1-highlight: var(--p1-highlight);
+  --color-p1-highlight-soft: var(--p1-highlight-soft);
+  --color-p1-highlight-border: var(--p1-highlight-border);
   --color-p1-success: var(--p1-success);
   --color-p1-success-soft: var(--p1-success-soft);
   --color-p1-success-border: var(--p1-success-border);
@@ -415,10 +451,13 @@ body {
    Scoped to `.p1` so the consumer application is untouched.
    ============================================================ */
 
-.p1 .rounded-2xl { border-radius: 12px; }
-.p1 .rounded-xl  { border-radius: 10px; }
-.p1 .rounded-lg  { border-radius: 8px; }
-.p1 .rounded-md  { border-radius: 6px; }
+/* Rounder than an enterprise dashboard, because this is a consumer-facing
+   product that agents use all day. The Singapore portals sit around 16px on a
+   card and full pills on anything small. */
+.p1 .rounded-2xl { border-radius: 20px; }
+.p1 .rounded-xl  { border-radius: 16px; }
+.p1 .rounded-lg  { border-radius: 12px; }
+.p1 .rounded-md  { border-radius: 9px; }
 
 /* Display face carries weight, not a different family. */
 .p1 .font-p1display {

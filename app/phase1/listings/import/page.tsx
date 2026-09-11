@@ -327,7 +327,7 @@ export default function ImportPage() {
             action={
               <div className="flex flex-wrap gap-2">
                 <Button variant="ghost" onClick={() => setStage('upload')}>Choose another file</Button>
-                <Button variant="accent" onClick={() => setConfirm(true)}>Import {importable} listings</Button>
+                <Button variant="primary" onClick={() => setConfirm(true)}>Import {importable} listings</Button>
               </div>
             }>
             A slot on your plan is used only when a draft is published, and each one passes the same checks as a listing you create by hand.
@@ -348,7 +348,7 @@ export default function ImportPage() {
             title={`${importable} listings imported as drafts`}
             description={`${bad.length} row${bad.length === 1 ? ' was' : 's were'} skipped and a per-row error report has been emailed to you. Add photos to each draft, then publish.`}
             action={<>
-              <LinkButton href="/phase1/listings" variant="accent">View my listings</LinkButton>
+              <LinkButton href="/phase1/listings" variant="primary">View my listings</LinkButton>
               <Button variant="outline" onClick={() => setStage('upload')}>Import another file</Button>
             </>} />
         </Card>

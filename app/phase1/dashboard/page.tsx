@@ -123,7 +123,7 @@ export default function DashboardPage() {
         actions={
           <>
             <LinkButton href="/phase1/listings/import" variant="outline" leftIcon={<Upload size={16} />}>Import listings</LinkButton>
-            <LinkButton href="/phase1/listings/new" variant="accent" leftIcon={<Plus size={16} />}>Create listing</LinkButton>
+            <LinkButton href="/phase1/listings/new" variant="primary" leftIcon={<Plus size={16} />}>Create listing</LinkButton>
           </>
         }
       />

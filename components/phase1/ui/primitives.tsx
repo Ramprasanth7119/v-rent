@@ -30,23 +30,26 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const BTN_VARIANT: Record<ButtonVariant, string> = {
-  primary:          'bg-p1-primary text-p1-primary-on hover:bg-p1-primary-hover',
-  secondary:        'bg-p1-primary-soft text-p1-primary hover:bg-p1-border dark:text-p1-text',
+  primary:          'bg-p1-primary text-p1-primary-on shadow-p1-sm hover:bg-p1-primary-hover hover:shadow-p1-md',
+  secondary:        'bg-p1-primary-soft text-p1-primary hover:bg-p1-primary-soft/70 dark:text-p1-text',
   outline:          'border border-p1-border-strong bg-p1-surface text-p1-text hover:bg-p1-subtle',
   ghost:            'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text',
-  accent:           'bg-p1-accent text-p1-accent-on hover:bg-p1-accent-hover font-semibold',
+  /* Gold is for a navy surface, where blue would disappear. On a light page
+     the action colour is blue — two competing call-to-action colours on one
+     screen is what makes an interface look assembled rather than designed. */
+  accent:           'bg-p1-accent text-p1-accent-on hover:bg-p1-accent-hover font-semibold shadow-p1-sm',
   danger:           'bg-p1-danger text-white hover:opacity-90',
   'danger-outline': 'border border-p1-danger-border bg-p1-surface text-p1-danger hover:bg-p1-danger-soft',
   link:             'text-p1-primary underline-offset-4 hover:underline px-0 h-auto dark:text-p1-info',
 };
 
 export const BTN_SIZE: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3 text-[13px] gap-1.5 rounded-lg',
-  md: 'h-11 px-4 text-[14px] gap-2 rounded-lg',
-  lg: 'h-12 px-5 text-[15px] gap-2.5 rounded-lg',
+  sm: 'h-9 px-3.5 text-[13px] gap-1.5 rounded-full',
+  md: 'h-11 px-5 text-[14px] gap-2 rounded-full',
+  lg: 'h-12 px-6 text-[15px] gap-2.5 rounded-full',
 };
 
-const BTN_BASE = 'inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-[background-color,box-shadow,transform,opacity,border-color] duration-150 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer';
+const BTN_BASE = 'inline-flex select-none items-center justify-center whitespace-nowrap font-semibold transition-[background-color,box-shadow,transform,opacity,border-color] duration-150 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer';
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = 'primary', size = 'md', loading = false, leftIcon, rightIcon, block, className = '', disabled, children, type = 'button', ...rest },

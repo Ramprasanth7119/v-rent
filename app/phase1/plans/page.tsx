@@ -87,7 +87,7 @@ export default function PlansPage() {
                 <Button className="mt-6" variant="outline" size="lg" block disabled leftIcon={<Check size={16} />}>Current plan</Button>
               ) : (
                 <Button
-                  className="mt-6" variant={recommended ? 'accent' : 'primary'} size="lg" block disabled={locked}
+                  className="mt-6" variant={recommended ? 'primary' : 'primary'} size="lg" block disabled={locked}
                   leftIcon={locked ? <Lock size={16} /> : undefined}
                   onClick={() => { set({ plan: p }); router.push('/phase1/checkout'); }}
                 >

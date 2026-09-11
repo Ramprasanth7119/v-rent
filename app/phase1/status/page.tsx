@@ -64,10 +64,10 @@ export default function StatusPage() {
               </>
             )}
             {a === 'approved' && (
-              <Button variant="accent" size="lg" onClick={() => router.push('/phase1/plans')} rightIcon={<ArrowRight size={17} />}>Choose a plan</Button>
+              <Button variant="primary" size="lg" onClick={() => router.push('/phase1/plans')} rightIcon={<ArrowRight size={17} />}>Choose a plan</Button>
             )}
             {a === 'not_submitted' && (
-              <Button variant="accent" onClick={() => router.push('/phase1/profile')} rightIcon={<ArrowRight size={17} />}>Complete your profile</Button>
+              <Button variant="primary" onClick={() => router.push('/phase1/profile')} rightIcon={<ArrowRight size={17} />}>Complete your profile</Button>
             )}
           </div>
         </div>

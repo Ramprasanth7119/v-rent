@@ -141,7 +141,7 @@ export default function PerformancePage() {
             icon={<Building2 size={26} />}
             title="Nothing is live yet"
             description="Performance appears once a listing is published. Publish a draft to start collecting views and enquiries."
-            action={<LinkButton href="/phase1/listings?status=draft" variant="accent">See your drafts</LinkButton>}
+            action={<LinkButton href="/phase1/listings?status=draft" variant="primary">See your drafts</LinkButton>}
           />
         </Card>
       ) : (

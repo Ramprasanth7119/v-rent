@@ -15,7 +15,7 @@ import { Tone, TONE_CLASS } from '../status';
 export function Card({
   children, className = '', padding = 'md', interactive = false, elevated = false, as: Tag = 'div', ...rest
 }: React.HTMLAttributes<HTMLElement> & { padding?: 'none' | 'sm' | 'md' | 'lg'; interactive?: boolean; elevated?: boolean; as?: 'div' | 'section' | 'article' | 'li' }) {
-  const pad = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6 sm:p-7' }[padding];
+  const pad = { none: '', sm: 'p-4', md: 'p-5', lg: 'p-6 sm:p-8' }[padding];
   return (
     <Tag
       className={cx(
@@ -24,7 +24,7 @@ export function Card({
         !/(^|\s)bg-/.test(className) && 'bg-p1-surface',
         !/(^|\s)text-(white|p1-)/.test(className) && 'text-p1-text',
         elevated && 'shadow-p1-md',
-        interactive && 'transition-[box-shadow,border-color] duration-150 hover:border-p1-border-strong hover:shadow-p1-sm',
+        interactive && 'transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-p1-md',
         pad, className,
       )}
       {...rest}
@@ -47,7 +47,7 @@ export function SectionCard({
         <div className="flex min-w-0 items-center gap-2.5">
           {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden>{icon}</span>}
           <div className="min-w-0">
-            <h2 className="text-[15px] font-semibold leading-5 text-p1-text">{title}</h2>
+            <h2 className="font-p1display text-[16.5px] font-bold leading-5 tracking-[-0.01em] text-p1-text">{title}</h2>
             {description && <p className="mt-0.5 text-[13px] leading-5 text-p1-text-3">{description}</p>}
           </div>
         </div>
@@ -97,7 +97,7 @@ export function PageHeader({
           {avatar}
           <div className="min-w-0">
             {eyebrow && <div className="mb-1.5 text-[12.5px] font-semibold text-p1-text-3">{eyebrow}</div>}
-            <h1 className={cx('font-p1display font-medium leading-[1.15] tracking-[-0.01em] text-p1-text text-balance', size === 'lg' ? 'text-[30px] sm:text-[36px]' : 'text-[26px] sm:text-[30px]')}>{title}</h1>
+            <h1 className={cx('font-p1display font-bold leading-[1.1] tracking-[-0.022em] text-p1-text text-balance', size === 'lg' ? 'text-[34px] sm:text-[44px]' : 'text-[28px] sm:text-[34px]')}>{title}</h1>
             {description && <p className="mt-1.5 max-w-2xl text-[14px] leading-6 text-p1-text-2">{description}</p>}
             {meta && <div className="mt-2.5 flex flex-wrap items-center gap-2">{meta}</div>}
           </div>
@@ -112,7 +112,7 @@ export function SectionTitle({ children, hint, actions, className = '', as: Tag 
   return (
     <div className={cx('mb-3 flex flex-wrap items-end justify-between gap-2', className)}>
       <div>
-        <Tag className="text-[15px] font-semibold text-p1-text">{children}</Tag>
+        <Tag className="font-p1display text-[19px] font-bold tracking-[-0.015em] text-p1-text">{children}</Tag>
         {hint && <p className="mt-0.5 text-[13px] text-p1-text-3">{hint}</p>}
       </div>
       {actions}
@@ -153,7 +153,7 @@ export function Metric({
         {icon && <span className="shrink-0 text-p1-text-3" aria-hidden>{icon}</span>}
       </div>
       <div className="mt-1.5 flex items-baseline gap-2">
-        <span className={cx('text-[26px] font-semibold leading-none tracking-tight tabular-nums', emphasis ? 'font-p1display text-[30px] font-medium' : '', VALUE_TONE[tone])}>{value}</span>
+        <span className={cx('font-p1display text-[28px] font-bold leading-none tracking-[-0.02em] tabular-nums', emphasis ? 'text-[32px]' : '', VALUE_TONE[tone])}>{value}</span>
         {delta && (
           <span className={cx('text-[12px] font-semibold tabular-nums', delta.good === false ? 'text-p1-danger' : delta.good ? 'text-p1-success' : 'text-p1-text-3')} title={delta.label}>{delta.value}</span>
         )}
@@ -178,7 +178,7 @@ export function StatCard({
         <span className="text-[12.5px] font-medium text-p1-text-3">{label}</span>
         {icon && <span className="text-p1-text-3" aria-hidden>{icon}</span>}
       </div>
-      <div className={cx('mt-2 text-[26px] font-semibold leading-none tracking-tight tabular-nums', VALUE_TONE[tone])}>{value}</div>
+      <div className={cx('mt-2 font-p1display text-[28px] font-bold leading-none tracking-[-0.02em] tabular-nums', VALUE_TONE[tone])}>{value}</div>
       {(hint || delta) && (
         <div className="mt-2 flex items-center gap-2 text-[12.5px] text-p1-text-3">
           {delta && <span className={cx('font-semibold', delta.good === false ? 'text-p1-danger' : delta.good ? 'text-p1-success' : '')}>{delta.value}</span>}

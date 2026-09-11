@@ -195,7 +195,7 @@ export default function PaymentPage() {
 
               <Button
                 className="mt-6"
-                variant="accent"
+                variant="primary"
                 size="lg"
                 block
                 disabled={starting}
@@ -296,7 +296,7 @@ export default function PaymentPage() {
                 </p>
                 <p className="mt-2 text-[13px] text-p1-text-3">Reference {intent.ref}</p>
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <Button variant="accent" size="lg" onClick={() => router.push('/phase1/dashboard')}>
+                  <Button variant="primary" size="lg" onClick={() => router.push('/phase1/dashboard')}>
                     Go to dashboard
                   </Button>
                   <Button variant="outline" size="lg" onClick={() => router.push('/phase1/listings/new')}>
@@ -318,7 +318,7 @@ export default function PaymentPage() {
                     : (intent.failureReason ?? 'No money has left your account. You can try again or use another method.')
                 }
                 action={
-                  <Button variant="accent" leftIcon={<RefreshCw size={16} />} onClick={reset}>
+                  <Button variant="primary" leftIcon={<RefreshCw size={16} />} onClick={reset}>
                     Try again
                   </Button>
                 }

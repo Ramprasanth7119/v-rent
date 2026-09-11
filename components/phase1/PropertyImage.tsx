@@ -19,13 +19,20 @@ function hash(seed: string): number {
   return Math.abs(h);
 }
 
-/** Duotone palettes, tuned to sit beside the navy and gold brand colours. */
+/**
+ * Daylight palettes.
+ *
+ * These were night scenes — five dark navy blocks, which on a page of twelve
+ * listings became the loudest thing on it and made the whole product feel
+ * heavy. A property portal is photographs of buildings in daylight, so the
+ * stand-in is daylight too: pale sky, mid-tone massing, warm sun.
+ */
 const PALETTES = [
-  { sky: ['#1e3a5f', '#4a7fb5'], mass: '#0d1f36', mid: '#16304f', glow: '#f0c674' },
-  { sky: ['#243b53', '#7b9cc4'], mass: '#12233a', mid: '#1d3048', glow: '#e8b45f' },
-  { sky: ['#2b3a55', '#8aa6c4'], mass: '#141f33', mid: '#1f3049', glow: '#efd8a0' },
-  { sky: ['#1b3049', '#5d8bb8'], mass: '#0f1c2e', mid: '#182b45', glow: '#f2c98a' },
-  { sky: ['#33445e', '#9db4cd'], mass: '#18202f', mid: '#22334a', glow: '#e6c88a' },
+  { sky: ['#DCEBFF', '#A8C9F0'], mass: '#7E9BC0', mid: '#96B3D6', glow: '#FFD98A' },
+  { sky: ['#E4F0FB', '#B6D2EC'], mass: '#8AA6C6', mid: '#A2BEDC', glow: '#FFCF76' },
+  { sky: ['#FDE9D9', '#F3C7A8'], mass: '#B08F79', mid: '#C7A78F', glow: '#FFE0A3' },
+  { sky: ['#E8F2EC', '#B9D6C6'], mass: '#8FAE9C', mid: '#A6C4B2', glow: '#FFDC93' },
+  { sky: ['#EDE9FB', '#C3BCEB'], mass: '#9088BE', mid: '#A59DD2', glow: '#FFD98A' },
 ];
 
 export function PropertyImage({
@@ -88,8 +95,8 @@ export function PropertyImage({
           <stop offset="100%" stopColor={p.sky[1]} />
         </linearGradient>
         <linearGradient id={`${uid}fade`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={p.mass} stopOpacity="0.05" />
-          <stop offset="100%" stopColor={p.mass} stopOpacity="0.55" />
+          <stop offset="0%" stopColor={p.mass} stopOpacity="0.02" />
+          <stop offset="100%" stopColor={p.mass} stopOpacity="0.18" />
         </linearGradient>
       </defs>
 
@@ -118,8 +125,8 @@ export function PropertyImage({
                   y={70 - b.height + 3 + r * 6}
                   width="2.6"
                   height="3"
-                  fill={lit ? p.glow : '#ffffff'}
-                  opacity={lit ? 0.72 : 0.09}
+                  fill={lit ? '#FFFFFF' : '#33455F'}
+                  opacity={lit ? 0.55 : 0.16}
                   rx="0.4"
                 />
               );

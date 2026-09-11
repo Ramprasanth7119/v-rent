@@ -94,13 +94,13 @@ function ListingDetailBody() {
   /** One primary action per state; everything else is in the menu. */
   const primary =
     l.status === 'draft' || l.status === 'rejected' ? (
-      <Button variant="accent" leftIcon={canPublish ? <Send size={16} /> : <Lock size={16} />} onClick={() => a.setPending({ kind: 'publish', listing: l })}>
+      <Button variant="primary" leftIcon={canPublish ? <Send size={16} /> : <Lock size={16} />} onClick={() => a.setPending({ kind: 'publish', listing: l })}>
         {l.status === 'rejected' ? 'Resubmit' : 'Publish'}
       </Button>
     ) : l.status === 'paused' ? (
       <Button variant="primary" leftIcon={<Play size={16} />} onClick={() => a.resume(l)}>Resume</Button>
     ) : l.status === 'expired' ? (
-      <Button variant="accent" leftIcon={<RotateCcw size={16} />} onClick={() => a.setPending({ kind: 'renew', listing: l })}>Renew for 90 days</Button>
+      <Button variant="primary" leftIcon={<RotateCcw size={16} />} onClick={() => a.setPending({ kind: 'renew', listing: l })}>Renew for 90 days</Button>
     ) : (
       <Button variant="outline" leftIcon={<Pause size={16} />} onClick={() => a.setPending({ kind: 'pause', listing: l })}>Pause</Button>
     );
@@ -248,7 +248,7 @@ function ListingDetailBody() {
                       ? 'Views and enquiries start once the listing is published.'
                       : 'This listing has not been seen yet.'}
                     action={(l.status === 'draft' || l.status === 'rejected') && (
-                      <Button variant="accent" leftIcon={<Send size={15} />} onClick={() => a.setPending({ kind: 'publish', listing: l })}>Publish now</Button>
+                      <Button variant="primary" leftIcon={<Send size={15} />} onClick={() => a.setPending({ kind: 'publish', listing: l })}>Publish now</Button>
                     )}
                   />
                 )

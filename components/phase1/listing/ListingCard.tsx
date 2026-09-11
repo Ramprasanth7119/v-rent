@@ -32,35 +32,38 @@ export function ListingCard({ l, menu, today, href }: { l: DemoListing; menu: (M
   const to = href ?? `/phase1/listings/${l.id}`;
   const expiring = l.status === 'published' ? daysUntil(l.expiresAt, today) : null;
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-p1-border bg-p1-surface transition-[border-color,box-shadow] hover:border-p1-border-strong hover:shadow-p1-sm">
+    <article className="group flex flex-col overflow-hidden rounded-xl bg-p1-surface shadow-p1-sm ring-1 ring-p1-border transition-[box-shadow,transform] duration-200 hover:-translate-y-1 hover:shadow-p1-lg">
       <Link href={to} className="relative block overflow-hidden bg-p1-primary" aria-label={`${l.project} ${l.unitNo}`}>
-        <PropertyImage seed={l.reference + l.project} variant={0} rounded="rounded-none" src={coverPhoto(user?.id, l)} alt="" className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
+        <PropertyImage seed={l.reference + l.project} variant={0} rounded="rounded-none" src={coverPhoto(user?.id, l)} alt="" className="aspect-[16/10] w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5"><StatusBadge kind="listing" value={l.status} size="sm" className="shadow-p1-sm" /></div>
         <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-[11.5px] font-medium text-white backdrop-blur"><Camera size={11} aria-hidden /> {l.images}</span>
         {l.images === 0 && <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2.5 pt-8 text-[12px] font-medium text-white">No photos yet</span>}
       </Link>
-      <div className="flex flex-1 flex-col p-3.5">
+      <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
           <Link href={to} className="min-w-0 flex-1">
-            <div className="text-[18px] font-semibold leading-6 text-p1-text"><span className="tabular-nums">{priceLabel(l).amount}</span><span className="text-[12.5px] font-normal text-p1-text-3">{priceLabel(l).suffix && ` ${priceLabel(l).suffix}`}</span></div>
-            <div className="mt-0.5 truncate text-[14px] font-medium text-p1-text">{l.project}</div>
-            <div className="truncate text-[12.5px] text-p1-text-2">{l.unitNo} · {l.address} · {district(l.district)}</div>
+            <div className="font-p1display text-[21px] font-bold leading-7 tracking-[-0.02em] text-p1-text">
+              <span className="tabular-nums">{priceLabel(l).amount}</span>
+              <span className="text-[13px] font-medium text-p1-text-3">{priceLabel(l).suffix && ` ${priceLabel(l).suffix}`}</span>
+            </div>
+            <div className="mt-1 truncate text-[15px] font-semibold text-p1-text">{l.project} <span className="font-normal text-p1-text-2">{l.unitNo}</span></div>
+            <div className="truncate text-[13px] text-p1-text-3">{l.address} · {district(l.district)}</div>
           </Link>
           <div className="flex shrink-0 items-center gap-1">
             <HealthRing listing={l} size={34} />
             <Menu items={menu} label={`Actions for ${l.project}`} />
           </div>
         </div>
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-p1-text-2">
-          <span className="inline-flex items-center gap-1"><Bed size={13} className="text-p1-text-3" aria-hidden />{l.bedrooms}<span className="sr-only"> bedrooms</span></span>
-          <span className="inline-flex items-center gap-1"><Bath size={13} className="text-p1-text-3" aria-hidden />{l.bathrooms}<span className="sr-only"> bathrooms</span></span>
-          <span className="inline-flex items-center gap-1"><Maximize size={13} className="text-p1-text-3" aria-hidden />{l.sizeSqft.toLocaleString()} sqft</span>
-          <span className="text-p1-text-3">{l.propertyType}</span>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[12.5px] text-p1-text-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-subtle px-2.5 py-1"><Bed size={13} className="text-p1-text-3" aria-hidden />{l.bedrooms}<span className="sr-only"> bedrooms</span></span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-subtle px-2.5 py-1"><Bath size={13} className="text-p1-text-3" aria-hidden />{l.bathrooms}<span className="sr-only"> bathrooms</span></span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-subtle px-2.5 py-1"><Maximize size={13} className="text-p1-text-3" aria-hidden />{l.sizeSqft.toLocaleString()} sqft</span>
+          <span className="inline-flex items-center rounded-full bg-p1-subtle px-2.5 py-1 text-p1-text-3">{l.propertyType}</span>
         </div>
         {l.status === 'rejected' && l.rejectionReason && (
           <p className="mt-2.5 flex items-start gap-1.5 rounded-md bg-p1-danger-soft px-2.5 py-1.5 text-[12.5px] leading-5 text-p1-danger"><AlertCircle size={13} className="mt-0.5 shrink-0" aria-hidden />{l.rejectionReason}</p>
         )}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-p1-border pt-2.5">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3.5">
           {l.status === 'published' || l.status === 'paused' || l.status === 'expired' ? <StatsInline listing={l} /> : <span className="text-[12px] text-p1-text-3">Updated {fmtShort(l.updatedAt ?? l.createdAt)}</span>}
           {expiring !== null && expiring <= 30 ? (
             <span className={cx('text-[12px] font-medium', expiring <= 7 ? 'text-p1-danger' : 'text-p1-warning')}>Expires in {expiring} day{expiring === 1 ? '' : 's'}</span>

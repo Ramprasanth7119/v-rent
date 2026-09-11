@@ -34,7 +34,7 @@ export default function CheckoutPage() {
         <PageHeader eyebrow="Subscription" title="Payment" />
         <Card>
           <EmptyState title="No plan selected yet" description="Choose a plan first, then come back here to pay."
-            action={<LinkButton href="/phase1/plans" variant="accent">Choose a plan</LinkButton>} />
+            action={<LinkButton href="/phase1/plans" variant="primary">Choose a plan</LinkButton>} />
         </Card>
       </>
     );
@@ -76,7 +76,7 @@ export default function CheckoutPage() {
               <p className="mt-3 text-[13px] text-p1-text-3">
                 Processing cost to V-RENT: PayNow 1.3% ({sgd(Math.round(paynowFee))}) · Card 3.4% + S$0.50 ({sgd(Math.round(cardFee))}). Your price is the same either way.
               </p>
-              <Button className="mt-6" variant="accent" size="lg" block leftIcon={<Lock size={16} />} onClick={() => setStage('redirect')}>
+              <Button className="mt-6" variant="primary" size="lg" block leftIcon={<Lock size={16} />} onClick={() => setStage('redirect')}>
                 Continue to secure checkout
               </Button>
             </SectionCard>
@@ -123,7 +123,7 @@ export default function CheckoutPage() {
                   {plan.name} plan, paid by {state.paymentMethod ?? method}. A receipt has been emailed to {state.profile.email}.
                 </p>
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <Button variant="accent" size="lg" onClick={() => router.push('/phase1/dashboard')}>Go to dashboard</Button>
+                  <Button variant="primary" size="lg" onClick={() => router.push('/phase1/dashboard')}>Go to dashboard</Button>
                   <Button variant="outline" size="lg" onClick={() => router.push('/phase1/listings/new')}>Create a listing</Button>
                 </div>
               </div>

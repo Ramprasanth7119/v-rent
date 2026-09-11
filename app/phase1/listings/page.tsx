@@ -174,7 +174,7 @@ function ListingsBody() {
         actions={
           <>
             <LinkButton href="/phase1/listings/import" variant="outline" leftIcon={<Upload size={16} />}>Bulk import</LinkButton>
-            <LinkButton href="/phase1/listings/new" variant="accent" leftIcon={<Plus size={16} />}>New listing</LinkButton>
+            <LinkButton href="/phase1/listings/new" variant="primary" leftIcon={<Plus size={16} />}>New listing</LinkButton>
           </>
         }
       />
@@ -298,7 +298,7 @@ function ListingsBody() {
             icon={<Building2 size={26} />}
             title={showArchived ? 'Nothing archived' : 'No listings yet'}
             description={showArchived ? 'Listings you archive are kept here with their history.' : 'Create your first listing to start reaching tenants. It takes about ten minutes.'}
-            action={!showArchived && <LinkButton href="/phase1/listings/new" variant="accent" leftIcon={<Plus size={16} />}>Create your first listing</LinkButton>}
+            action={!showArchived && <LinkButton href="/phase1/listings/new" variant="primary" leftIcon={<Plus size={16} />}>Create your first listing</LinkButton>}
           />
         </Card>
       ) : rows.length === 0 ? (

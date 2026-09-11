@@ -41,6 +41,32 @@ function daysLeft(endDate?: string): number | null {
   return Math.ceil((end.getTime() - TODAY.getTime()) / 86_400_000);
 }
 
+/**
+ * A skyline behind the hero text.
+ *
+ * Drawn rather than photographed: it has to survive both themes, add no
+ * network request, and never compete with the headline — which is why it sits
+ * at the foot of the panel at low opacity and fades into the surface.
+ */
+function Skyline() {
+  return (
+    <svg
+      viewBox="0 0 1200 200"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[46%] w-full text-p1-primary opacity-[0.10] dark:opacity-[0.18]"
+    >
+      {/* One continuous silhouette. Separated rectangles read as a bar chart;
+          a skyline is buildings standing shoulder to shoulder at different
+          heights, with the odd spire breaking the line. */}
+      <path
+        fill="currentColor"
+        d="M0 200 V150 h46 V118 h38 V150 h30 V96 h54 V64 h6 V30 h6 V64 h6 V96 h40 V132 h44 V88 h58 V128 h34 V150 h52 V104 h48 V70 h5 V36 h5 V70 h5 V104 h42 V140 h60 V112 h44 V146 h38 V84 h56 V120 h48 V150 h40 V98 h50 V58 h6 V26 h6 V58 h6 V98 h46 V134 h56 V110 h42 V144 h52 V92 h48 V126 h38 V152 h44 V116 h40 V200 Z"
+      />
+    </svg>
+  );
+}
+
 export default function AgentHubPage() {
   const { user } = useSession();
   const { state, activeListings, listingLimit } = useDemo();
@@ -74,60 +100,53 @@ export default function AgentHubPage() {
 
   return (
     <>
-      {/* ------------------------------------------------------------- hero */}
-      <Card padding="lg" className="mb-6 overflow-hidden border-transparent bg-p1-primary text-white">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+      {/* ------------------------------------------------------------- hero
+          Light rather than a slab of colour. A full-bleed saturated panel
+          shouts; the Singapore portals open on a pale sky with the skyline
+          behind the words, and let one blue button do the asking. */}
+      <section className="relative mb-7 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E8F0FF] to-p1-surface ring-1 ring-p1-border dark:from-[#16254A] dark:to-p1-surface">
+        <Skyline />
+
+        <div className="relative grid gap-8 p-6 sm:p-9 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-center lg:p-11">
           <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 text-[12.5px] font-semibold text-p1-accent">
-              <Sparkles size={14} aria-hidden />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-surface/80 px-3 py-1 text-[12.5px] font-semibold text-p1-primary ring-1 ring-p1-border backdrop-blur">
+              <Sparkles size={13} aria-hidden />
               Agent hub
-            </div>
+            </span>
 
             {user ? (
               <>
-                <h1 className="font-p1display text-[28px] font-medium leading-[1.15] tracking-[-0.01em] sm:text-[34px]">
-                  {greeting}, {shortName(user)}
+                <h1 className="mt-4 font-p1display text-[32px] font-bold leading-[1.08] tracking-[-0.028em] text-p1-text sm:text-[42px]">
+                  {greeting},<br className="hidden sm:block" /> {shortName(user)}
                 </h1>
-                <p className="mt-2.5 max-w-xl text-[15px] leading-6 text-white/75">
+                <p className="mt-3.5 max-w-xl text-[15.5px] leading-7 text-p1-text-2">
                   Every tool V-RENT gives you, in one place — list a unit, answer the people who reply, and keep your
                   registration and plan in good standing.
                 </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <LinkButton href="/phase1/dashboard" variant="accent" size="lg" rightIcon={<ArrowRight size={17} />}>
+                <div className="mt-6 flex flex-wrap gap-2.5">
+                  <LinkButton href="/phase1/dashboard" size="lg" rightIcon={<ArrowRight size={17} />}>
                     Open dashboard
                   </LinkButton>
-                  <LinkButton
-                    href="/phase1/listings/new"
-                    variant="outline"
-                    size="lg"
-                    leftIcon={<Plus size={17} />}
-                    className="border-white/25 bg-transparent text-white hover:bg-white/10"
-                  >
+                  <LinkButton href="/phase1/listings/new" variant="outline" size="lg" leftIcon={<Plus size={17} />}>
                     Create a listing
                   </LinkButton>
                 </div>
               </>
             ) : (
               <>
-                <h1 className="font-p1display text-[28px] font-medium leading-[1.15] tracking-[-0.01em] sm:text-[34px] text-balance">
+                <h1 className="mt-4 font-p1display text-[32px] font-bold leading-[1.08] tracking-[-0.028em] text-p1-text text-balance sm:text-[42px]">
                   One workspace for CEA-registered rental agents
                 </h1>
-                <p className="mt-2.5 max-w-xl text-[15px] leading-6 text-white/75">
+                <p className="mt-3.5 max-w-xl text-[15.5px] leading-7 text-p1-text-2">
                   List a unit, answer the tenants who reply, and keep your registration and plan in good standing —
                   without paying incumbent prices. Your CEA registration is checked against the public register before
-                  you publish, and again after, so every listing here belongs to someone entitled to place it.
+                  you publish, and again after.
                 </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <LinkButton href="/phase1/signup" variant="accent" size="lg" leftIcon={<UserPlus size={17} />}>
+                <div className="mt-6 flex flex-wrap gap-2.5">
+                  <LinkButton href="/phase1/signup" size="lg" leftIcon={<UserPlus size={17} />}>
                     Create an account
                   </LinkButton>
-                  <LinkButton
-                    href="/phase1/login"
-                    variant="outline"
-                    size="lg"
-                    leftIcon={<LogIn size={17} />}
-                    className="border-white/25 bg-transparent text-white hover:bg-white/10"
-                  >
+                  <LinkButton href="/phase1/login" variant="outline" size="lg" leftIcon={<LogIn size={17} />}>
                     Sign in
                   </LinkButton>
                 </div>
@@ -135,26 +154,28 @@ export default function AgentHubPage() {
             )}
           </div>
 
-          {/* Standing panel: the agent's own facts, or the platform's promise. */}
-          <div className="w-full rounded-xl border border-white/15 bg-white/[0.07] p-5 lg:w-[300px]">
+          {/* The agent's own facts, raised off the wash as a card. */}
+          <div className="w-full rounded-xl bg-p1-surface p-5 shadow-p1-md ring-1 ring-p1-border">
             {user?.cea ? (
               <>
-                <div className="flex items-center gap-2 text-[13px] font-semibold text-white">
-                  <ShieldCheck size={15} className="text-p1-accent" aria-hidden />
+                <div className="flex items-center gap-2 text-[13px] font-bold text-p1-text">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden>
+                    <ShieldCheck size={15} />
+                  </span>
                   CEA registration verified
                 </div>
-                <dl className="mt-3.5 space-y-2.5 text-[13.5px]">
+                <dl className="mt-4 space-y-3 text-[13.5px]">
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-white/60">Registration</dt>
-                    <dd className="font-medium tabular-nums text-white">{user.cea.registrationNo}</dd>
+                    <dt className="text-p1-text-3">Registration</dt>
+                    <dd className="font-semibold tabular-nums text-p1-text">{user.cea.registrationNo}</dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="shrink-0 text-white/60">Agency</dt>
-                    <dd className="truncate text-right font-medium text-white">{agencyLabel(user)}</dd>
+                    <dt className="shrink-0 text-p1-text-3">Agency</dt>
+                    <dd className="truncate text-right font-semibold text-p1-text">{agencyLabel(user)}</dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-white/60">Valid until</dt>
-                    <dd className="font-medium tabular-nums text-white">
+                    <dt className="text-p1-text-3">Valid until</dt>
+                    <dd className="font-semibold tabular-nums text-p1-text">
                       {new Date(`${user.cea.registrationEnd}T00:00:00+08:00`).toLocaleDateString('en-SG', {
                         day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Singapore',
                       })}
@@ -162,7 +183,7 @@ export default function AgentHubPage() {
                   </div>
                 </dl>
                 {ceaDays !== null && (
-                  <p className="mt-3.5 border-t border-white/15 pt-3 text-[12.5px] leading-5 text-white/60">
+                  <p className="mt-4 border-t border-p1-border pt-3 text-[12.5px] leading-5 text-p1-text-3">
                     {ceaDays > 0
                       ? `${ceaDays} days remaining. Checked against the public register.`
                       : 'This registration is no longer current on the public register.'}
@@ -171,15 +192,15 @@ export default function AgentHubPage() {
               </>
             ) : (
               <>
-                <div className="text-[13px] font-semibold text-white">What you get on day one</div>
-                <ul className="mt-3.5 space-y-2.5 text-[13.5px] leading-5 text-white/75">
+                <div className="text-[13px] font-bold text-p1-text">What you get on day one</div>
+                <ul className="mt-4 space-y-3 text-[13.5px] leading-5 text-p1-text-2">
                   {[
                     'Registration verified against the CEA register',
                     `${LIVE_TOOL_COUNT} working tools in the agent workspace`,
                     'Yearly plans from ' + sgd(PLANS[0].priceYearSgd),
                   ].map((line) => (
                     <li key={line} className="flex items-start gap-2.5">
-                      <Check size={15} className="mt-0.5 shrink-0 text-p1-accent" aria-hidden />
+                      <Check size={15} className="mt-0.5 shrink-0 text-p1-success" aria-hidden />
                       {line}
                     </li>
                   ))}
@@ -188,7 +209,7 @@ export default function AgentHubPage() {
             )}
           </div>
         </div>
-      </Card>
+      </section>
 
       {/* ---------------------------------------------------------- position */}
       {user && (
@@ -230,7 +251,7 @@ export default function AgentHubPage() {
       <div className="mb-6 flex flex-col gap-3 border-b border-p1-border pb-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-[17px] font-semibold text-p1-text">Everything in the platform</h2>
+            <h2 className="font-p1display text-[21px] font-bold tracking-[-0.018em] text-p1-text">Everything in the platform</h2>
             <p className="mt-0.5 text-[13.5px] text-p1-text-3">
               {LIVE_TOOL_COUNT} tools are working in this build. The rest are designed and costed for the production
               implementation.
@@ -266,8 +287,13 @@ export default function AgentHubPage() {
         categories.map((c) => (
           <section key={c.id} className="mb-9">
             <SectionTitle hint={c.tagline}>
-              <span className="flex items-center gap-2">
-                <c.icon size={16} className="text-p1-text-3" aria-hidden />
+              <span className="flex items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-p1-primary-soft text-p1-primary dark:text-p1-text"
+                >
+                  <c.icon size={16} />
+                </span>
                 {c.title}
               </span>
             </SectionTitle>

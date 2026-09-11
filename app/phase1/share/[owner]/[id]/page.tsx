@@ -75,17 +75,17 @@ export default async function SharedListingPage({ params }: { params: Promise<{ 
 
   return (
     <div className="p1 min-h-screen bg-p1-bg font-p1sans">
-      <header className="border-b border-p1-border bg-p1-surface">
-        <div className="mx-auto flex h-14 w-full max-w-[880px] items-center justify-between gap-3 px-4 sm:px-6">
+      <header className="sticky top-0 z-10 border-b border-p1-border bg-p1-surface/85 backdrop-blur">
+        <div className="mx-auto flex h-14 w-full max-w-[1040px] items-center justify-between gap-3 px-4 sm:px-6">
           <Link href="/phase1" className="flex items-center gap-2.5" aria-label="V-RENT">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-p1-primary font-p1display text-[19px] font-semibold text-white">V</span>
-            <span className="text-[15px] font-semibold tracking-tight text-p1-text">V-RENT</span>
+            <span className="font-p1display text-[16px] font-bold tracking-[-0.02em] text-p1-text">V-RENT</span>
           </Link>
           <span className="text-[12.5px] text-p1-text-3">Shared by a CEA-registered agent</span>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[880px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[1040px] px-4 py-6 sm:px-6 sm:py-8">
         {paused && (
           <div role="status" className="mb-5 flex items-start gap-3 rounded-lg border border-p1-warning-border bg-p1-warning-soft px-4 py-3">
             <Pause size={17} className="mt-0.5 shrink-0 text-p1-warning" aria-hidden />
@@ -111,8 +111,8 @@ export default async function SharedListingPage({ params }: { params: Promise<{ 
         )}
 
         {/* The compliance block Singapore advertising rules require. */}
-        <section className="mt-5 rounded-xl border border-p1-border bg-p1-surface p-5">
-          <h2 className="flex items-center gap-2 text-[15px] font-semibold text-p1-text">
+        <section className="mt-5 rounded-2xl bg-p1-surface p-6 shadow-p1-sm ring-1 ring-p1-border">
+          <h2 className="flex items-center gap-2 font-p1display text-[17px] font-bold tracking-[-0.012em] text-p1-text">
             <ShieldCheck size={17} className="text-p1-success" aria-hidden />
             Who is advertising this
           </h2>

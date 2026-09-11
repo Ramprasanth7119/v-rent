@@ -189,7 +189,7 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
 
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <Button
-                          variant="accent"
+                          variant="primary"
                           leftIcon={<Check size={15} />}
                           loading={busy === l.id}
                           onClick={() => void decide(item, 'approve')}
