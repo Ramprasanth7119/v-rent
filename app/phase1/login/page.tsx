@@ -8,15 +8,30 @@
  * cannot be used to find out who has an account.
  */
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
 import { Button, TextInput, Callout } from '../../../components/phase1/kit';
 import { ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignIn />
+    </Suspense>
+  );
+}
+
+/** Only these are followed after signing in, so the parameter cannot be used to send somebody elsewhere. */
+const safeNext = (value: string | null) =>
+  (value && value.startsWith('/phase1/') && !value.startsWith('//') ? value : null);
+
+function SignIn() {
   const router = useRouter();
+  const params = useSearchParams();
+  const next = safeNext(params.get('next'));
+  const expired = params.get('expired') === '1';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -37,7 +52,9 @@ export default function LoginPage() {
         setError(body.error ?? 'Could not sign you in. Try again.');
         return;
       }
-      router.replace(body.user?.role === 'admin' ? '/phase1/admin' : '/phase1/dashboard');
+      /* Back to whatever they were trying to open, where that was a page in
+         this workspace; the role decides otherwise. */
+      router.replace(next ?? (body.user?.role === 'admin' ? '/phase1/admin' : '/phase1/dashboard'));
       router.refresh();
     } catch {
       setError('Could not reach the server. Check your connection and try again.');
@@ -60,6 +77,11 @@ export default function LoginPage() {
       }
     >
       <form onSubmit={submit} className="grid gap-5" noValidate>
+        {expired && !error && (
+          <Callout tone="warning" compact>
+            Your session has ended. Sign in again and you will be taken back to where you were.
+          </Callout>
+        )}
         {error && <Callout tone="danger" compact>{error}</Callout>}
 
         <TextInput

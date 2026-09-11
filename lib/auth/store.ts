@@ -16,7 +16,7 @@ import { promisify } from 'node:util';
 import { displayAgency, displayName, lookupRegistration, type CeaRecord } from './cea';
 import type { EmailVerification } from './email-verification';
 import type { PasswordReset } from './password-reset';
-import { DATA_DIR as dataRoot } from '../storage';
+import { DATA_DIR as dataRoot, storageIsEphemeral } from '../storage';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -197,13 +197,33 @@ export async function listAccounts(): Promise<PublicAccount[]> {
 /* ------------------------------------------------------------------ secret */
 
 /**
- * The cookie signing key. Taken from the environment when one is set; otherwise
- * generated once and kept out of the repository, so there is never a guessable
- * key committed in source.
+ * The cookie signing key.
+ *
+ * From the environment when one is set. Otherwise generated once and written
+ * beside the data, so there is never a guessable key committed in source and a
+ * laptop needs no configuration to work.
+ *
+ * That fallback is refused where the storage does not survive the process. On a
+ * serverless platform each instance would generate its own key, so a cookie
+ * signed by the instance that handled the sign-in fails verification on the
+ * next one: the session silently evaporates, pages render as though nobody is
+ * signed in, and the operations console answers 404 to its own administrator.
+ * Every symptom of that points somewhere other than the cause, so it is better
+ * to refuse to start than to appear to work.
  */
 export async function sessionSecret(): Promise<string> {
   const fromEnv = process.env.VRENT_SESSION_SECRET;
   if (fromEnv && fromEnv.length >= 32) return fromEnv;
+
+  if (storageIsEphemeral) {
+    throw new Error(
+      'VRENT_SESSION_SECRET is not set and this instance has no durable storage to keep a '
+      + 'generated one in. Sessions cannot be signed consistently across instances without it. '
+      + 'Set it to 32 or more random characters — `openssl rand -hex 32` — in the deployment '
+      + 'environment.',
+    );
+  }
+
   try {
     const existing = (await readFile(SECRET_FILE, 'utf8')).trim();
     if (existing.length >= 32) return existing;

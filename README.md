@@ -40,6 +40,7 @@ honestly when it is missing, and the screen that needs it says so.
 | `VRENT_DEMO_AGENT_EMAIL`, `VRENT_DEMO_AGENT_PASSWORD` | A demo agent account with a portfolio already in it |
 | `VRENT_DEMO_AGENT_CEA`, `VRENT_DEMO_AGENT_MOBILE` | That account's registration details |
 | `ONEMAP_TOKEN` | Reverse geocoding and neighbourhood amenities. Tiles, search and static maps need no token. |
+| `VRENT_SESSION_SECRET` | Signing cookies. **Required on any serverless deployment** — see below. |
 | `VRENT_DATA_DIR` | Overrides where state is written. See below. |
 
 OneMap issues short-lived tokens. When one expires the pin-drop falls back to asking for a postal
@@ -110,6 +111,26 @@ copes: accounts re-seed from the environment on the next sign-in and a workspace
 sample portfolio, so a cold start gives a clean, correct demo rather than an error. It is not a place
 to keep anything that matters. For that, set `VRENT_DATA_DIR` to a mounted volume, or replace the
 four functions at the bottom of each store with a database client — they are the only callers.
+
+### Sessions
+
+The session cookie is HMAC-signed. The key comes from `VRENT_SESSION_SECRET`; with none set it is
+generated once and written beside the data, which is fine on a laptop and wrong anywhere the storage
+does not outlive the process.
+
+On serverless each instance would generate its own key, so a cookie signed at sign-in is rejected by
+whichever instance serves the next request. The session appears to work and then evaporates: pages
+render as though nobody is signed in, and the operations console answers 404 to its own
+administrator. Every symptom points somewhere other than the cause, so the server refuses to sign a
+session it cannot verify later and says exactly what is missing.
+
+Generate one with `openssl rand -hex 32`. Changing it signs everybody out, which is the intended way
+to revoke every session at once.
+
+`middleware.ts` verifies the same signature on the edge when the key is in the environment, so an
+unusable cookie is cleared and its holder sent to sign in rather than let through to a page that will
+render signed-out. Without the key it falls back to checking the cookie is present — safe on a
+laptop, where the key in the file does not change underneath anybody.
 
 ## Request logging
 

@@ -65,7 +65,25 @@ async function POST_handler(req: Request) {
 
   await clearFailures(account.id);
   await recordLogin(account.id);
-  await startSession(account);
+
+  /* Signing the cookie is the one step here that can fail on a misconfigured
+     deployment rather than on anything the visitor did. Saying so plainly beats
+     a 500: the person seeing it can do nothing about it, but the person they
+     report it to can fix it in a minute. */
+  try {
+    await startSession(account);
+  } catch (err) {
+    console.error('[v-rent] could not start a session:', err);
+    return NextResponse.json(
+      {
+        error: 'This deployment is not configured to sign in users yet. The server is missing its '
+          + 'session signing key.',
+        code: 'not_configured',
+      },
+      { status: 503 },
+    );
+  }
+
   return NextResponse.json({ ok: true, user: publicAccount(account) });
 }
 
