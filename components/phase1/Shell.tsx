@@ -116,7 +116,7 @@ function SidebarGroups({ groups, pathname, onNavigate }: { groups: NavGroup[]; p
 
 /* -------------------------------------------------------------------- shell */
 
-const BARE_ROUTES = ['/phase1/login', '/phase1/signup'];
+const BARE_ROUTES = ['/phase1/login', '/phase1/signup', '/phase1/forgot', '/phase1/reset'];
 /**
  * Pages that bring their own frame: a shared listing is tenant-facing, and the
  * shortlist is a document — workspace navigation would end up in the PDF.
@@ -188,7 +188,7 @@ function PublicFrame({ children }: { children: React.ReactNode }) {
 }
 
 function Phase1Frame({ children }: { children: React.ReactNode }) {
-  const { state } = useDemo();
+  const { state, markAlertsRead } = useDemo();
   const { user, isAdmin: isAdminAccount, signOut } = useSession();
   const { isDarkMode, setDarkMode } = usePersona();
   const { toggle: toggleTheme, ready: themeReady } = useTheme(setDarkMode, isDarkMode);
@@ -282,14 +282,13 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     { title: 'Insight', items: [{ href: '/phase1/admin/reports', label: 'Reports & audit', icon: BarChart3 }] },
   ];
 
-  const notifications = [
-    ...state.enquiries.filter((e) => e.status === 'new').slice(0, 2).map((e) => ({ t: `New enquiry from ${e.name}`, b: e.message, tone: 'info' as const, href: `/phase1/listings/${e.listingId}?tab=enquiries` })),
-    state.approval === 'under_review' && { t: 'Application received', b: 'A verification officer will review your CEA details, usually within one business day.', tone: 'info' as const },
-    state.approval === 'approved' && !state.plan && { t: 'You are verified', b: 'Choose a plan to start publishing listings.', tone: 'success' as const, href: '/phase1/plans' },
-    state.subscription === 'past_due' && { t: 'Renewal payment failed', b: 'Update your payment method. Listings stay live during the grace period.', tone: 'warning' as const, href: '/phase1/checkout' },
-    !state.ceaValid && { t: 'CEA registration lapsed', b: 'Publication is paused until the register shows a valid registration.', tone: 'danger' as const, href: '/phase1/status' },
-    state.listings.some((l) => l.id === 'lst-5' && l.status === 'rejected') && { t: 'Listing VR-24058 rejected', b: 'Photographs appear to show a different unit. Correct and resubmit.', tone: 'danger' as const, href: '/phase1/listings/lst-5' },
-  ].filter(Boolean) as { t: string; b: string; tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral'; href?: string }[];
+  /**
+   * What the bell shows is what the server recorded, not what this screen can
+   * infer. A moderation decision or a suspension happens elsewhere and has to
+   * reach the agent whether or not they were looking at the right page.
+   */
+  const alerts = state.alerts;
+  const unread = alerts.filter((a) => !a.read).length;
 
   const userName = shortName(user) || 'Signed out';
   const userSub = user?.role === 'admin'
@@ -402,9 +401,9 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                 </button>
 
                 <div className="relative">
-                  <button type="button" onClick={() => setPop(pop === 'bell' ? null : 'bell')} aria-haspopup="dialog" aria-expanded={pop === 'bell'} aria-label={`Notifications, ${notifications.length} unread`} className="relative flex h-10 w-10 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text cursor-pointer">
+                  <button type="button" onClick={() => { const opening = pop !== 'bell'; setPop(opening ? 'bell' : null); if (opening && unread > 0) markAlertsRead(); }} aria-haspopup="dialog" aria-expanded={pop === 'bell'} aria-label={`Notifications, ${unread} unread`} className="relative flex h-10 w-10 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text cursor-pointer">
                     <Bell size={18} />
-                    {notifications.length > 0 && <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-p1-danger px-1 text-[10px] font-bold text-white">{notifications.length}</span>}
+                    {unread > 0 && <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-p1-danger px-1 text-[10px] font-bold text-white">{unread}</span>}
                   </button>
                   <Popover open={pop === 'bell'} onClose={() => setPop(null)} width="w-96">
                     <div className="flex items-center justify-between border-b border-p1-border px-4 py-3">
@@ -412,19 +411,27 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                       {!isAdmin && newEnquiries > 0 && <Link href="/phase1/dashboard#enquiries" onClick={() => setPop(null)} className="text-[12.5px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">{newEnquiries} new enquir{newEnquiries === 1 ? 'y' : 'ies'}</Link>}
                     </div>
                     <ul className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 && <li className="px-4 py-6 text-center text-[13px] text-p1-text-3">You are all caught up.</li>}
-                      {notifications.map((n, i) => {
-                        const dot = { info: 'bg-p1-info', success: 'bg-p1-success', warning: 'bg-p1-warning', danger: 'bg-p1-danger', neutral: 'bg-p1-text-3' }[n.tone];
+                      {alerts.length === 0 && <li className="px-4 py-6 text-center text-[13px] text-p1-text-3">Nothing yet. Decisions about your account and your listings appear here.</li>}
+                      {alerts.slice(0, 12).map((n) => {
+                        const dot = { info: 'bg-p1-info', success: 'bg-p1-success', warning: 'bg-p1-warning', danger: 'bg-p1-danger' }[n.tone];
                         const body = (
-                          <div className="flex gap-3 px-4 py-3">
+                          <div className={cx('flex gap-3 px-4 py-3', !n.read && 'bg-p1-primary-soft/30')}>
                             <span className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', dot)} aria-hidden />
                             <div className="min-w-0">
-                              <div className="text-[13.5px] font-medium leading-5 text-p1-text">{n.t}</div>
-                              <div className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-p1-text-2">{n.b}</div>
+                              <div className="text-[13.5px] font-medium leading-5 text-p1-text">{n.title}</div>
+                              <div className="mt-0.5 line-clamp-2 text-[12.5px] leading-5 text-p1-text-2">{n.body}</div>
+                              <div className="mt-1 text-[11.5px] text-p1-text-3">{n.at.slice(0, 16).replace('T', ' ')}</div>
                             </div>
                           </div>
                         );
-                        return <li key={i} className="border-b border-p1-border last:border-b-0 hover:bg-p1-subtle/60">{n.href ? <Link href={n.href} onClick={() => setPop(null)}>{body}</Link> : body}</li>;
+                        // Notices are written server-side with an absolute URL,
+                        // so they work from an email as well as from here.
+                        const href = n.href?.replace(/^https?:\/\/[^/]+/, '');
+                        return (
+                          <li key={n.id} className="border-b border-p1-border last:border-b-0 hover:bg-p1-subtle/60">
+                            {href ? <Link href={href} onClick={() => setPop(null)}>{body}</Link> : body}
+                          </li>
+                        );
                       })}
                     </ul>
                   </Popover>

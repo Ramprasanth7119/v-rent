@@ -18,11 +18,11 @@
 import React, { createContext, useContext, useMemo, useRef, useState } from 'react';
 import { DemoListing, ListingStatus, PLANS, PlanOption } from './data';
 import {
-  AgentProfile, ApprovalStatus, DEFAULT_NOTIFICATIONS, Enquiry, EnquiryStatus, NotificationPrefs,
+  Alert, AgentProfile, ApprovalStatus, DEFAULT_NOTIFICATIONS, Enquiry, EnquiryStatus, NotificationPrefs,
   SubscriptionStatus, TODAY, TODAY_ISO, WorkspaceState, planByCode, preferredName,
 } from './workspace';
 
-export type { AgentProfile, ApprovalStatus, Enquiry, EnquiryStatus, NotificationPrefs, SubscriptionStatus };
+export type { Alert, AgentProfile, ApprovalStatus, Enquiry, EnquiryStatus, NotificationPrefs, SubscriptionStatus };
 export { TODAY, TODAY_ISO, preferredName };
 
 export interface DemoState {
@@ -39,6 +39,7 @@ export interface DemoState {
   listings: DemoListing[];
   notifications: NotificationPrefs;
   enquiries: Enquiry[];
+  alerts: Alert[];
 }
 
 const EMPTY_PROFILE: AgentProfile = {
@@ -63,6 +64,7 @@ const SIGNED_OUT: DemoState = {
   listings: [],
   notifications: { ...DEFAULT_NOTIFICATIONS },
   enquiries: [],
+  alerts: [],
 };
 
 const fromWorkspace = (w: WorkspaceState): DemoState => ({
@@ -79,6 +81,7 @@ const fromWorkspace = (w: WorkspaceState): DemoState => ({
   listings: w.listings,
   notifications: w.notifications ?? { ...DEFAULT_NOTIFICATIONS },
   enquiries: w.enquiries ?? [],
+  alerts: w.alerts ?? [],
 });
 
 const toWorkspace = (s: DemoState): WorkspaceState => ({
@@ -95,6 +98,7 @@ const toWorkspace = (s: DemoState): WorkspaceState => ({
   listings: s.listings,
   notifications: s.notifications,
   enquiries: s.enquiries,
+  alerts: s.alerts,
 });
 
 /** A single condition of the publish gate. */
@@ -118,6 +122,7 @@ interface DemoContextValue {
   updateListing: (id: string, patch: Partial<DemoListing>) => void;
   setListingStatus: (id: string, status: ListingStatus, reason?: string) => void;
   setEnquiryStatus: (id: string, status: EnquiryStatus) => void;
+  markAlertsRead: () => void;
   activeListings: number;
   listingLimit: number;
   gate: GateCheck[];
@@ -231,6 +236,12 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
         : l)),
     }));
 
+  /** Mark everything in the bell as seen. */
+  const markAlertsRead = () =>
+    apply((s) => (s.alerts.some((a) => !a.read)
+      ? { ...s, alerts: s.alerts.map((a) => ({ ...a, read: true })) }
+      : s));
+
   /** Move an enquiry along the queue. The agent's own record, so it saves like the rest. */
   const setEnquiryStatus = (id: string, status: EnquiryStatus) =>
     apply((s) => ({
@@ -338,6 +349,7 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
     updateListing,
     setListingStatus,
     setEnquiryStatus,
+    markAlertsRead,
     activeListings,
     listingLimit,
     gate,

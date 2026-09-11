@@ -15,6 +15,8 @@ import { currentUser } from '../../../../../lib/auth/session';
 import { findById } from '../../../../../lib/auth/store';
 import { loadWorkspace, patchWorkspace } from '../../../../../lib/phase1/workspace-store';
 import { record } from '../../../../../lib/phase1/audit';
+import { notify } from '../../../../../lib/phase1/notify';
+import { publicAccount } from '../../../../../lib/auth/store';
 import { preferredName } from '../../../../../lib/phase1/workspace';
 
 export const runtime = 'nodejs';
@@ -71,6 +73,24 @@ export async function POST(req: Request) {
     listingRef: listing.reference,
     reason: reason || undefined,
   });
+
+  const origin = new URL(req.url).origin;
+  const unit = `${listing.project} ${listing.unitNo}`;
+  await notify(publicAccount(owner), action === 'approve'
+    ? {
+        kind: 'moderation',
+        tone: 'success',
+        title: `${unit} passed review`,
+        body: 'A moderator has looked at the listing and it stays live. Nothing further is needed.',
+        href: `${origin}/phase1/listings/${listing.id}`,
+      }
+    : {
+        kind: 'moderation',
+        tone: 'danger',
+        title: `${unit} was taken down`,
+        body: `${reason} Correct it and send it back for review.`,
+        href: `${origin}/phase1/listings/new?edit=${listing.id}`,
+      });
 
   return NextResponse.json({ ok: true, status: action === 'approve' ? 'published' : 'rejected' });
 }

@@ -67,6 +67,7 @@ function strip(stored: StoredWorkspace): WorkspaceState {
     ...w,
     notifications: w.notifications ?? { ...DEFAULT_NOTIFICATIONS },
     enquiries: w.enquiries ?? [],
+    alerts: w.alerts ?? [],
     listings: w.listings ?? [],
   };
 }

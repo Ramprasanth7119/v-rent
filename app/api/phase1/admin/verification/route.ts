@@ -12,6 +12,8 @@ import { currentUser } from '../../../../../lib/auth/session';
 import { findById } from '../../../../../lib/auth/store';
 import { loadWorkspace, patchWorkspace } from '../../../../../lib/phase1/workspace-store';
 import { record } from '../../../../../lib/phase1/audit';
+import { notify } from '../../../../../lib/phase1/notify';
+import { publicAccount } from '../../../../../lib/auth/store';
 import { preferredName } from '../../../../../lib/phase1/workspace';
 
 export const runtime = 'nodejs';
@@ -58,6 +60,23 @@ export async function POST(req: Request) {
     subjectName: preferredName(workspace.profile.fullName || target.fullName),
     reason: reason || undefined,
   });
+
+  const origin = new URL(req.url).origin;
+  await notify(publicAccount(target), action === 'approve'
+    ? {
+        kind: 'cea',
+        tone: 'success',
+        title: 'Your V-RENT account is verified',
+        body: 'A verification officer has confirmed your CEA registration. Choose a plan and you can publish.',
+        href: `${origin}/phase1/plans`,
+      }
+    : {
+        kind: 'cea',
+        tone: 'danger',
+        title: 'Your application was not approved',
+        body: `${reason} Correct what is wrong and the application can be looked at again.`,
+        href: `${origin}/phase1/status`,
+      });
 
   return NextResponse.json({ ok: true, approval: workspace.approval });
 }

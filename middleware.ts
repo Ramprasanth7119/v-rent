@@ -14,7 +14,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 const COOKIE = 'vrent_session';
 
 /** Reachable without signing in. */
-const PUBLIC_PATHS = ['/phase1', '/phase1/login', '/phase1/signup'];
+const PUBLIC_PATHS = ['/phase1', '/phase1/login', '/phase1/signup', '/phase1/forgot', '/phase1/reset'];
 
 /**
  * Share links are sent to people who have no account and never will. What such

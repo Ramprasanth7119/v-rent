@@ -1,8 +1,12 @@
 /**
  * Payment intent storage.
  *
- * The interface is deliberately narrow so the in-memory implementation below
- * can be replaced by Postgres without touching a route:
+ * Held in memory and written through to disk, so a payment in flight survives
+ * a restart — a POC that loses an open checkout every time the dev server
+ * reloads cannot demonstrate the thing it exists to demonstrate.
+ *
+ * The interface is deliberately narrow so this can be replaced by Postgres
+ * without touching a route:
  *
  *   withIntent   -> SELECT ... FOR UPDATE inside a transaction
  *   claimIdempotencyKey -> INSERT ... ON CONFLICT DO NOTHING RETURNING
@@ -12,8 +16,40 @@
  * concurrent webhooks for the same payment can never interleave a read-modify-write.
  */
 
+import { readFileSync } from 'node:fs';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { KeyedMutex } from './concurrency';
 import { ALLOWED_TRANSITIONS, type IntentStatus, type PaymentIntent } from './types';
+
+const DATA_DIR = path.join(process.cwd(), '.data');
+const FILE = path.join(DATA_DIR, 'payments.json');
+
+interface Persisted {
+  intents: [string, PaymentIntent][];
+  idempotency: [string, { ref: string; at: number }][];
+  events: [string, number][];
+}
+
+/**
+ * Read once, synchronously, at module load.
+ *
+ * Synchronous because `getIntent` is synchronous and every caller expects it
+ * to be; one small read at start-up is a better trade than making the whole
+ * surface async for a file that is a few kilobytes.
+ */
+function hydrate(): Pick<StoreShape, 'intents' | 'idempotency' | 'events'> {
+  try {
+    const raw = JSON.parse(readFileSync(FILE, 'utf8')) as Persisted;
+    return {
+      intents: new Map(raw.intents ?? []),
+      idempotency: new Map(raw.idempotency ?? []),
+      events: new Map(raw.events ?? []),
+    };
+  } catch {
+    return { intents: new Map(), idempotency: new Map(), events: new Map() };
+  }
+}
 
 const INTENT_TTL_MS = 24 * 60 * 60 * 1000;
 const EVENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -38,12 +74,34 @@ const g = globalThis as unknown as { __vrentPaymentStore?: StoreShape };
 const store: StoreShape =
   g.__vrentPaymentStore ??
   (g.__vrentPaymentStore = {
-    intents: new Map(),
-    idempotency: new Map(),
-    events: new Map(),
+    ...hydrate(),
     locks: new KeyedMutex(),
     lastSweep: Date.now(),
   });
+
+/**
+ * Write the whole store out.
+ *
+ * Always called with the relevant lock held, and written to a sibling file
+ * then renamed, so a crash mid-write leaves the previous state rather than a
+ * truncated file. Failure is logged and swallowed: losing the durable copy of
+ * a payment is bad, but failing the payment because the disk is full is worse.
+ */
+async function persist(): Promise<void> {
+  try {
+    await mkdir(DATA_DIR, { recursive: true });
+    const body: Persisted = {
+      intents: [...store.intents],
+      idempotency: [...store.idempotency],
+      events: [...store.events],
+    };
+    const tmp = `${FILE}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify(body), 'utf8');
+    await rename(tmp, FILE);
+  } catch (err) {
+    console.error('[v-rent] payment store could not be written', err);
+  }
+}
 
 /** Drops rows past their TTL. Amortised: runs at most once a minute, on write. */
 function sweep(now: number) {
@@ -64,6 +122,7 @@ export async function putIntent(intent: PaymentIntent): Promise<void> {
   await store.locks.run(`intent:${intent.ref}`, async () => {
     store.intents.set(intent.ref, intent);
     sweep(Date.now());
+    await persist();
   });
 }
 
@@ -91,6 +150,7 @@ export async function withIntent<T>(
     if (next) {
       store.intents.set(ref, next);
       sweep(Date.now());
+      await persist();
     }
     return result;
   });
@@ -110,6 +170,7 @@ export async function claimIdempotencyKey(
     const existing = store.idempotency.get(key);
     if (existing) return { claimed: false, existingRef: existing.ref };
     store.idempotency.set(key, { ref, at: Date.now() });
+    await persist();
     return { claimed: true, existingRef: ref };
   });
 }
@@ -119,6 +180,7 @@ export async function claimEvent(eventId: string): Promise<boolean> {
   return store.locks.run(`event:${eventId}`, async () => {
     if (store.events.has(eventId)) return false;
     store.events.set(eventId, Date.now());
+    await persist();
     return true;
   });
 }

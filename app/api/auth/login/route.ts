@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { ensureAdminAccount, findByEmail, publicAccount, recordLogin, verifyPassword } from '../../../../lib/auth/store';
 import { startSession } from '../../../../lib/auth/session';
+import { clearFailures, isLocked, recordFailure } from '../../../../lib/auth/password-reset';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,10 +48,20 @@ export async function POST(req: Request) {
   await ensureAdminAccount();
 
   const account = await findByEmail(email);
-  if (!account || !(await verifyPassword(password, account))) {
+  if (!account) return NextResponse.json(FAILED, { status: 401 });
+
+  // A locked account is refused with the same message as a wrong password.
+  // Saying "this account is locked" would confirm to a stranger that the
+  // address is registered, which is the thing the single message exists to
+  // avoid. The person who owns it is told by email instead.
+  if (isLocked(account)) return NextResponse.json(FAILED, { status: 401 });
+
+  if (!(await verifyPassword(password, account))) {
+    await recordFailure(account.id);
     return NextResponse.json(FAILED, { status: 401 });
   }
 
+  await clearFailures(account.id);
   await recordLogin(account.id);
   await startSession(account);
   return NextResponse.json({ ok: true, user: publicAccount(account) });

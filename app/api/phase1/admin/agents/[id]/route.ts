@@ -16,6 +16,8 @@ import { currentUser } from '../../../../../../lib/auth/session';
 import { findById } from '../../../../../../lib/auth/store';
 import { loadWorkspace, patchWorkspace } from '../../../../../../lib/phase1/workspace-store';
 import { record } from '../../../../../../lib/phase1/audit';
+import { notify } from '../../../../../../lib/phase1/notify';
+import { publicAccount } from '../../../../../../lib/auth/store';
 import { preferredName } from '../../../../../../lib/phase1/workspace';
 
 export const runtime = 'nodejs';
@@ -65,6 +67,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ? String((body as { reason?: string }).reason).slice(0, 500)
       : undefined,
   });
+
+  const origin = new URL(req.url).origin;
+  await notify(publicAccount(target), action === 'suspend'
+    ? {
+        kind: 'cea',
+        tone: 'danger',
+        title: 'Your account has been suspended',
+        body: 'Publication is withdrawn while the suspension stands. Your account and your listings are intact. Contact V-RENT if you believe this is wrong.',
+        href: `${origin}/phase1/status`,
+      }
+    : {
+        kind: 'cea',
+        tone: 'success',
+        title: 'Your account has been reinstated',
+        body: 'Publication rights are restored. Your listings are where you left them.',
+        href: `${origin}/phase1/listings`,
+      });
 
   return NextResponse.json({ ok: true, approval: workspace.approval });
 }

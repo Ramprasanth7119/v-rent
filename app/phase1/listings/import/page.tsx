@@ -1,45 +1,97 @@
 "use client";
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Button, LinkButton, Card, SectionCard, PageHeader, StatCard, Callout, DataTable, Column, EmptyState } from '../../../../components/phase1/kit';
 import { Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
-import { useDemo, preferredName } from '../../../../lib/phase1/DemoContext';
-import { sgd } from '../../../../lib/phase1/data';
+import { useDemo, preferredName, TODAY_ISO } from '../../../../lib/phase1/DemoContext';
+import { DemoListing, sgd } from '../../../../lib/phase1/data';
+import { CsvRow, readRows, toNumber } from '../../../../lib/phase1/csv';
+import { districtFromPostal } from '../../../../lib/phase1/onemap';
 import { Upload, Check, AlertTriangle, X, FileSpreadsheet, Download, CheckCircle2, ListChecks, FilePlus2 } from 'lucide-react';
 
 interface Row {
   postal: string;
   unit: string;
   project: string;
+  address: string;
   beds: number;
+  baths: number;
   sqft: number;
   rent: number;
+  deal: 'rent' | 'sale';
+  salePrice: number;
+  furnishing: DemoListing['furnishing'];
+  availableFrom: string;
+  description: string;
+  district: number;
   status: 'ok' | 'warn' | 'error';
   message?: string;
 }
 
-/** A fixed sample file, so the demo shows the same outcomes every time. */
-const PARSED: Row[] = [
-  { postal: '018987', unit: '#22-06', project: 'The Sail @ Marina Bay', beds: 2, sqft: 883, rent: 6500, status: 'ok' },
-  { postal: '119003', unit: '#21-11', project: 'Normanton Park', beds: 3, sqft: 1109, rent: 5800, status: 'ok' },
-  { postal: '541118', unit: '#12-330', project: 'Rivervale Delta', beds: 3, sqft: 1001, rent: 3300, status: 'ok' },
-  { postal: '428407', unit: '#08-02', project: 'The Continuum', beds: 2, sqft: 764, rent: 5200, status: 'ok' },
-  {
-    postal: '018987', unit: '#34-12', project: 'The Sail @ Marina Bay', beds: 2, sqft: 936, rent: 6800,
-    status: 'warn', message: 'You already have a published listing for this unit — import will create a draft',
-  },
-  {
-    postal: '99999', unit: '#03-01', project: 'Unknown', beds: 2, sqft: 700, rent: 3800,
-    status: 'error', message: 'Postal code not found in OneMap — row skipped',
-  },
-  {
-    postal: '650123', unit: '', project: 'Blk 123 Bukit Batok', beds: 4, sqft: 1184, rent: 0,
-    status: 'error', message: 'Missing unit number and monthly rent — row skipped',
-  },
-];
+const FURNISHINGS: DemoListing['furnishing'][] = ['Unfurnished', 'Partially furnished', 'Fully furnished'];
+
+/**
+ * Turn one spreadsheet row into something that can become a listing, or say
+ * why it cannot.
+ *
+ * Warnings import; errors do not. The line between them is whether the row can
+ * produce a listing an agent would recognise: a missing rent cannot, a unit
+ * they have already listed can — as a draft they can compare.
+ */
+function assess(row: CsvRow, existing: DemoListing[]): Row {
+  const postal = (row.postal ?? '').replace(/\D/g, '');
+  const unit = (row.unit ?? '').trim();
+  const deal = /sale|sell|buy/i.test(row.deal ?? '') ? 'sale' : 'rent';
+  const rent = toNumber(row.rent);
+  const salePrice = toNumber(row.salePrice);
+  const price = deal === 'sale' ? salePrice : rent;
+
+  const furnishing = FURNISHINGS.find((f) => f.toLowerCase() === (row.furnishing ?? '').trim().toLowerCase())
+    ?? 'Partially furnished';
+
+  const base: Row = {
+    postal,
+    unit: unit ? `#${unit.replace(/^#/, '')}` : '',
+    project: (row.project ?? '').trim() || (row.address ?? '').trim(),
+    address: (row.address ?? '').trim() || (row.project ?? '').trim(),
+    beds: toNumber(row.beds),
+    baths: toNumber(row.baths) || 1,
+    sqft: toNumber(row.sqft),
+    rent,
+    deal,
+    salePrice,
+    furnishing,
+    availableFrom: (row.availableFrom ?? '').trim() || '2026-10-01',
+    description: (row.description ?? '').trim(),
+    district: districtFromPostal(postal),
+    status: 'ok',
+  };
+
+  const missing: string[] = [];
+  if (postal.length !== 6) missing.push('a six-digit postal code');
+  if (!base.unit) missing.push('a unit number');
+  if (!price) missing.push(deal === 'sale' ? 'an asking price' : 'a monthly rent');
+  if (!base.sqft) missing.push('a floor area');
+
+  if (missing.length) {
+    return { ...base, status: 'error', message: `Missing ${missing.join(', ')} — row skipped` };
+  }
+  if (!base.district) {
+    return { ...base, status: 'error', message: `${postal} is not a Singapore postal sector — row skipped` };
+  }
+
+  const clash = existing.find(
+    (l) => !l.archived && l.postalCode === postal && l.unitNo.replace(/[\s#]/g, '') === base.unit.replace(/[\s#]/g, ''),
+  );
+  if (clash) {
+    return { ...base, status: 'warn', message: `You already have ${clash.reference} for this unit — this will import as a separate draft` };
+  }
+
+  return base;
+}
 
 const COLUMNS = ['postal_code', 'unit_no', 'project', 'bedrooms', 'bathrooms', 'sqft', 'monthly_rent', 'furnishing', 'available_from', 'description'];
 
@@ -48,10 +100,43 @@ export default function ImportPage() {
   const { addListing, state, listingLimit, activeListings } = useDemo();
   const [stage, setStage] = useState<'upload' | 'preview' | 'done'>('upload');
   const [confirm, setConfirm] = useState(false);
+  const [parsed, setParsed] = useState<Row[]>([]);
+  const [fileName, setFileName] = useState('');
+  const [unmapped, setUnmapped] = useState<string[]>([]);
+  const [readError, setReadError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
 
-  const ok = PARSED.filter((r) => r.status === 'ok');
-  const warn = PARSED.filter((r) => r.status === 'warn');
-  const bad = PARSED.filter((r) => r.status === 'error');
+  /** Read the file the agent chose, in the browser. Nothing is sent anywhere. */
+  const takeFile = async (file: File | undefined) => {
+    if (!file) return;
+    setReadError(null);
+    if (file.size > 2 * 1024 * 1024) {
+      setReadError('That file is over 2 MB. A listing spreadsheet is text — check it is a CSV rather than a workbook.');
+      return;
+    }
+    try {
+      const { rows, mapping, columns } = readRows(await file.text());
+      if (rows.length === 0) {
+        setReadError('There are no rows under the heading line.');
+        return;
+      }
+      if (mapping.postal === undefined || mapping.unit === undefined) {
+        setReadError('The heading line has no postal code or unit column. Use the template below and try again.');
+        return;
+      }
+      const known = new Set(Object.values(mapping));
+      setUnmapped(columns.filter((_, i) => !known.has(i)));
+      setParsed(rows.slice(0, 500).map((r) => assess(r, state.listings)));
+      setFileName(file.name);
+      setStage('preview');
+    } catch {
+      setReadError('That file could not be read as CSV.');
+    }
+  };
+
+  const ok = parsed.filter((r) => r.status === 'ok');
+  const warn = parsed.filter((r) => r.status === 'warn');
+  const bad = parsed.filter((r) => r.status === 'error');
   const importable = ok.length + warn.length;
   const remaining = Math.max(0, listingLimit - activeListings);
   const exceeds = importable > remaining && listingLimit > 0;
@@ -64,21 +149,24 @@ export default function ImportPage() {
         reference: `VR-${24200 + i}`,
         agent: preferredName(state.profile.fullName),
         project: r.project,
-        address: r.project,
+        address: r.address,
         postalCode: r.postal,
         unitNo: r.unit,
-        district: 1,
+        district: r.district,
         propertyType: 'Condominium',
+        dealType: r.deal,
         bedrooms: r.beds,
-        bathrooms: 2,
+        bathrooms: r.baths,
         sizeSqft: r.sqft,
         monthlyRent: r.rent,
-        availableFrom: '2026-10-01',
+        salePriceSgd: r.deal === 'sale' ? r.salePrice : undefined,
+        description: r.description || undefined,
+        availableFrom: r.availableFrom,
         minLeaseMonths: 12,
-        furnishing: 'Partially furnished',
+        furnishing: r.furnishing,
         status: 'draft',
         images: 0,
-        createdAt: '2026-08-28',
+        createdAt: TODAY_ISO,
       });
     });
     push({ tone: 'success', title: `${importable} drafts created`, body: 'Add photos to each draft, then publish.' });
@@ -120,17 +208,59 @@ export default function ImportPage() {
         <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-5">
             <Card>
-              <button type="button" onClick={() => setStage('preview')}
-                className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-p1-border-strong bg-p1-subtle/40 px-4 py-14 text-center transition-colors hover:border-p1-accent hover:bg-p1-accent-soft/40 cursor-pointer">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-p1-primary-soft text-p1-primary" aria-hidden><Upload size={26} /></span>
-                <span className="mt-4 text-[16px] font-semibold text-p1-text">Drag your CSV here or browse</span>
-                <span className="mt-1 text-[13px] text-p1-text-3">Up to 500 rows per file · nothing is created until you confirm</span>
-                <Pill className="mt-4">Prototype: click loads a sample file</Pill>
-              </button>
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); void takeFile(e.dataTransfer.files[0]); }}
+              >
+                <button type="button" onClick={() => input.current?.click()}
+                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-p1-border-strong bg-p1-subtle/40 px-4 py-14 text-center transition-colors hover:border-p1-accent hover:bg-p1-accent-soft/40 cursor-pointer">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-p1-primary-soft text-p1-primary" aria-hidden><Upload size={26} /></span>
+                  <span className="mt-4 text-[16px] font-semibold text-p1-text">Drag your CSV here, or choose a file</span>
+                  <span className="mt-1 text-[13px] text-p1-text-3">
+                    Up to 500 rows · read in your browser · nothing is created until you confirm
+                  </span>
+                </button>
+                <input
+                  ref={input}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  onChange={(e) => { void takeFile(e.target.files?.[0]); e.target.value = ''; }}
+                />
+              </div>
+
+              {readError && (
+                <div role="alert" className="mt-4 flex items-start gap-2.5 rounded-lg border border-p1-danger-border bg-p1-danger-soft px-3.5 py-2.5 text-[13.5px] text-p1-text">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-p1-danger" aria-hidden />
+                  {readError}
+                </div>
+              )}
             </Card>
 
             <SectionCard title="Column template" description="Use these column headings, in any order." icon={<FileSpreadsheet size={17} />}
-              actions={<Button variant="outline" size="sm" leftIcon={<Download size={15} />}>Download template</Button>}>
+              actions={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Download size={15} />}
+                  onClick={() => {
+                    // A file with the headings and one filled row, so the shape
+                    // is obvious without reading anything.
+                    const csv = [
+                      COLUMNS.join(','),
+                      '018987,22-06,The Sail @ Marina Bay,2,2,883,6500,Partially furnished,2026-10-01,Bright high-floor unit',
+                    ].join('\n');
+                    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'v-rent-listing-template.csv';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Download template
+                </Button>
+              }>
               <div className="flex flex-wrap gap-2">{COLUMNS.map((c) => <Pill key={c} className="font-mono">{c}</Pill>)}</div>
             </SectionCard>
           </div>
@@ -157,8 +287,28 @@ export default function ImportPage() {
 
       {stage === 'preview' && (
         <>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[15px] font-semibold text-p1-text">
+                <FileSpreadsheet size={16} className="text-p1-text-3" aria-hidden />
+                <span className="truncate">{fileName}</span>
+              </div>
+              {unmapped.length > 0 && (
+                <p className="mt-1 text-[13px] leading-5 text-p1-text-3">
+                  {/* Said rather than silently dropped: a column an agent
+                      carefully filled in and that goes nowhere is worth a line. */}
+                  Ignored {unmapped.length === 1 ? 'one column' : `${unmapped.length} columns`} we do not recognise:{' '}
+                  {unmapped.slice(0, 6).join(', ')}{unmapped.length > 6 ? '…' : ''}
+                </p>
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setStage('upload'); setParsed([]); }}>
+              Choose a different file
+            </Button>
+          </div>
+
           <div className="vr-stagger mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="Rows found" value={PARSED.length} />
+            <StatCard label="Rows found" value={parsed.length} />
             <StatCard label="Ready" value={ok.length} tone="success" />
             <StatCard label="Warnings" value={warn.length} tone="warning" hint="Will still import" />
             <StatCard label="Skipped" value={bad.length} tone="danger" hint="Fix and re-upload" />
@@ -166,7 +316,7 @@ export default function ImportPage() {
 
           <DataTable<Row & { i: number }>
             columns={columns}
-            rows={PARSED.map((r, i) => ({ ...r, i }))}
+            rows={parsed.map((r, i) => ({ ...r, i }))}
             rowKey={(r) => String(r.i)}
             caption="Import preview"
             minWidth={680}

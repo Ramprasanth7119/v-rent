@@ -18,6 +18,8 @@ import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { findById } from '../../../../lib/auth/store';
 import { loadWorkspace, patchWorkspace, readWorkspace } from '../../../../lib/phase1/workspace-store';
 import { Enquiry } from '../../../../lib/phase1/workspace';
+import { notify } from '../../../../lib/phase1/notify';
+import { publicAccount } from '../../../../lib/auth/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -89,6 +91,15 @@ export async function POST(req: Request) {
 
   const current = await loadWorkspace(owner);
   await patchWorkspace(owner, { enquiries: [enquiry, ...current.enquiries].slice(0, 500) });
+
+  const origin = new URL(req.url).origin;
+  await notify(publicAccount(owner), {
+    kind: 'enquiry',
+    tone: 'info',
+    title: `New enquiry about ${listing.project} ${listing.unitNo}`,
+    body: `${name} asked: ${message.slice(0, 160)}${message.length > 160 ? '…' : ''}`,
+    href: `${origin}/phase1/performance`,
+  });
 
   return NextResponse.json({ ok: true });
 }

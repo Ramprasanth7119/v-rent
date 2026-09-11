@@ -28,9 +28,40 @@ export async function generateMetadata({ params }: { params: Promise<{ owner: st
   const found = await findPublicListing(owner, id);
   if (!found) return { title: 'Listing not available — V-RENT' };
   const { listing } = found;
+  const deal = listing.dealType === 'sale' ? 'for sale' : 'for rent';
+  const price = listing.dealType === 'sale'
+    ? `S$${(listing.salePriceSgd ?? 0).toLocaleString('en-SG')}`
+    : `S$${listing.monthlyRent.toLocaleString('en-SG')} per month`;
+
+  // The card WhatsApp draws when the link is pasted. Without an image it is a
+  // line of grey text, and the scope calls the WhatsApp preview the reason this
+  // page is worth having on day one.
+  const cover = (listing.photos ?? [])[0];
+  const image = cover
+    ? `/api/phase1/photos/${owner}/${id}/${cover}`
+    : listing.lat !== undefined && listing.lng !== undefined
+      ? `/api/phase1/map?lat=${listing.lat}&lng=${listing.lng}&w=512&h=268`
+      : undefined;
+
+  const title = `${listing.bedrooms} bedroom ${listing.propertyType} ${deal} in ${listing.project}`;
+  const description = `${listing.unitNo} ${listing.address}, Singapore ${listing.postalCode}. ${price}.`;
+
   return {
-    title: `${listing.bedrooms} bedroom ${listing.propertyType} for rent in ${listing.project} — V-RENT`,
-    description: `${listing.unitNo} ${listing.address}, Singapore ${listing.postalCode}. S$${listing.monthlyRent.toLocaleString()} per month.`,
+    title: `${title} — V-RENT`,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      siteName: 'V-RENT',
+      images: image ? [{ url: image, width: 1200, height: 630, alt: title }] : undefined,
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
   };
 }
 

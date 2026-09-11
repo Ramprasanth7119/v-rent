@@ -79,6 +79,18 @@ export interface Enquiry {
   budget?: number;
 }
 
+/** A notice shown in the bell. Written by the server, read by the agent. */
+export interface Alert {
+  id: string;
+  at: string;
+  kind: string;
+  title: string;
+  body: string;
+  href?: string;
+  tone: 'info' | 'success' | 'warning' | 'danger';
+  read: boolean;
+}
+
 export interface WorkspaceState {
   emailVerified: boolean;
   mobileVerified: boolean;
@@ -93,6 +105,8 @@ export interface WorkspaceState {
   listings: DemoListing[];
   notifications: NotificationPrefs;
   enquiries: Enquiry[];
+  /** What has happened to this account, newest first. */
+  alerts: Alert[];
 }
 
 /**
@@ -164,6 +178,7 @@ export function seedWorkspace(user: PublicAccount, opts: { autoApprove: boolean 
       listings: [],
       notifications: { ...DEFAULT_NOTIFICATIONS },
       enquiries: [],
+      alerts: [],
     };
   }
 
@@ -190,6 +205,7 @@ export function seedWorkspace(user: PublicAccount, opts: { autoApprove: boolean 
     // listing; inventing a few would put words in a stranger's mouth, and the
     // inbox fills the moment a share link is used.
     enquiries: [],
+    alerts: [],
   };
 }
 
@@ -360,6 +376,26 @@ export function sanitisePatch(raw: unknown): Partial<WorkspaceState> {
         : DEFAULT_NOTIFICATIONS[key];
     }
     patch.notifications = clean;
+  }
+  if (Array.isArray(b.alerts)) {
+    patch.alerts = b.alerts.slice(0, 100).flatMap((raw) => {
+      if (!raw || typeof raw !== 'object') return [];
+      const a = raw as Record<string, unknown>;
+      if (typeof a.id !== 'string' || !a.id) return [];
+      const tone = ['info', 'success', 'warning', 'danger'].includes(a.tone as string)
+        ? (a.tone as Alert['tone'])
+        : 'info';
+      return [{
+        id: str(a.id, 64),
+        at: str(a.at, 32),
+        kind: str(a.kind, 32),
+        title: str(a.title, 200),
+        body: str(a.body, 1000),
+        href: str(a.href, 300) || undefined,
+        tone,
+        read: a.read === true,
+      }];
+    });
   }
   if (Array.isArray(b.enquiries)) {
     patch.enquiries = b.enquiries

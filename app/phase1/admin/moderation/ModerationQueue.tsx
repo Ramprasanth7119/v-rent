@@ -13,7 +13,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  PageHeader, StatCard, Card, Button, EmptyState, Callout, SelectInput, TextArea, cx } from '../../../../components/phase1/kit';
+  PageHeader, StatCard, Card, Button, EmptyState, Callout, SelectInput, TextArea, SearchInput, FilterBar, cx } from '../../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { PropertyImage } from '../../../../components/phase1/PropertyImage';
@@ -31,6 +31,15 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
   const [reason, setReason] = useState(REJECTION_REASONS[0]);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+
+  // The same search the directory offers: an officer looking for one listing
+  // knows the reference, the project, or the agent — rarely all three.
+  const needle = q.trim().toLowerCase();
+  const shown = needle
+    ? items.filter((i) => [i.listing.reference, i.listing.project, i.listing.address, i.listing.postalCode, i.ownerName, i.ownerCea]
+        .some((v) => v.toLowerCase().includes(needle)))
+    : items;
 
   const resubmitted = items.filter((i) => i.kind === 'resubmitted').length;
   const thin = items.filter((i) => i.listing.images < 5).length;
@@ -79,18 +88,29 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
         <StatCard label="Same unit advertised twice" value={clashing} tone={clashing ? 'warning' : 'default'} hint="an open mandate, or a duplicate" icon={<Copy size={16} />} />
       </div>
 
-      {items.length === 0 ? (
+      {items.length > 0 && (
+        <FilterBar className="mb-5">
+          <SearchInput
+            value={q}
+            onChange={setQ}
+            label="Search the queue"
+            placeholder="Search by reference, project, address or agent"
+          />
+        </FilterBar>
+      )}
+
+      {shown.length === 0 ? (
         <Card>
           <EmptyState
             icon={<Gavel size={26} />}
-            title="Nothing to review"
+            title={needle ? 'Nothing matches that' : 'Nothing to review'}
             description="Listings arrive here the moment an agent publishes one, and again whenever a rejected listing is corrected and resubmitted."
             action={<Link href="/phase1/admin/agents" className="text-[14px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">Open the agent directory</Link>}
           />
         </Card>
       ) : (
         <ul className="vr-stagger space-y-4">
-          {items.map((item) => {
+          {shown.map((item) => {
             const l = item.listing;
             const thinPhotos = l.images < 5;
             return (

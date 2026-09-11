@@ -15,6 +15,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { CeaRecord } from './cea';
 import type { EmailVerification } from './email-verification';
+import type { PasswordReset } from './password-reset';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -43,6 +44,12 @@ export interface Account {
   emailVerifiedAt?: string;
   /** The outstanding confirmation token, hashed. Cleared once used. */
   emailVerification?: EmailVerification;
+  /** The outstanding password-reset token, hashed. Cleared once used. */
+  passwordReset?: PasswordReset;
+  /** Consecutive wrong passwords. Cleared by a correct one. */
+  failedAttempts?: number;
+  /** Set once there have been too many. Sign-in is refused until it passes. */
+  lockedUntil?: string;
   /** Present for agents; admins have no CEA registration. */
   cea?: CeaSnapshot;
 }

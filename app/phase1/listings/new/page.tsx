@@ -145,47 +145,7 @@ function ListingWizard() {
   const searchSeq = useRef(0);
 
   useEffect(() => {
-    /**
-   * A property template: what this agent already recorded about this building.
-   *
-   * Agents list many units in the same condominium, and everything that is true
-   * of the building rather than the unit — the district, the station, the
-   * tenure, the year it was completed, most of the amenities — is the same
-   * every time. Offering it beats asking for it again, and it is offered rather
-   * than applied because the previous listing might have been wrong.
-   */
-  const template = useMemo(() => {
-    if (!addr) return null;
-    const sameBuilding = state.listings
-      .filter((l) => !l.archived && l.id !== editing?.id)
-      .filter((l) => l.postalCode === addr.postal || l.project.toLowerCase() === addr.project.toLowerCase())
-      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
-    return sameBuilding[0] ?? null;
-  }, [addr, state.listings, editing?.id]);
-
-  const [templateUsed, setTemplateUsed] = useState(false);
-
-  const applyTemplate = () => {
-    if (!template) return;
-    setPropertyType(template.propertyType);
-    if (template.amenities?.length) setAmenities(template.amenities);
-    if (template.nearestMrt || template.tenure || template.builtYear) {
-      // Carried onto the saved record through `fields()` below.
-      setCarried({
-        nearestMrt: template.nearestMrt,
-        tenure: template.tenure,
-        builtYear: template.builtYear,
-      });
-    }
-    setTemplateUsed(true);
-    push({
-      tone: 'success',
-      title: 'Filled in from your last listing here',
-      body: `Taken from ${template.project} ${template.unitNo}. Change anything that differs for this unit.`,
-    });
-  };
-
-  const term = query.trim();
+    const term = query.trim();
     if (addr || term.length < 3) return;
 
     const seq = ++searchSeq.current;
