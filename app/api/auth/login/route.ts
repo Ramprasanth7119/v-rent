@@ -8,7 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import { TokenBucket } from '../../../../lib/payments/concurrency';
-import { ensureAdminAccount, findByEmail, publicAccount, recordLogin, verifyPassword } from '../../../../lib/auth/store';
+import { ensureDemoAccounts, findByEmail, publicAccount, recordLogin, verifyPassword } from '../../../../lib/auth/store';
 import { startSession } from '../../../../lib/auth/session';
 import { clearFailures, isLocked, recordFailure } from '../../../../lib/auth/password-reset';
 
@@ -44,8 +44,9 @@ export async function POST(req: Request) {
   const password = typeof body.password === 'string' ? body.password : '';
   if (!email || !password) return NextResponse.json(FAILED, { status: 401 });
 
-  // Makes sure an operations account exists to sign in as on a fresh install.
-  await ensureAdminAccount();
+  // Makes sure the two declared demo accounts exist on a fresh install, and
+  // that their passwords still match what the environment says they are.
+  await ensureDemoAccounts();
 
   const account = await findByEmail(email);
   if (!account) return NextResponse.json(FAILED, { status: 401 });

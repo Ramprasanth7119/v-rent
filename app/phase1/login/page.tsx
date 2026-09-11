@@ -97,9 +97,9 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <p className="mt-8 border-t border-p1-border pt-5 text-[13px] leading-6 text-p1-text-3">
-        Signing in creates a session that lasts twelve hours. Two-factor authentication for administrators, single sign-on
-        for agencies and Singpass sign-in are part of the full build.
+      <p className="mt-8 border-t border-p1-border pt-5 text-[12.5px] leading-6 text-p1-text-3">
+        Signing in creates a session that lasts twelve hours. Two-factor authentication for administrators, single
+        sign-on for agencies and Singpass sign-in are part of the full build.
       </p>
     </AuthLayout>
   );

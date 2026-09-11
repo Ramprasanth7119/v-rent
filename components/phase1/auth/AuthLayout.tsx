@@ -5,7 +5,14 @@
  *
  * Portals put these on their own page rather than inside the application
  * chrome: there is no navigation to offer someone who is not signed in, and the
- * left panel is where the product makes its case. One column below `lg`.
+ * panel beside the form is where the product makes its case.
+ *
+ * The form sits in a raised card on a pale sky rather than floating in a white
+ * half of the screen. A form with nothing around it reads as unfinished at any
+ * window size above a laptop, because the eye has nothing to fix the column
+ * against; a card gives it an edge, and centring the card means the layout is
+ * the same at 1280 and at 2560. Below `lg` the navy panel folds away to a
+ * single header strip, because on a phone the case has already been made.
  */
 
 import React from 'react';
@@ -26,9 +33,30 @@ const POINTS = [
   {
     icon: Share2,
     title: 'Built for how Singapore agents work',
-    body: 'Share a listing to WhatsApp, export a client shortlist as a branded PDF, and keep your whole portfolio in one place.',
+    body: 'Share a listing to WhatsApp, export a client shortlist as a branded PDF, and keep your portfolio in one place.',
   },
 ];
+
+/**
+ * The same drawn skyline the agent hub opens on, at the foot of the page.
+ * It costs no request, survives both themes, and is what stops this reading as
+ * a sign-in form that could belong to any product.
+ */
+function Skyline() {
+  return (
+    <svg
+      viewBox="0 0 1200 200"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[16vh] w-full text-p1-primary opacity-[0.09] dark:opacity-[0.16]"
+    >
+      <path
+        fill="currentColor"
+        d="M0 200 V150 h46 V118 h38 V150 h30 V96 h54 V64 h6 V30 h6 V64 h6 V96 h40 V132 h44 V88 h58 V128 h34 V150 h52 V104 h48 V70 h5 V36 h5 V70 h5 V104 h42 V140 h60 V112 h44 V146 h38 V84 h56 V120 h48 V150 h40 V98 h50 V58 h6 V26 h6 V58 h6 V98 h46 V134 h56 V110 h42 V144 h52 V92 h48 V126 h38 V152 h44 V116 h40 V200 Z"
+      />
+    </svg>
+  );
+}
 
 export function AuthLayout({
   title,
@@ -41,73 +69,85 @@ export function AuthLayout({
   subtitle?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Widens the form column for the multi-step account form. */
   wide?: boolean;
 }) {
   return (
-    <div className="min-h-screen bg-p1-surface lg:grid lg:grid-cols-[minmax(0,44%)_minmax(0,56%)]">
-      {/* Brand panel */}
-      <aside className="relative hidden overflow-hidden bg-p1-sidebar px-10 py-12 text-white lg:flex lg:flex-col xl:px-14">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.16]"
-          aria-hidden
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 18% 12%, rgba(255,255,255,.5) 0, transparent 42%), radial-gradient(circle at 88% 78%, rgba(212,175,55,.55) 0, transparent 46%)',
-          }}
-        />
-        <div className="relative flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-p1-accent font-p1display text-[19px] text-[#0E2350]">V</span>
-          <span>
-            <span className="block text-[15px] font-semibold leading-5 tracking-tight">V-RENT</span>
-            <span className="block text-[11.5px] text-white/60">Singapore rental platform for agents</span>
-          </span>
-        </div>
+    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-b from-[#E8F0FF] to-p1-bg px-4 py-6 sm:px-6 sm:py-10 dark:from-[#101B38]">
+      <Skyline />
 
-        <div className="relative mt-auto max-w-md pt-16">
-          <h2 className="font-p1display text-[30px] leading-[1.18] text-white xl:text-[34px]">
-            Every listing you publish carries proof that you are registered to sell it.
-          </h2>
-          <ul className="mt-9 space-y-6">
-            {POINTS.map((p) => (
-              <li key={p.title} className="flex gap-3.5">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-p1-accent" aria-hidden>
-                  <p.icon size={16} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-semibold text-white">{p.title}</span>
-                  <span className="mt-0.5 block text-[13.5px] leading-6 text-white/65">{p.body}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="relative mt-auto pt-14 text-[12px] text-white/45">
-          Proof of concept · V-One Automation · Data shown for registered salespersons comes from the public CEA register.
-        </p>
-      </aside>
-
-      {/* Form panel */}
-      <main className="flex min-h-screen flex-col px-5 py-8 sm:px-10 lg:px-14 lg:py-12">
-        <div className="flex items-center justify-between lg:hidden">
-          <Link href="/phase1" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-p1-primary font-p1display text-[17px] text-white">V</span>
-            <span className="text-[15px] font-semibold tracking-tight text-p1-text">V-RENT</span>
+      <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1120px] flex-col sm:min-h-[calc(100vh-5rem)]">
+        <div className="my-auto w-full">
+          {/* The mark, outside the card, so the page is identifiable before the
+              form is read and there is something to click back to. */}
+          <Link href="/phase1" className="mb-5 inline-flex items-center gap-2.5 lg:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-primary font-p1display text-[19px] font-bold text-white">V</span>
+            <span className="font-p1display text-[16px] font-bold tracking-[-0.02em] text-p1-text">V-RENT</span>
           </Link>
-        </div>
 
-        <div className={`mx-auto flex w-full flex-1 flex-col justify-center py-8 ${wide ? 'max-w-[540px]' : 'max-w-[420px]'}`}>
-          <h1 className="font-p1display text-[26px] leading-tight text-p1-text sm:text-[30px]">{title}</h1>
-          {subtitle && <p className="mt-2 text-[14.5px] leading-6 text-p1-text-2">{subtitle}</p>}
-          <div className="mt-8">{children}</div>
-        </div>
+          <div
+            className={`grid w-full overflow-hidden rounded-2xl bg-p1-surface shadow-p1-lg ring-1 ring-p1-border ${
+              wide ? 'lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]'
+            }`}
+          >
+            {/* ------------------------------------------------------ the case */}
+            <aside className="relative hidden overflow-hidden bg-p1-sidebar px-9 py-10 text-white lg:flex lg:flex-col xl:px-11">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-[0.18]"
+                aria-hidden
+                style={{
+                  backgroundImage:
+                    'radial-gradient(circle at 15% 8%, rgba(255,255,255,.45) 0, transparent 45%), radial-gradient(circle at 92% 82%, rgba(242,179,34,.5) 0, transparent 48%)',
+                }}
+              />
 
-        {footer && (
-          <div className={`mx-auto w-full pt-6 text-[13.5px] text-p1-text-2 ${wide ? 'max-w-[540px]' : 'max-w-[420px]'}`}>
-            {footer}
-          </div>
-        )}
-      </main>
+              <Link href="/phase1" className="relative flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-accent font-p1display text-[19px] font-bold text-[#0B1B45]">V</span>
+                <span>
+                  <span className="block font-p1display text-[15.5px] font-bold leading-5 tracking-[-0.02em]">V-RENT</span>
+                  <span className="block text-[11.5px] text-p1-accent">Singapore rental platform for agents</span>
+                </span>
+              </Link>
+
+              <div className="relative mt-10 xl:mt-12">
+                <h2 className="font-p1display text-[27px] font-bold leading-[1.16] tracking-[-0.022em] text-white text-balance xl:text-[30px]">
+                  Every listing you publish carries proof that you are registered to sell it.
+                </h2>
+                <ul className="mt-8 space-y-5">
+                  {POINTS.map((p) => (
+                    <li key={p.title} className="flex gap-3.5">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-p1-accent" aria-hidden>
+                        <p.icon size={16} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-[14px] font-semibold text-white">{p.title}</span>
+                        <span className="mt-0.5 block text-[13px] leading-[1.55] text-white/60">{p.body}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className="relative mt-auto pt-10 text-[11.5px] leading-5 text-white/45">
+                Proof of concept · V-One Automation · Registration details come from the public CEA register on
+                data.gov.sg.
+              </p>
+            </aside>
+
+            {/* ------------------------------------------------------ the form */}
+            <main className="flex flex-col justify-center px-5 py-8 sm:px-9 sm:py-11 lg:px-11">
+              <div className={`mx-auto w-full ${wide ? 'max-w-[560px]' : 'max-w-[400px]'}`}>
+                <h1 className="font-p1display text-[27px] font-bold leading-[1.12] tracking-[-0.024em] text-p1-text text-balance sm:text-[31px]">
+                  {title}
+                </h1>
+                {subtitle && <p className="mt-2.5 text-[14.5px] leading-6 text-p1-text-2">{subtitle}</p>}
+                <div className="mt-7">{children}</div>
+                {footer && <div className="mt-8 text-[13.5px] text-p1-text-2">{footer}</div>}
+              </div>
+            </main>
+        </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -13,7 +13,7 @@ import { randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'no
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { CeaRecord } from './cea';
+import { displayAgency, displayName, lookupRegistration, type CeaRecord } from './cea';
 import type { EmailVerification } from './email-verification';
 import type { PasswordReset } from './password-reset';
 
@@ -221,26 +221,12 @@ export async function sessionSecret(): Promise<string> {
  * one is provided, and is otherwise printed once to the server console.
  */
 export async function ensureAdminAccount(): Promise<{ email: string; generatedPassword?: string }> {
-  const email = normalise(process.env.VRENT_ADMIN_EMAIL ?? 'ops@v-rent.sg');
+  const email = normalise(process.env.VRENT_ADMIN_EMAIL ?? 'admin@vrent.sg');
   const existing = await findByEmail(email);
 
   if (existing) {
     // The environment is the declared source of truth for this one account.
-    // Without this, an operations account created before VRENT_ADMIN_PASSWORD
-    // was set keeps a generated password nobody has any more, and the console
-    // is unreachable with the credential sitting in the environment file.
-    const chosen = process.env.VRENT_ADMIN_PASSWORD;
-    if (chosen && !(await verifyPassword(chosen, existing))) {
-      const data = await readAll();
-      const account = data.accounts.find((a) => a.id === existing.id);
-      if (account) {
-        const { passwordHash, passwordSalt } = await hashPassword(chosen);
-        account.passwordHash = passwordHash;
-        account.passwordSalt = passwordSalt;
-        await writeAll(data);
-        console.info('[v-rent] operations account password synchronised from VRENT_ADMIN_PASSWORD');
-      }
-    }
+    await syncPasswordFromEnv(existing, process.env.VRENT_ADMIN_PASSWORD, 'operations account');
     return { email };
   }
 
@@ -258,4 +244,95 @@ export async function ensureAdminAccount(): Promise<{ email: string; generatedPa
     console.info(`[v-rent] operations account created: ${email} / ${password}`);
   }
   return { email, generatedPassword: process.env.VRENT_ADMIN_PASSWORD ? undefined : password };
+}
+
+
+/* ------------------------------------------------------- demo agent account
+
+   The walkthrough needs a second account that is not an administrator, so a
+   team can be shown the agent side without anybody handing round a personal
+   password. It is declared in the environment like the operations account, and
+   like that one the environment is the source of truth for the password. */
+
+/**
+ * Where the demo agent's registration came from, if the register cannot be
+ * reached when the account is first created.
+ *
+ * This is a verbatim row from the CEA Salesperson register on data.gov.sg,
+ * copied so a demo on a bad connection still shows a verified agent rather
+ * than an account stuck in limbo. The live lookup is tried first and wins
+ * whenever it answers; this is only the floor under it.
+ */
+const DEMO_AGENT_FALLBACK: CeaRecord = {
+  name: 'LI MINGHONG (MICHELLE LI)',
+  registrationNo: 'R026417F',
+  registrationStart: '2011-01-01',
+  registrationEnd: '2026-12-31',
+  agencyName: 'ERA REALTY NETWORK PTE LTD',
+  agencyLicenceNo: 'L3002382K',
+};
+
+/**
+ * Reconcile one account's password with the value declared in the environment.
+ *
+ * Both demo accounts need this for the same reason: an account created before
+ * the password was declared keeps a hash nobody can reproduce, and the
+ * credential sitting in the environment file silently stops working.
+ */
+async function syncPasswordFromEnv(existing: Account, chosen: string | undefined, label: string) {
+  if (!chosen || (await verifyPassword(chosen, existing))) return;
+  const data = await readAll();
+  const account = data.accounts.find((a) => a.id === existing.id);
+  if (!account) return;
+  const { passwordHash, passwordSalt } = await hashPassword(chosen);
+  account.passwordHash = passwordHash;
+  account.passwordSalt = passwordSalt;
+  account.failedAttempts = 0;
+  delete account.lockedUntil;
+  await writeAll(data);
+  console.info(`[v-rent] ${label} password synchronised from the environment`);
+}
+
+/**
+ * The shared agent account, created on first use so a demo always has one.
+ *
+ * Its CEA registration is a real, current entry on the public register — the
+ * same lookup a real applicant goes through — because an agent account whose
+ * verification is faked would misrepresent the one thing this product is for.
+ */
+export async function ensureDemoAgentAccount(): Promise<{ email: string } | null> {
+  const rawEmail = process.env.VRENT_DEMO_AGENT_EMAIL;
+  const password = process.env.VRENT_DEMO_AGENT_PASSWORD;
+  if (!rawEmail || !password) return null;
+
+  const email = normalise(rawEmail);
+  const existing = await findByEmail(email);
+  if (existing) {
+    await syncPasswordFromEnv(existing, password, 'demo agent account');
+    return { email };
+  }
+
+  const registrationNo = (process.env.VRENT_DEMO_AGENT_CEA ?? DEMO_AGENT_FALLBACK.registrationNo).trim().toUpperCase();
+  const lookup = await lookupRegistration(registrationNo);
+  const record = lookup.status === 'found' ? lookup.record : DEMO_AGENT_FALLBACK;
+  if (lookup.status !== 'found') {
+    console.warn(`[v-rent] CEA register did not answer for ${registrationNo}; demo agent seeded from the stored row`);
+  }
+
+  await createAccount({
+    email,
+    password,
+    fullName: displayName(record.name),
+    mobile: process.env.VRENT_DEMO_AGENT_MOBILE ?? '+65 9123 4567',
+    role: 'agent',
+    cea: { ...record, agencyName: displayAgency(record.agencyName), verifiedAt: new Date().toISOString() },
+  });
+  console.info(`[v-rent] demo agent account created: ${email} (${record.registrationNo})`);
+  return { email };
+}
+
+/** Both accounts a walkthrough is given out on, in one call. */
+export async function ensureDemoAccounts(): Promise<void> {
+  await ensureAdminAccount();
+  await ensureDemoAgentAccount();
 }

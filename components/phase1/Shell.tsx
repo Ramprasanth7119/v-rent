@@ -16,7 +16,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Home, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Upload, Plus, Gavel, Receipt, BarChart3, Users,
+  FileSpreadsheet, Home, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Upload, Plus, Gavel, Receipt, BarChart3, Users,
   Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, ChevronDown, LogOut, LayoutGrid, MapPinned,
   Search, BookOpen, MessageCircle, Phone, Settings, TrendingUp, ChevronRight, ArrowLeftRight,
 } from 'lucide-react';
@@ -40,8 +40,8 @@ function isActive(pathname: string, item: NavItem) {
 const TITLES: Record<string, string> = {
   phase1: 'Agent hub', signup: 'Create account', login: 'Sign in', verify: 'Verify contact', profile: 'Profile',
   status: 'Verification', plans: 'Plans', checkout: 'Subscription', payment: 'Payment', sandbox: 'Sandbox checkout', dashboard: 'Dashboard', properties: 'Properties',
-  listings: 'Listings', new: 'Create listing', import: 'Bulk import', admin: 'Operations', agents: 'Agents', performance: 'Performance', settings: 'Settings',
-  verification: 'Verification queue', moderation: 'Moderation queue', subscriptions: 'Subscriptions', reports: 'Reports & audit',
+  listings: 'Listings', new: 'Create listing', import: 'Bulk import', reports: 'Reports', admin: 'Operations', agents: 'Agents', performance: 'Performance', settings: 'Settings',
+  verification: 'Verification queue', moderation: 'Moderation queue', subscriptions: 'Subscriptions',
 };
 
 /** Account ids are UUIDs; a raw one in a breadcrumb tells a reader nothing. */
@@ -263,6 +263,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     { title: 'Business', items: [
       { href: '/phase1/checkout', label: 'Subscription', icon: CreditCard },
       { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
+      { href: '/phase1/reports', label: 'Reports', icon: FileSpreadsheet },
     ] },
     { title: 'Account', items: [
       { href: '/phase1/profile', label: 'Profile', icon: IdCard },

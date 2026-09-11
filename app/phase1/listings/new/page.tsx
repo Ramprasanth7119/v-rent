@@ -4,13 +4,14 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Button, LinkButton, Card, SectionCard, PageHeader, ProgressBar, Callout, TextInput, TextArea, SelectInput,
-  Checkbox, Field, FieldGrid, Stepper, EmptyState, cx } from '../../../../components/phase1/kit';
+  Button, LinkButton, Card, SectionCard, ProgressBar, Callout, TextInput, TextArea, SelectInput,
+  Checkbox, Field, FieldGrid, EmptyState, cx } from '../../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
 import { PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
+import { LocationPicker } from '../../../../components/phase1/listing/LocationPicker';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
 import { DemoListing, ListingStatus, sgd } from '../../../../lib/phase1/data';
@@ -20,7 +21,7 @@ import { districtName } from '../../../../lib/phase1/performance';
 import { AMENITIES } from '../../../../lib/phase1/agents';
 import {
   Check, X, MapPin, Search, Lock, ChevronLeft, ChevronRight, ShieldCheck, Lightbulb, Camera, Sparkles,
-  SearchX, Send, Save, KeyRound, Tag } from 'lucide-react';
+  SearchX, Send, Save, KeyRound, Tag, Map as MapIcon, Type as TypeIcon, Bed, Ruler } from 'lucide-react';
 
 const STEPS = [
   { label: 'Sale or rent', description: 'What this listing is' },
@@ -32,6 +33,17 @@ const STEPS = [
   { label: 'Review', description: 'Check and publish' },
 ];
 
+
+/** One piece of advice per step, in the rail, about the step actually open. */
+const STEP_TIP: { title: string; body: string }[] = [
+  { title: 'Sale or rent', body: 'This decides which fields you are asked for and how a tenant or buyer finds the listing. It cannot be changed once the listing is live.' },
+  { title: 'Two ways in', body: 'Type the postal code if you know it — it identifies one building in Singapore. If you do not, drop a pin on the map instead.' },
+  { title: 'Size sells', body: 'Floor area and bedroom count are the two filters almost every search uses. A listing missing either is invisible to most of them.' },
+  { title: 'Price against the market', body: 'Rents that sit well above the last transacted price in the same project get views but no enquiries.' },
+  { title: 'Say what photos cannot', body: 'Quiet stack, no west sun, walking time to the MRT. Your CEA details are added automatically — no need to type them here.' },
+  { title: 'Shoot in daylight', body: 'Lights on, curtains open, landscape orientation. Ten or more photographs measurably lift enquiries.' },
+  { title: 'Before you publish', body: 'Publishing uses one slot on your plan and sends the listing for moderation. A draft costs nothing.' },
+];
 
 type PropertyType = DemoListing['propertyType'];
 type Furnishing = DemoListing['furnishing'];
@@ -105,6 +117,11 @@ function ListingWizard() {
         lng: editing.lng,
       }
     : null));
+  /* Two ways to answer "where is it": type it, or point at it. Typing is the
+     fast path when the agent knows the building; the map is for a new launch
+     with no postal code issued, a landed road with forty house numbers, or a
+     unit they drove to and could not spell. */
+  const [addrMode, setAddrMode] = useState<'search' | 'map'>('search');
   const [unitNo, setUnitNo] = useState(() => editing?.unitNo ?? '');
   const [beds, setBeds] = useState(() => String(editing?.bedrooms ?? 2));
   const [baths, setBaths] = useState(() => String(editing?.bathrooms ?? 2));
@@ -398,7 +415,6 @@ function ListingWizard() {
   if (missing) {
     return (
       <>
-        <PageHeader crumbs={[{ label: 'Listings', href: '/phase1/listings' }, { label: 'Edit listing' }]} title="Edit listing" />
         <EmptyState
           icon={<SearchX size={22} />}
           title="That listing is no longer here"
@@ -409,49 +425,151 @@ function ListingWizard() {
     );
   }
 
+  /* The listing as it stands, shown in the header so the agent can watch it
+     take shape. A wizard that only shows the current question feels like a
+     form; one that shows what is being built feels like a workspace. */
+  const summary = [
+    { icon: Tag, value: deal === 'sale' ? 'For sale' : 'For rent' },
+    { icon: MapPin, value: addr?.project || 'Property not chosen' },
+    { icon: Bed, value: beds ? `${beds} bed` : null },
+    { icon: Ruler, value: sqft ? `${Number(sqft).toLocaleString('en-SG')} sqft` : null },
+    {
+      icon: KeyRound,
+      value: deal === 'sale'
+        ? salePrice && sgd(Number(salePrice))
+        : rent && `${sgd(Number(rent))}/month`,
+    },
+  ].filter((c) => c.value);
+
   return (
     <>
-      {editing ? (
-        <PageHeader
-          crumbs={[
-            { label: 'Listings', href: '/phase1/listings' },
-            { label: editing.reference, href: `/phase1/listings/${editing.id}` },
-            { label: 'Edit' },
-          ]}
-          eyebrow={`Editing ${editing.reference}`}
-          title={`${editing.project} ${editing.unitNo}`}
-          description={editing.status === 'rejected'
-            ? 'Correct what the moderator flagged, then send it back for review.'
-            : 'Change any step and save. Every step is reachable from the list beside the form.'}
-          meta={<>
-            <StatusBadge kind="listing" value={editing.status} />
-            <span className="text-[13px] text-p1-text-3">Last updated {editing.updatedAt ?? editing.createdAt}</span>
-          </>}
-        />
-      ) : (
-        <PageHeader
-          crumbs={[{ label: 'Listings', href: '/phase1/listings' }, { label: 'Create listing' }]}
-          eyebrow="New listing"
-          title="Create a listing"
-          description="Seven short steps. Your progress is saved as you go, so you can come back later."
-          meta={<span className="inline-flex items-center gap-1.5 text-[13px] text-p1-text-3"><Check size={14} className="text-p1-success" aria-hidden /> Draft saved just now</span>}
-        />
-      )}
+      {/* ----------------------------------------------------------- header
+          Its own band rather than the standard page header: this screen is a
+          task with a start and an end, and the band carries the one thing the
+          standard header cannot — what has been filled in so far. */}
+      <section className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E8F0FF] to-p1-surface px-5 py-6 ring-1 ring-p1-border sm:px-7 sm:py-7 dark:from-[#16254A] dark:to-p1-surface">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <nav aria-label="Breadcrumb" className="text-[12.5px] text-p1-text-3">
+              <Link href="/phase1/listings" className="hover:text-p1-text hover:underline underline-offset-4">Listings</Link>
+              <span className="px-1.5" aria-hidden>/</span>
+              <span className="text-p1-text-2">{editing ? `Edit ${editing.reference}` : 'Create a listing'}</span>
+            </nav>
+            <h1 className="mt-1.5 font-p1display text-[28px] font-bold leading-[1.1] tracking-[-0.025em] text-p1-text sm:text-[34px]">
+              {editing ? `${editing.project} ${editing.unitNo}` : 'Create a listing'}
+            </h1>
+            <p className="mt-1.5 max-w-xl text-[14px] leading-6 text-p1-text-2">
+              {editing
+                ? editing.status === 'rejected'
+                  ? 'Correct what the moderator flagged, then send it back for review.'
+                  : 'Change any step and save. Every step is reachable from the rail beside the form.'
+                : 'Seven short steps. Your progress is saved as you go, so you can come back later.'}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+            {editing && <StatusBadge kind="listing" value={editing.status} />}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-surface/80 px-3 py-1 text-[12.5px] font-medium text-p1-text-2 ring-1 ring-p1-border backdrop-blur">
+              <Check size={13} className="text-p1-success" aria-hidden />
+              {editing ? `Last updated ${editing.updatedAt ?? editing.createdAt}` : 'Draft saved just now'}
+            </span>
+          </div>
+        </div>
+
+        <ul className="mt-5 flex flex-wrap gap-2">
+          {summary.map((c) => (
+            <li key={c.value} className="inline-flex items-center gap-1.5 rounded-full bg-p1-surface px-3 py-1.5 text-[13px] font-medium text-p1-text shadow-p1-sm ring-1 ring-p1-border">
+              <c.icon size={13} className="text-p1-text-3" aria-hidden />
+              {c.value}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {editing?.status === 'rejected' && editing.rejectionReason && (
         <Callout tone="danger" title="Why this listing was rejected" className="mb-4">{editing.rejectionReason}</Callout>
       )}
 
-      {/* Editing a complete listing means every step is already valid, so all of
-          them are reachable; creating one walks forward as each step passes. */}
-      <Stepper
-        steps={STEPS}
-        current={step}
-        completed={(i) => (editing ? i !== step : i < step)}
-        onSelect={editing ? setStep : undefined}
-      />
+      {/* One progress indicator, not three. The rail carries it on a desktop;
+          a phone gets the line below, because a seven-item rail on a 390px
+          screen is a scroll before the form is even reached. */}
+      <div className="mb-4 lg:hidden">
+        <div className="flex items-baseline justify-between text-[13px]">
+          <span className="font-semibold text-p1-text">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</span>
+          {STEPS[step + 1] && <span className="text-p1-text-3">Next: {STEPS[step + 1].label}</span>}
+        </div>
+        <ProgressBar value={progress} size="sm" className="mt-2" />
+      </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6">
+        {/* ------------------------------------------------------------ rail
+            One vertical list carrying step, state and description together.
+            The old screen had a horizontal stepper, a duplicate list in a
+            right-hand card and a progress bar — three readings of the same
+            fact, which is most of why it looked assembled from parts. */}
+        <nav aria-label="Steps" className="hidden lg:block">
+          <div className="sticky top-6">
+            <ol className="relative space-y-1">
+              {STEPS.map((s, i) => {
+                const done = editing ? i !== step : i < step;
+                const active = i === step;
+                const reachable = editing || i <= step;
+                const row = (
+                  <span className="flex items-start gap-3">
+                    <span className="relative flex flex-col items-center">
+                      <span
+                        aria-hidden
+                        className={cx(
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-colors',
+                          done ? 'bg-p1-success text-white'
+                            : active ? 'bg-p1-primary text-white ring-4 ring-p1-primary-soft'
+                            : 'bg-p1-subtle text-p1-text-3',
+                        )}
+                      >
+                        {done ? <Check size={13} strokeWidth={3} /> : i + 1}
+                      </span>
+                      {i < STEPS.length - 1 && (
+                        <span className={cx('mt-1 h-6 w-0.5 rounded-full', done ? 'bg-p1-success/40' : 'bg-p1-border')} aria-hidden />
+                      )}
+                    </span>
+                    <span className="min-w-0 pt-0.5">
+                      <span className={cx('block text-[14px] leading-5', active ? 'font-bold text-p1-text' : done ? 'font-medium text-p1-text-2' : 'text-p1-text-3')}>
+                        {s.label}
+                      </span>
+                      <span className="block text-[12px] leading-4 text-p1-text-3">{s.description}</span>
+                    </span>
+                  </span>
+                );
+                return (
+                  <li key={s.label} aria-current={active ? 'step' : undefined}>
+                    {reachable && !active ? (
+                      <button type="button" onClick={() => setStep(i)} className="w-full cursor-pointer rounded-lg py-1 text-left transition-colors hover:bg-p1-subtle">
+                        {row}
+                      </button>
+                    ) : (
+                      <span className="block py-1">{row}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+
+            <div className="mt-5 rounded-xl bg-p1-subtle p-3.5 ring-1 ring-p1-border">
+              <div className="flex items-center gap-2 text-[12.5px] font-bold text-p1-text">
+                <Lightbulb size={14} className="text-p1-primary dark:text-p1-info" aria-hidden />
+                {STEP_TIP[step].title}
+              </div>
+              <p className="mt-1.5 text-[12.5px] leading-[1.5] text-p1-text-2">{STEP_TIP[step].body}</p>
+            </div>
+
+            {!canPublish && (
+              <p className="mt-4 rounded-xl border border-p1-warning-border bg-p1-warning-soft px-3.5 py-3 text-[12.5px] leading-[1.5] text-p1-text-2">
+                Publication is blocked right now. You can still save a draft and publish once the checklist passes.
+              </p>
+            )}
+          </div>
+        </nav>
+
         <div className="min-w-0">
           {step === 0 && (
             <SectionCard
@@ -497,34 +615,76 @@ function ListingWizard() {
           )}
 
           {step === 1 && (
-            <SectionCard title="Find the property" description="Search by postal code, block and street, or building name. Matched against OneMap, the Singapore Land Authority's official address register, so every listing sits on a real property.">
-              <TextInput label="Address or postal code" leftIcon={<Search size={17} />} value={query}
-                onChange={(e) => { setQuery(e.target.value); setAddr(null); }}
-                placeholder="A six-digit postal code, or “2 Marina Boulevard”" autoComplete="off"
-                hint={searching ? 'Searching OneMap…' : 'A postal code identifies one building in Singapore, so it fills in the rest.'} />
-              {showMatches.length > 0 && (
-                <ul className="mt-2 overflow-hidden rounded-xl border border-p1-border" role="listbox" aria-label="Address matches">
-                  {showMatches.map((m) => (
-                    <li key={m.postal}>
-                      <button type="button" role="option" aria-selected={false} onClick={() => { setAddr(m); setQuery(m.label); }}
-                        className="flex w-full items-center gap-3 border-b border-p1-border px-4 py-3 text-left last:border-b-0 hover:bg-p1-subtle cursor-pointer">
-                        <MapPin size={17} className="shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />
-                        <span className="min-w-0">
-                          <span className="block truncate text-[14px] font-medium text-p1-text">{m.label}</span>
-                          <span className="block text-[13px] text-p1-text-3">Singapore {m.postal} · {m.project}</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            <SectionCard
+              title="Where is the property?"
+              description="Matched against OneMap, the Singapore Land Authority's official address register, so every listing sits on a real building with a real postal district."
+            >
+              {/* The choice sits above the field rather than behind a link, so
+                  an agent who cannot spell the road can see the other way in
+                  before they start fighting the search box. */}
+              <div role="tablist" aria-label="How to find the property" className="mb-5 inline-flex rounded-full bg-p1-subtle p-1 ring-1 ring-p1-border">
+                {([
+                  { key: 'search' as const, label: 'Search the address', icon: TypeIcon },
+                  { key: 'map' as const, label: 'Choose on the map', icon: MapIcon },
+                ]).map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={addrMode === m.key}
+                    onClick={() => setAddrMode(m.key)}
+                    className={cx(
+                      'inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-semibold transition-colors',
+                      addrMode === m.key ? 'bg-p1-surface text-p1-text shadow-p1-sm' : 'text-p1-text-2 hover:text-p1-text',
+                    )}
+                  >
+                    <m.icon size={15} aria-hidden />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {addrMode === 'search' ? (
+                <>
+                  <TextInput label="Address or postal code" leftIcon={<Search size={17} />} value={query}
+                    onChange={(e) => { setQuery(e.target.value); setAddr(null); }}
+                    placeholder="A six-digit postal code, or “2 Marina Boulevard”" autoComplete="off"
+                    hint={searching ? 'Searching OneMap…' : 'A postal code identifies one building in Singapore, so it fills in the rest.'} />
+                  {showMatches.length > 0 && (
+                    <ul className="mt-2 overflow-hidden rounded-xl ring-1 ring-p1-border" role="listbox" aria-label="Address matches">
+                      {showMatches.map((m) => (
+                        <li key={m.postal}>
+                          <button type="button" role="option" aria-selected={false} onClick={() => { setAddr(m); setQuery(m.label); }}
+                            className="flex w-full items-center gap-3 border-b border-p1-border bg-p1-surface px-4 py-3 text-left last:border-b-0 hover:bg-p1-subtle cursor-pointer">
+                            <MapPin size={17} className="shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />
+                            <span className="min-w-0">
+                              <span className="block truncate text-[14px] font-medium text-p1-text">{m.label}</span>
+                              <span className="block text-[13px] text-p1-text-3">Singapore {m.postal} · {m.project}</span>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {noMatches && (
+                    <p className="mt-2 text-[13px] text-p1-text-3">
+                      Nothing in the address register matches that. Check the spelling, try the six-digit postal code, or
+                      {' '}
+                      <button type="button" onClick={() => setAddrMode('map')} className="cursor-pointer font-semibold text-p1-primary underline-offset-4 hover:underline dark:text-p1-info">
+                        point at it on the map
+                      </button>.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <LocationPicker
+                  initial={{ lat: addr?.lat, lng: addr?.lng }}
+                  onPick={(m) => { setAddr(m); setQuery(m.label); }}
+                />
               )}
-              {noMatches && (
-                <p className="mt-2 text-[13px] text-p1-text-3">
-                  Nothing in the address register matches that. Check the spelling, or try the six-digit postal code.
-                </p>
-              )}
+
               {addr && (
-                <div className="mt-4 rounded-xl border border-p1-success-border bg-p1-success-soft/60 p-4">
+                <div className="mt-5 rounded-xl border border-p1-success-border bg-p1-success-soft/60 p-4">
                   <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-p1-text"><Check size={16} className="text-p1-success" aria-hidden /> Property matched</div>
                   <FieldGrid cols={2}>
                     <Field label="Project" value={addr.project} />
@@ -532,7 +692,7 @@ function ListingWizard() {
                     <Field label="District" value={addr.district ? `D${String(addr.district).padStart(2, '0')} ${districtName(addr.district)}` : 'Not in a postal district'} />
                     <Field label="Address" value={addr.label} />
                   </FieldGrid>
-                  <PropertyMap className="mt-4" lat={addr.lat} lng={addr.lng} label={addr.label} height={200} />
+                  {addrMode === 'search' && <PropertyMap className="mt-4" lat={addr.lat} lng={addr.lng} label={addr.label} height={200} />}
 
                   {template && !templateUsed && (
                     <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-p1-primary/25 bg-p1-primary-soft/60 px-4 py-3">
@@ -552,6 +712,13 @@ function ListingWizard() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {editing && (
+                <Callout tone="warning" className="mt-5" compact>
+                  Changing this on a live listing changes where it appears in search. Anyone who saved the old link
+                  still reaches it.
+                </Callout>
               )}
             </SectionCard>
           )}
@@ -724,39 +891,6 @@ function ListingWizard() {
           </Card>
         </div>
 
-        <div className="hidden space-y-4 lg:block">
-          <SectionCard title="Your progress" padding="sm">
-            <ol className="space-y-2.5">
-              {STEPS.map((s, i) => {
-                const done = editing ? i !== step : i < step;
-                const row = (
-                  <>
-                    <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold', done ? 'bg-p1-success text-white' : i === step ? 'bg-p1-primary text-white' : 'bg-p1-subtle text-p1-text-3')} aria-hidden>{done ? <Check size={13} strokeWidth={3} /> : i + 1}</span>
-                    <span className={cx(i === step ? 'font-semibold text-p1-text' : done ? 'text-p1-text-2' : 'text-p1-text-3')}>{s.label}</span>
-                  </>
-                );
-                return (
-                  <li key={s.label} className="text-[14px]">
-                    {editing ? (
-                      <button type="button" onClick={() => setStep(i)} aria-current={i === step ? 'step' : undefined}
-                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-1 py-0.5 text-left hover:bg-p1-subtle">{row}</button>
-                    ) : (
-                      <span className="flex items-center gap-2.5 px-1 py-0.5">{row}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </SectionCard>
-          <SectionCard title="Tips" padding="sm" icon={<Lightbulb size={17} />}>
-            <ul className="space-y-3 text-[13px] leading-5 text-p1-text-2">
-              <li className="flex gap-2"><Sparkles size={14} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />Lead with what a tenant cannot see in the photos: quiet stack, no west sun, walking time to the MRT.</li>
-              <li className="flex gap-2"><Camera size={14} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />Shoot in daylight with the lights on. Ten or more photos get more enquiries.</li>
-              <li className="flex gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />Your CEA details are added automatically — no need to type them into the description.</li>
-            </ul>
-          </SectionCard>
-          {!canPublish && <Callout tone="warning" title="Publication is currently blocked">You can still save a draft and publish once the checklist passes.</Callout>}
-        </div>
       </div>
 
       <ConfirmDialog open={confirmPublish} onClose={() => setConfirmPublish(false)} onConfirm={editing ? publishEdit : () => void publish()}

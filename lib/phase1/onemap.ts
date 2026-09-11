@@ -14,6 +14,7 @@
 
 const ENDPOINT = 'https://www.onemap.gov.sg/api/common/elastic/search';
 const STATIC_MAP = 'https://www.onemap.gov.sg/api/staticmap/getStaticImage';
+const REVERSE = 'https://www.onemap.gov.sg/api/public/revgeocode';
 
 export interface AddressMatch {
   /** "2 MARINA BOULEVARD THE SAIL @ MARINA BAY SINGAPORE 018987" */
@@ -196,5 +197,88 @@ export async function fetchStaticMap(lat: number, lng: number, size?: { width?: 
     return { body: Buffer.from(await res.arrayBuffer()), type };
   } catch {
     return null;
+  }
+}
+
+/* ------------------------------------------------------------ reverse lookup
+
+   Turning a point on the map back into an address. Unlike search, OneMap gates
+   this one behind a registered key, so it has three outcomes rather than two
+   and the caller is told which: an address, "the key is not configured", or a
+   genuine failure. The middle case is not an error — the agent can still give
+   the postal code, and the pin they dropped is kept as the position. */
+
+export type ReverseLookup =
+  | { status: 'matched'; match: AddressMatch }
+  | { status: 'needs_postal'; reason: string }
+  | { status: 'failed'; reason: string };
+
+interface RevGeocodeResult {
+  BUILDINGNAME?: string;
+  BLOCK?: string;
+  ROAD?: string;
+  POSTALCODE?: string;
+  LATITUDE?: string;
+  LONGITUDE?: string;
+}
+
+/**
+ * What is at this point, according to the Singapore Land Authority.
+ *
+ * `buffer` is metres around the point to consider; 120 is wide enough to catch
+ * the building when the pin lands in its car park, and narrow enough not to
+ * return the block across the road first.
+ */
+export async function reverseGeocode(lat: number, lng: number): Promise<ReverseLookup> {
+  if (!process.env.ONEMAP_TOKEN) {
+    return {
+      status: 'needs_postal',
+      reason: 'OneMap needs a registered key to name what is at a point, and one is not configured yet.',
+    };
+  }
+
+  const url = new URL(REVERSE);
+  url.searchParams.set('location', `${lat},${lng}`);
+  url.searchParams.set('buffer', '120');
+  url.searchParams.set('addressType', 'All');
+  url.searchParams.set('otherFeatures', 'N');
+
+  try {
+    const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+    if (res.status === 401 || res.status === 403) {
+      return { status: 'needs_postal', reason: 'The OneMap key configured for this server was refused.' };
+    }
+    if (!res.ok) return { status: 'failed', reason: `OneMap answered ${res.status}.` };
+
+    const body = (await res.json()) as { GeocodeInfo?: RevGeocodeResult[] };
+    const hit = (body.GeocodeInfo ?? []).find((r) => /^\d{6}$/.test((r.POSTALCODE ?? '').trim()));
+    if (!hit) {
+      return {
+        status: 'needs_postal',
+        reason: 'Nothing with a postal code sits within 120 metres of that point.',
+      };
+    }
+
+    const postal = hit.POSTALCODE!.trim();
+    const street = titleCase([hit.BLOCK, hit.ROAD].filter(Boolean).join(' '));
+    const building = (hit.BUILDINGNAME ?? '').trim();
+    const named = building && building !== 'NIL' ? titleCase(building) : street;
+
+    return {
+      status: 'matched',
+      match: {
+        label: titleCase(`${street} Singapore ${postal}`),
+        street,
+        postal,
+        project: named,
+        district: districtFromPostal(postal),
+        // The pin the agent dropped, not the centroid OneMap returns: they put
+        // it where the property is.
+        lat,
+        lng,
+      },
+    };
+  } catch (err) {
+    return { status: 'failed', reason: err instanceof Error ? err.message : 'Reverse lookup failed.' };
   }
 }
