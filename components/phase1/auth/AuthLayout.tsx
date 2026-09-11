@@ -102,7 +102,7 @@ export function AuthLayout({
               />
 
               <Link href="/phase1" className="relative flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-accent font-p1display text-[19px] font-bold text-[#062B3A]">V</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-accent font-p1display text-[19px] font-bold text-[#0E2124]">V</span>
                 <span>
                   <span className="block font-p1display text-[15.5px] font-bold leading-5 tracking-[-0.02em]">V-RENT</span>
                   <span className="block text-[11.5px] text-p1-accent">Singapore rental platform for agents</span>

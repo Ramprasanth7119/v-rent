@@ -332,7 +332,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     <div className={cx('flex h-full flex-col text-white', isAdmin ? 'bg-p1-sidebar-2' : 'bg-p1-sidebar')}>
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2.5 rounded-lg" aria-label="V-RENT home">
-          <span className={cx('flex h-9 w-9 items-center justify-center rounded-lg font-p1display text-[20px] font-semibold', isAdmin ? 'bg-white/10 text-p1-accent ring-1 ring-white/20' : 'bg-p1-accent text-[#062B3A]')}>V</span>
+          <span className={cx('flex h-9 w-9 items-center justify-center rounded-lg font-p1display text-[20px] font-semibold', isAdmin ? 'bg-white/10 text-p1-accent ring-1 ring-white/20' : 'bg-p1-accent text-[#0E2124]')}>V</span>
           <span>
             <span className="block text-[15px] font-semibold leading-5 tracking-tight">V-RENT</span>
             <span className={cx('block text-[11.5px] font-medium', isAdmin ? 'text-white/55' : 'text-p1-accent')}>{isAdmin ? 'Operations console' : 'Agent workspace'}</span>

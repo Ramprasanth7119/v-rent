@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { currentUser } from '../../../../lib/auth/session';
 import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { amenitiesAround } from '../../../../lib/phase1/amenities';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic';
 /** Each call is eight requests to OneMap, so this is deliberately tight. */
 const limiter = new TokenBucket(8, 0.5);
 
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const user = await currentUser();
   if (!user) {
     return NextResponse.json({ error: 'Sign in to continue.', code: 'unauthorised' }, { status: 401 });
@@ -44,3 +45,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json(await amenitiesAround(lat, lng, radius));
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);

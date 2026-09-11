@@ -15,6 +15,7 @@ import {
   MAX_PHOTOS_PER_LISTING, deletePhoto, pruneOrphans, savePhotos,
 } from '../../../../lib/phase1/photo-store';
 import { TODAY_ISO } from '../../../../lib/phase1/workspace';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ async function commit(
   return photos;
 }
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const user = await currentUser();
   if (!user) return unauthorised();
   const account = await findById(user.id);
@@ -87,3 +88,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ photos, rejected, warnings });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

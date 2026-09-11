@@ -76,7 +76,7 @@ export function Dialog({
   return (
     <Portal>
     <div className="p1 fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
-      <div className="p1-overlay fixed inset-0 bg-[#062B3A]/60 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
+      <div className="p1-overlay fixed inset-0 bg-[#08181B]/62 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={tid} aria-describedby={description ? did : undefined} tabIndex={-1}
         className={cx('p1-panel relative w-full rounded-t-2xl border border-p1-border bg-p1-surface text-p1-text shadow-p1-lg sm:rounded-2xl', w)}>
         <div className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6">
@@ -123,7 +123,7 @@ export function Drawer({
   return (
     <Portal>
     <div className="p1 fixed inset-0 z-[100]">
-      <div className="p1-overlay fixed inset-0 bg-[#062B3A]/60 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
+      <div className="p1-overlay fixed inset-0 bg-[#08181B]/62 backdrop-blur-[2px] dark:bg-black/70" onClick={onClose} aria-hidden />
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={tid} tabIndex={-1}
         className={cx('fixed inset-y-0 flex w-full flex-col border-p1-border bg-p1-surface text-p1-text shadow-p1-lg', w,
           side === 'right' ? 'right-0 border-l p1-drawer' : 'left-0 border-r p1-drawer-left')}>

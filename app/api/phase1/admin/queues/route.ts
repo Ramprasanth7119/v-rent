@@ -10,11 +10,12 @@ import { NextResponse } from 'next/server';
 import { currentUser } from '../../../../../lib/auth/session';
 import { moderationQueue } from '../../../../../lib/phase1/admin-moderation';
 import { pendingCount } from '../../../../../lib/phase1/admin-verification';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+async function GET_handler() {
   const staff = await currentUser();
   if (!staff || staff.role !== 'admin') {
     return NextResponse.json({ error: 'Not found.', code: 'not_found' }, { status: 404 });
@@ -25,3 +26,6 @@ export async function GET() {
     verification: await pendingCount(),
   });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);

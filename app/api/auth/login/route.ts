@@ -11,6 +11,7 @@ import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { ensureDemoAccounts, findByEmail, publicAccount, recordLogin, verifyPassword } from '../../../../lib/auth/store';
 import { startSession } from '../../../../lib/auth/session';
 import { clearFailures, isLocked, recordFailure } from '../../../../lib/auth/password-reset';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ function clientKey(req: Request): string {
 
 const FAILED = { error: 'Email address or password is incorrect.', code: 'bad_credentials' } as const;
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const retryAfter = limiter.take(clientKey(req));
   if (retryAfter !== null) {
     return NextResponse.json(
@@ -67,3 +68,6 @@ export async function POST(req: Request) {
   await startSession(account);
   return NextResponse.json({ ok: true, user: publicAccount(account) });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

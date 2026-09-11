@@ -2,11 +2,15 @@
 
 import { NextResponse } from 'next/server';
 import { endSession } from '../../../../lib/auth/session';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
+async function POST_handler() {
   await endSession();
   return NextResponse.json({ ok: true });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

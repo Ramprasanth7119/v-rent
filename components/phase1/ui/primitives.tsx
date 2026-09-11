@@ -9,7 +9,51 @@ import React from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 
-export const cx = (...a: unknown[]) => a.filter((x) => typeof x === 'string' && x).join(' ');
+/**
+ * The display utilities that conflict with one another at the same breakpoint.
+ * Responsive ones (`md:flex`) are left alone — they do not clash with a base.
+ */
+const DISPLAY = new Set([
+  'hidden', 'block', 'inline', 'inline-block', 'flex', 'inline-flex',
+  'grid', 'inline-grid', 'table', 'contents', 'flow-root', 'list-item',
+]);
+
+/**
+ * Join class names, last one winning where two set the same display.
+ *
+ * Every component here writes its own classes first and the caller's
+ * `className` last, on the reasonable assumption that later wins. For most
+ * utilities it does — two `px-*` rules have equal specificity, so the one
+ * further down the generated stylesheet applies, and Tailwind orders those by
+ * the order it found them. `display` is the exception that bites: a component
+ * whose base is `inline-flex` and a caller passing `hidden md:inline-flex`
+ * produced an element that stayed visible on a phone and dragged the page into
+ * a horizontal scroll, because which of the two won was decided by the
+ * stylesheet rather than by the class attribute.
+ *
+ * So resolve it here, where the intent is unambiguous: the caller wrote theirs
+ * last and meant it.
+ */
+export const cx = (...a: unknown[]) => {
+  const tokens = a
+    .filter((x): x is string => typeof x === 'string' && x !== '')
+    .join(' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  let seen = 0;
+  for (const t of tokens) if (DISPLAY.has(t)) seen += 1;
+  if (seen < 2) return tokens.join(' ');
+
+  let remaining = seen;
+  return tokens
+    .filter((t) => {
+      if (!DISPLAY.has(t)) return true;
+      remaining -= 1;
+      return remaining === 0;
+    })
+    .join(' ');
+};
 
 export function Spinner({ size = 16, className = '' }: { size?: number; className?: string }) {
   return <Loader2 size={size} className={cx('animate-spin', className)} aria-hidden />;

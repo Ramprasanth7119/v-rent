@@ -19,6 +19,7 @@ import { record } from '../../../../../../lib/phase1/audit';
 import { notify } from '../../../../../../lib/phase1/notify';
 import { publicAccount } from '../../../../../../lib/auth/store';
 import { preferredName } from '../../../../../../lib/phase1/workspace';
+import { logged } from '../../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export const dynamic = 'force-dynamic';
 const ACTIONS = ['suspend', 'reinstate'] as const;
 type Action = (typeof ACTIONS)[number];
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function POST_handler(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const staff = await currentUser();
   if (!staff || staff.role !== 'admin') {
     return NextResponse.json({ error: 'Not found.', code: 'not_found' }, { status: 404 });
@@ -87,3 +88,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   return NextResponse.json({ ok: true, approval: workspace.approval });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

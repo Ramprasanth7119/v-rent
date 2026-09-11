@@ -209,8 +209,10 @@ export default function ShortlistsPage() {
                           {on && <Check size={13} strokeWidth={3} />}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="font-p1display text-[15px] font-bold text-p1-text">{l.project} {l.unitNo}</span>
+                          <span className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="min-w-0 truncate font-p1display text-[15px] font-bold text-p1-text">
+                              {l.project} {l.unitNo}
+                            </span>
                             <StatusBadge kind="listing" value={l.status} />
                           </span>
                           <span className="mt-0.5 block truncate text-[13px] text-p1-text-3">

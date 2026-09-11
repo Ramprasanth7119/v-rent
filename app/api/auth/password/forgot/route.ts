@@ -11,6 +11,7 @@ import { TokenBucket } from '../../../../../lib/payments/concurrency';
 import { issueReset } from '../../../../../lib/auth/password-reset';
 import { send } from '../../../../../lib/mail';
 import { preferredName } from '../../../../../lib/phase1/workspace';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +30,7 @@ function clientKey(req: Request): string {
   return forwarded?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'local';
 }
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   if (limiter.take(clientKey(req)) !== null) {
     // Even the rate limit answers the same way, so timing does not leak either.
     return NextResponse.json(SAME_ANSWER);
@@ -71,3 +72,6 @@ export async function POST(req: Request) {
     link: delivery.sent ? undefined : link,
   });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

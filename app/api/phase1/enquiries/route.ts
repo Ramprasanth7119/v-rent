@@ -20,6 +20,7 @@ import { loadWorkspace, patchWorkspace, readWorkspace } from '../../../../lib/ph
 import { Enquiry } from '../../../../lib/phase1/workspace';
 import { notify } from '../../../../lib/phase1/notify';
 import { publicAccount } from '../../../../lib/auth/store';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ function clientKey(req: Request): string {
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const retryAfter = limiter.take(clientKey(req));
   if (retryAfter !== null) {
     return NextResponse.json(
@@ -103,3 +104,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

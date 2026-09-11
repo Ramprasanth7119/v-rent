@@ -130,10 +130,10 @@ function Document() {
 
       <div className="mx-auto w-full max-w-[1100px] px-4 py-6 print:max-w-none print:p-0">
         <article className="vr-doc rounded-xl border border-p1-border bg-white p-8 text-[#111827] shadow-p1-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
-          <header className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-[#062B3A] pb-5">
+          <header className="flex flex-wrap items-start justify-between gap-6 border-b-2 border-[#0E2124] pb-5">
             <div>
               <div className="flex items-center gap-2.5">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#062B3A] font-p1display text-[21px] font-semibold text-white">V</span>
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0E2124] font-p1display text-[21px] font-semibold text-white">V</span>
                 <span className="font-p1display text-[20px] font-semibold tracking-tight">V-RENT</span>
               </div>
               <h1 className="mt-4 font-p1display text-[26px] font-medium leading-tight">{KIND_LABEL[f.kind]}</h1>
@@ -176,7 +176,7 @@ function Document() {
                     <th
                       key={c}
                       className={cx(
-                        'border-b-2 border-[#062B3A] px-2 py-2 align-bottom font-semibold',
+                        'border-b-2 border-[#0E2124] px-2 py-2 align-bottom font-semibold',
                         table.numeric.includes(i) && 'text-right',
                       )}
                     >

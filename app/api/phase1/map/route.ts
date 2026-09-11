@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { fetchStaticMap } from '../../../../lib/phase1/onemap';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic';
 /** Singapore, with room for the outlying islands. */
 const BOUNDS = { minLat: 1.13, maxLat: 1.51, minLng: 103.55, maxLng: 104.14 };
 
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const params = new URL(req.url).searchParams;
   const lat = Number(params.get('lat'));
   const lng = Number(params.get('lng'));
@@ -43,3 +44,6 @@ export async function GET(req: Request) {
     },
   });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);

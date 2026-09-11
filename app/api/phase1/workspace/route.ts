@@ -11,6 +11,7 @@ import { currentUser } from '../../../../lib/auth/session';
 import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { loadWorkspace, patchWorkspace } from '../../../../lib/phase1/workspace-store';
 import { sanitisePatch } from '../../../../lib/phase1/workspace';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,13 +22,13 @@ const limiter = new TokenBucket(30, 2);
 const unauthorised = () =>
   NextResponse.json({ error: 'Sign in to continue.', code: 'unauthorised' }, { status: 401 });
 
-export async function GET() {
+async function GET_handler() {
   const user = await currentUser();
   if (!user) return unauthorised();
   return NextResponse.json({ workspace: await loadWorkspace(user) });
 }
 
-export async function PATCH(req: Request) {
+async function PATCH_handler(req: Request) {
   const user = await currentUser();
   if (!user) return unauthorised();
 
@@ -53,3 +54,7 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json({ workspace: await patchWorkspace(user, patch) });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);
+export const PATCH = logged(PATCH_handler);

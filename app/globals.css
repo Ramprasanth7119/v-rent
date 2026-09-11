@@ -258,8 +258,13 @@ body {
   --p1-info-soft: #E9F1FA;
   --p1-info-border: #C2D8F0;
 
-  --p1-sidebar: #062B3A;
-  --p1-sidebar-2: #04202C;
+  /* The dark chrome is a charcoal with a teal cast rather than a navy. Navy
+     beside a blue-green action colour reads as two attempts at the same idea;
+     a near-black lets both the petrol and the gold carry at full strength, and
+     is what a console someone stares at all day should be. */
+  --p1-sidebar: #0E2124;
+  --p1-sidebar-2: #081416;
+  --p1-sidebar-line: #1E3337;
 
   /* Shadows carry a little of the page's petrol, so a raised card reads as lit
      rather than smudged. Cards lean on these instead of a hairline border. */
@@ -314,8 +319,9 @@ body {
   --p1-info: #6FA8E8;
   --p1-info-soft: #132638;
   --p1-info-border: #29486B;
-  --p1-sidebar: #05161E;
-  --p1-sidebar-2: #030F15;
+  --p1-sidebar: #0A181A;
+  --p1-sidebar-2: #060E10;
+  --p1-sidebar-line: #1B2C2F;
   --p1-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --p1-shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.5);
   --p1-shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.7);
@@ -359,6 +365,7 @@ body {
   --color-p1-info-border: var(--p1-info-border);
   --color-p1-sidebar: var(--p1-sidebar);
   --color-p1-sidebar-2: var(--p1-sidebar-2);
+  --color-p1-sidebar-line: var(--p1-sidebar-line);
   --font-p1sans: var(--font-p1-sans);
   --font-p1display: var(--font-p1-display);
   --shadow-p1-sm: var(--p1-shadow-sm);
@@ -506,3 +513,70 @@ body {
   html, body { background: #fff !important; }
   .p1 { background: #fff !important; }
 }
+
+/* ============================================================
+   Chart motion
+
+   Two classes, used by `components/phase1/ui/viz`. A line draws
+   itself along its own path so the eye follows the series in
+   time order; the area under it fades in behind. Both run once,
+   on entry, and neither runs at all for a reader who has asked
+   their system for less movement.
+   ============================================================ */
+@keyframes p1-viz-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes p1-viz-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.p1-viz-draw {
+  /* Normalised units, so one rule works for a path of any length. */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  pathLength: 1;
+  opacity: 0;
+}
+.p1-viz-draw.is-in {
+  opacity: 1;
+  animation: p1-viz-draw 1100ms cubic-bezier(.22,.61,.36,1) both;
+}
+.p1-viz-fade { opacity: 0; }
+.p1-viz-fade.is-in { animation: p1-viz-fade 700ms ease both; }
+
+/* A panel that arrives rather than appears. Staggered by index. */
+@keyframes p1-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes p1-grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes p1-lift { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.p1-lift { animation: p1-lift 520ms cubic-bezier(.16,1,.3,1) both; }
+
+/* A quiet pulse for anything live. */
+@keyframes p1-live { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
+.p1-live { animation: p1-live 2.2s ease-in-out infinite; }
+
+/* The sheen that crosses a hero once on load. */
+@keyframes p1-sheen { from { transform: translateX(-120%) skewX(-18deg); } to { transform: translateX(320%) skewX(-18deg); } }
+.p1-sheen { animation: p1-sheen 2.4s cubic-bezier(.22,.61,.36,1) .35s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .p1-viz-draw, .p1-viz-fade, .p1-lift, .p1-live, .p1-sheen, [style*='p1-grow-x'] {
+    animation: none !important;
+    opacity: 1 !important;
+    stroke-dashoffset: 0 !important;
+    transform: none !important;
+  }
+}
+
+/* ============================================================
+   Grid children may shrink
+
+   A grid item's `min-width` is `auto`, which means it refuses to
+   become narrower than its own content. One long project name,
+   one wide table, one heading that will not wrap, and the item
+   pushes its track past the viewport and the whole page scrolls
+   sideways — on a phone, every time.
+
+   Almost nothing in this interface wants that behaviour: the
+   things that genuinely need to stay wide sit inside their own
+   `overflow-auto` container and are unaffected. So the default
+   is inverted here rather than patched with `min-w-0` on each
+   of a hundred wrappers, and `:where()` keeps the specificity
+   at zero so any explicit `min-w-*` utility still wins.
+   ============================================================ */
+.p1 :where(.grid) > * { min-width: 0; }

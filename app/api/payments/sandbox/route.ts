@@ -16,11 +16,12 @@ import { signDodo } from '../../../../lib/payments/providers/dodo';
 import { signPayNowCallback } from '../../../../lib/payments/providers/paynow';
 import { signRazorpay } from '../../../../lib/payments/providers/razorpay';
 import { applyWebhook } from '../../../../lib/payments/service';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   if (!PAYMENTS.sandbox) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
@@ -81,3 +82,6 @@ export async function POST(req: Request) {
   const result = await applyWebhook(event);
   return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

@@ -11,11 +11,12 @@ import { NextResponse } from 'next/server';
 import { confirmToken } from '../../../../../lib/auth/email-verification';
 import { loadWorkspace, patchWorkspace } from '../../../../../lib/phase1/workspace-store';
 import { publicAccount } from '../../../../../lib/auth/store';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const url = new URL(req.url);
   const result = await confirmToken(url.searchParams.get('token') ?? '');
 
@@ -33,3 +34,6 @@ export async function GET(req: Request) {
   to.searchParams.set('email', 'confirmed');
   return NextResponse.redirect(to);
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);

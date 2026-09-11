@@ -6,3 +6,4 @@ export * from './feedback';
 export * from './nav';
 export * from './menu';
 export * from './charts';
+export * from './viz';

@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server';
 import { TokenBucket } from '../../../../../lib/payments/concurrency';
 import { completeReset } from '../../../../../lib/auth/password-reset';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ function clientKey(req: Request): string {
   return forwarded?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'local';
 }
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const retryAfter = limiter.take(clientKey(req));
   if (retryAfter !== null) {
     return NextResponse.json(
@@ -46,3 +47,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

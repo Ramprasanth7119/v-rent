@@ -51,7 +51,7 @@ export function SectionCard({
             {description && <p className="mt-0.5 text-[13px] leading-5 text-p1-text-3">{description}</p>}
           </div>
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div>}
       </div>
       <div className={{ none: '', sm: 'p-4', md: 'p-5', lg: 'p-6 sm:p-7' }[padding]}>{children}</div>
       {footer && <div className="rounded-b-xl border-t border-p1-border bg-p1-subtle/50 px-5 py-3.5">{footer}</div>}

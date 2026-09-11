@@ -185,7 +185,7 @@ export default function PublicAgentPage() {
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2.5">
-                <span className="inline-flex items-center gap-2 rounded-full bg-p1-accent px-4 py-2 text-[13.5px] font-semibold text-[#062B3A]">
+                <span className="inline-flex items-center gap-2 rounded-full bg-p1-accent px-4 py-2 text-[13.5px] font-semibold text-[#0E2124]">
                   <Phone size={14} aria-hidden />
                   {p.mobile || '+65 0000 0000'}
                 </span>

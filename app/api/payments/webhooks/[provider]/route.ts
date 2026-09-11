@@ -18,13 +18,14 @@
 import { NextResponse } from 'next/server';
 import { getProvider } from '../../../../../lib/payments';
 import { applyWebhook } from '../../../../../lib/payments/service';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_BODY_BYTES = 1_000_000;
 
-export async function POST(req: Request, ctx: { params: Promise<{ provider: string }> }) {
+async function POST_handler(req: Request, ctx: { params: Promise<{ provider: string }> }) {
   const { provider: providerId } = await ctx.params;
   const provider = getProvider(providerId);
   if (!provider) {
@@ -65,3 +66,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ provider: stri
     { status: 200, headers: { 'cache-control': 'no-store' } },
   );
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

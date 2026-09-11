@@ -67,7 +67,7 @@ export default function QrPage() {
       ? 'Custom address'
       : `${p.fullName.replace(/\s*\(.*\)\s*$/, '')} · CEA ${p.ceaNumber}`;
 
-  const dark = style === 'brand' ? '#062B3A' : '#000000';
+  const dark = style === 'brand' ? '#0E2124' : '#000000';
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +189,7 @@ export default function QrPage() {
                   onChange={setStyle}
                   options={[
                     { key: 'ink', label: 'Black' },
-                    { key: 'brand', label: 'V-RENT petrol' },
+                    { key: 'brand', label: 'V-RENT charcoal' },
                   ]}
                 />
                 <p className="mt-2 text-[12.5px] text-p1-text-3">

@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server';
 import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { daysUntilExpiry, displayAgency, displayName, lookupRegistration, searchByName } from '../../../../lib/auth/cea';
+import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ function clientKey(req: Request): string {
   return forwarded?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'local';
 }
 
-export async function GET(req: Request) {
+async function GET_handler(req: Request) {
   const retryAfter = limiter.take(clientKey(req));
   if (retryAfter !== null) {
     return NextResponse.json(
@@ -80,3 +81,6 @@ export async function GET(req: Request) {
     { status: 400 },
   );
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);

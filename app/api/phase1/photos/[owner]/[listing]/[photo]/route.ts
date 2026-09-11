@@ -11,13 +11,14 @@ import { NextResponse } from 'next/server';
 import { currentUser } from '../../../../../../../lib/auth/session';
 import { readWorkspace } from '../../../../../../../lib/phase1/workspace-store';
 import { readPhoto } from '../../../../../../../lib/phase1/photo-store';
+import { logged } from '../../../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const notFound = () => new NextResponse('Not found', { status: 404 });
 
-export async function GET(
+async function GET_handler(
   req: Request,
   { params }: { params: Promise<{ owner: string; listing: string; photo: string }> },
 ) {
@@ -48,3 +49,6 @@ export async function GET(
     },
   });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);

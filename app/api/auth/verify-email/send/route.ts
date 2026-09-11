@@ -12,13 +12,14 @@ import { TokenBucket } from '../../../../../lib/payments/concurrency';
 import { issueToken } from '../../../../../lib/auth/email-verification';
 import { send, verificationEmail, mailIsConfigured } from '../../../../../lib/mail';
 import { preferredName } from '../../../../../lib/phase1/workspace';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const limiter = new TokenBucket(4, 1 / 60);
 
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const user = await currentUser();
   if (!user) {
     return NextResponse.json({ error: 'Sign in to continue.', code: 'unauthorised' }, { status: 401 });
@@ -55,3 +56,6 @@ export async function POST(req: Request) {
     link: mailIsConfigured() ? undefined : link,
   });
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const POST = logged(POST_handler);

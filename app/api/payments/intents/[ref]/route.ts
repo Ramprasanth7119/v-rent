@@ -13,11 +13,12 @@
 import { NextResponse } from 'next/server';
 import { readIntent, toPublicIntent } from '../../../../../lib/payments/service';
 import { TERMINAL } from '../../../../../lib/payments/types';
+import { logged } from '../../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, ctx: { params: Promise<{ ref: string }> }) {
+async function GET_handler(_req: Request, ctx: { params: Promise<{ ref: string }> }) {
   const { ref } = await ctx.params;
   const intent = readIntent(ref);
 
@@ -41,3 +42,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ ref: string }>
     },
   );
 }
+
+/* Recorded in the API activity log; see `lib/phase1/reqlog`. */
+export const GET = logged(GET_handler);
