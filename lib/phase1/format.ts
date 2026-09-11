@@ -66,3 +66,11 @@ export function sgRelative(value: string | Date, now: Date): string {
   if (days < 30) return `${days} d ago`;
   return sgDate(d);
 }
+
+const DAY_FULL = fmt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const DAY_WEEK = fmt({ weekday: 'long', day: 'numeric', month: 'long' });
+
+/** "Friday, 11 September 2026" */
+export const sgDayFull = (v?: string | Date, fallback = '—') => safe(DAY_FULL, v, fallback);
+/** "Friday, 11 September" */
+export const sgWeekday = (v?: string | Date, fallback = '—') => safe(DAY_WEEK, v, fallback);

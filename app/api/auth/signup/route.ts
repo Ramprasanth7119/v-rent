@@ -15,6 +15,13 @@ import { startSession } from '../../../../lib/auth/session';
 import { loadWorkspace } from '../../../../lib/phase1/workspace-store';
 import { logged } from '../../../../lib/phase1/reqlog';
 
+/** Said when the fault is ours, and the applicant can only try later. */
+const UNAVAILABLE = {
+  error: 'V-RENT cannot reach its records at the moment. Nothing you entered is wrong — try '
+    + 'again in a minute.',
+  code: 'store_unavailable',
+} as const;
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -59,11 +66,19 @@ async function POST_handler(req: Request) {
     return NextResponse.json({ error: 'Enter a valid mobile number.', code: 'bad_mobile' }, { status: 400 });
   }
 
-  if (await findByEmail(email)) {
-    return NextResponse.json(
-      { error: 'An account with this email address already exists. Sign in instead.', code: 'email_taken' },
-      { status: 409 },
-    );
+  /* The store is the first thing this route touches that can be unavailable
+     rather than wrong. An outage here must not read as "that address is taken"
+     or as a bare 500. */
+  try {
+    if (await findByEmail(email)) {
+      return NextResponse.json(
+        { error: 'An account with this email address already exists. Sign in instead.', code: 'email_taken' },
+        { status: 409 },
+      );
+    }
+  } catch (err) {
+    console.error('[v-rent] sign-up could not reach the store:', err);
+    return NextResponse.json(UNAVAILABLE, { status: 503 });
   }
 
   // Re-verify against the register rather than trusting the submitted record.
@@ -84,30 +99,35 @@ async function POST_handler(req: Request) {
     );
   }
 
-  if (await findByCea(lookup.record.registrationNo)) {
-    return NextResponse.json(
-      { error: 'This CEA registration is already linked to an account. Sign in, or contact support.', code: 'cea_taken' },
-      { status: 409 },
-    );
+  try {
+    if (await findByCea(lookup.record.registrationNo)) {
+      return NextResponse.json(
+        { error: 'This CEA registration is already linked to an account. Sign in, or contact support.', code: 'cea_taken' },
+        { status: 409 },
+      );
+    }
+
+    const account = await createAccount({
+      email,
+      password,
+      mobile,
+      fullName: lookup.record.name,
+      role: 'agent',
+      cea: { ...lookup.record, verifiedAt: lookup.checkedAt },
+    });
+
+    // Open the workspace now rather than on their first visit. It is what
+    // decides whether this application waits for an officer, and an application
+    // has to be in the queue from the moment it is made — not from the moment
+    // the applicant happens to open the app.
+    await loadWorkspace(publicAccount(account));
+
+    await startSession(account);
+    return NextResponse.json({ ok: true, user: publicAccount(account) }, { status: 201 });
+  } catch (err) {
+    console.error('[v-rent] sign-up failed after the register check:', err);
+    return NextResponse.json(UNAVAILABLE, { status: 503 });
   }
-
-  const account = await createAccount({
-    email,
-    password,
-    mobile,
-    fullName: lookup.record.name,
-    role: 'agent',
-    cea: { ...lookup.record, verifiedAt: lookup.checkedAt },
-  });
-
-  // Open the workspace now rather than on their first visit. It is what decides
-  // whether this application waits for an officer, and an application has to be
-  // in the queue from the moment it is made — not from the moment the applicant
-  // happens to open the app.
-  await loadWorkspace(publicAccount(account));
-
-  await startSession(account);
-  return NextResponse.json({ ok: true, user: publicAccount(account) }, { status: 201 });
 }
 
 /* Recorded in the API activity log; see `lib/phase1/reqlog`. */

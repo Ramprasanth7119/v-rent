@@ -23,6 +23,7 @@ import { DemoListing, sgd } from '../../../lib/phase1/data';
 import { priceLabel } from '../../../lib/phase1/pricing';
 import { listingStats, totals, weeklyInsight, districtName } from '../../../lib/phase1/performance';
 import { listingHealth } from '../../../lib/phase1/health';
+import { sgDateShort, sgDayFull } from '../../../lib/phase1/format';
 import {
   Plus, Upload, Check, X, ChevronRight, Lightbulb, Building2, CircleDashed, CreditCard,
   Eye, MessageSquare, CalendarClock, ArrowRight, Camera, ShieldAlert, Gavel, TrendingUp, Percent } from 'lucide-react';
@@ -49,7 +50,7 @@ export default function DashboardPage() {
 
   // Singapore names commonly lead with the family name, so a first token is the wrong address.
   const name = preferredName(state.profile.fullName);
-  const dateLine = TODAY.toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const dateLine = sgDayFull(TODAY);
   const hour = TODAY.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
@@ -235,7 +236,7 @@ export default function DashboardPage() {
                   </Link>
                   {l.status === 'published' || l.status === 'paused' || l.status === 'expired'
                     ? <StatsInline listing={l} className="hidden shrink-0 lg:inline-flex" />
-                    : <span className="hidden shrink-0 text-[12.5px] text-p1-text-3 lg:inline">Updated {(l.updatedAt ?? l.createdAt).slice(5).replace('-', '/')}</span>}
+                    : <span className="hidden shrink-0 text-[12.5px] text-p1-text-3 lg:inline">Updated {sgDateShort(l.updatedAt ?? l.createdAt)}</span>}
                   <HealthRing listing={l} size={30} className="hidden shrink-0 sm:inline-flex" />
                   <StatusBadge kind="listing" value={l.status} size="sm" className="shrink-0" />
                   <Menu items={a.menuFor(l, { includeView: true })} label={`Actions for ${l.project}`} />

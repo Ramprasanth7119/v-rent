@@ -18,6 +18,7 @@ import { Button, TextInput, Callout, Checkbox, cx } from '../../../components/ph
 import {
   ArrowRight, ArrowLeft, BadgeCheck, Search, Building2, CalendarClock, Check, IdCard, Loader2, RotateCcw,
 } from 'lucide-react';
+import { sgDate, sgTime } from '../../../lib/phase1/format';
 
 interface CeaRecord {
   name: string;
@@ -40,7 +41,7 @@ interface Verified {
 }
 
 const fmt = (iso: string) =>
-  iso ? new Date(iso).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  iso ? sgDate(iso) : '—';
 
 export default function SignupPage() {
   return (
@@ -301,7 +302,7 @@ function SignupBody() {
                 <BadgeCheck size={17} className="shrink-0 text-p1-success" aria-hidden />
                 <span className="text-[13.5px] font-semibold text-p1-success">Found on the CEA register</span>
                 <span className="ml-auto text-[12px] text-p1-text-3">
-                  Checked {new Date(verified.checkedAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' })}
+                  Checked {sgTime(verified.checkedAt)}
                 </span>
               </div>
               <div className="bg-p1-surface px-4 py-4">

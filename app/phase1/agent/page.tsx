@@ -28,6 +28,7 @@ import { useDemo, TODAY, preferredName } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
 import { districtName } from '../../../lib/phase1/performance';
 import { agentSlug } from '../../../lib/phase1/tools';
+import { sgDate, sgDateLong } from '../../../lib/phase1/format';
 
 export default function PublicAgentPage() {
   const { state, setTools } = useDemo();
@@ -205,8 +206,8 @@ export default function PublicAgentPage() {
                 Registration verified against the public CEA register
               </span>
               <span className="text-[12.5px] text-p1-text-3">
-                Checked {TODAY.toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })}
-                {state.ceaValidUntil && ` · valid until ${new Date(state.ceaValidUntil).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                Checked {sgDateLong(TODAY)}
+                {state.ceaValidUntil && ` · valid until ${sgDate(state.ceaValidUntil)}`}
               </span>
             </div>
 

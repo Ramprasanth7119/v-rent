@@ -13,10 +13,8 @@
  */
 
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { DUPLICATE_WITHIN, PhotoQuality, hammingDistance, processPhoto } from './image';
-import { DATA_DIR as dataRoot } from '../storage';
+import { store } from '../store/driver';
 
 /** What an agent may upload, and how much of it. */
 export const MAX_PHOTOS_PER_LISTING = 6;
@@ -36,7 +34,33 @@ export const ACCEPTED_TYPES: Record<string, string> = {
 
 export const ACCEPT_ATTRIBUTE = Object.keys(ACCEPTED_TYPES).join(',');
 
-const UPLOAD_ROOT = path.join(dataRoot, 'uploads');
+/**
+ * One record per stored image: the full size and its thumbnail together, with
+ * what was found about the photograph beside them.
+ *
+ * The bytes are base64 rather than a file on disk. A JPEG re-encoded at the
+ * sizes this product uses is a few hundred kilobytes, comfortably inside a
+ * document, and keeping them with everything else means a photograph uploaded
+ * on one instance is visible from the next — which a serverless disk cannot
+ * promise. The alternative, object storage, is one more credential to hold for
+ * a gain at this scale nobody would notice.
+ */
+interface StoredPhoto {
+  id: string;
+  ownerId: string;
+  listingId: string;
+  photoId: string;
+  main: string;
+  thumb: string;
+  meta: PhotoMeta;
+  at: string;
+}
+
+const photos = store<StoredPhoto>('photos');
+
+/** Unique per photograph, and shaped so a listing's set is one filter away. */
+const key = (ownerId: string, listingId: string, photoId: string) =>
+  ownerId + ':' + listingId + ':' + photoId;
 
 /**
  * Ids are generated here, so a name from the browser never reaches the disk.
@@ -44,9 +68,6 @@ const UPLOAD_ROOT = path.join(dataRoot, 'uploads');
  * re-encoded on the way in.
  */
 const SAFE_ID = /^[0-9a-f]{16}\.jpg$/;
-
-/** The small derivative sits beside the main one under the same id. */
-const thumbName = (id: string) => id.replace(/\.jpg$/, '.sm.jpg');
 
 /** Per-photograph findings, kept beside the files rather than in the workspace. */
 export interface PhotoMeta extends PhotoQuality {
@@ -58,34 +79,28 @@ export interface PhotoMeta extends PhotoQuality {
 
 type MetaFile = Record<string, PhotoMeta>;
 
-async function readMeta(dir: string): Promise<MetaFile> {
-  try {
-    return JSON.parse(await readFile(path.join(dir, 'meta.json'), 'utf8')) as MetaFile;
-  } catch {
-    return {};
+/** Both come from our own records, but neither is trusted into a key. */
+function checkIds(ownerId: string, listingId: string) {
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(ownerId) || !/^[A-Za-z0-9._-]{1,64}$/.test(listingId)) {
+    throw new Error('bad identifier');
   }
 }
 
-async function writeMeta(dir: string, meta: MetaFile) {
-  await writeFile(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf8');
+async function listingPhotoRecords(ownerId: string, listingId: string): Promise<StoredPhoto[]> {
+  checkIds(ownerId, listingId);
+  // Filtered in the store rather than here: listing every photograph in order
+  // to keep one listing's would pull every image body across the wire.
+  return photos.find({ ownerId, listingId });
 }
 
 /** What was found about each photograph on a listing. */
 export async function photoMeta(ownerId: string, listingId: string): Promise<MetaFile> {
   try {
-    return await readMeta(listingDir(ownerId, listingId));
+    const records = await listingPhotoRecords(ownerId, listingId);
+    return Object.fromEntries(records.map((r) => [r.photoId, r.meta]));
   } catch {
     return {};
   }
-}
-
-function listingDir(ownerId: string, listingId: string): string {
-  // Both come from our own records, but a path is a path: refuse anything that
-  // could climb out of the upload root.
-  if (!/^[A-Za-z0-9._-]{1,64}$/.test(ownerId) || !/^[A-Za-z0-9._-]{1,64}$/.test(listingId)) {
-    throw new Error('bad path segment');
-  }
-  return path.join(UPLOAD_ROOT, ownerId, listingId);
 }
 
 export interface RejectedPhoto {
@@ -119,9 +134,8 @@ export async function savePhotos(
   existing: string[],
   files: File[],
 ): Promise<SaveResult> {
-  const dir = listingDir(ownerId, listingId);
-  await mkdir(dir, { recursive: true });
-  const meta = await readMeta(dir);
+  checkIds(ownerId, listingId);
+  const meta = await photoMeta(ownerId, listingId);
 
   const saved: string[] = [];
   const rejected: RejectedPhoto[] = [];
@@ -153,8 +167,6 @@ export async function savePhotos(
     }
 
     const id = `${randomBytes(8).toString('hex')}.jpg`;
-    await writeFile(path.join(dir, id), processed.main);
-    await writeFile(path.join(dir, thumbName(id)), processed.thumb);
 
     // The same photograph twice is the third most common reason a listing is
     // sent back, and the agent almost never did it on purpose.
@@ -170,6 +182,17 @@ export async function savePhotos(
       duplicateOf: twin?.[0],
     };
 
+    await photos.put({
+      id: key(ownerId, listingId, id),
+      ownerId,
+      listingId,
+      photoId: id,
+      main: processed.main.toString('base64'),
+      thumb: processed.thumb.toString('base64'),
+      meta: meta[id],
+      at: new Date().toISOString(),
+    });
+
     if (twin) warnings.push({ id, name, issue: 'duplicate' });
     else if (processed.quality.dark) warnings.push({ id, name, issue: 'dark' });
     else if (processed.quality.blurry) warnings.push({ id, name, issue: 'blurry' });
@@ -178,7 +201,6 @@ export async function savePhotos(
     room -= 1;
   }
 
-  await writeMeta(dir, meta);
   return { saved, rejected, warnings };
 }
 
@@ -190,26 +212,25 @@ export async function readPhoto(
   size: 'full' | 'thumb' = 'full',
 ): Promise<{ body: Buffer; type: string } | null> {
   if (!SAFE_ID.test(photoId)) return null;
-  const dir = listingDir(ownerId, listingId);
-  const file = size === 'thumb' ? thumbName(photoId) : photoId;
   try {
-    return { body: await readFile(path.join(dir, file)), type: 'image/jpeg' };
-  } catch {
+    checkIds(ownerId, listingId);
+    const record = await photos.get(key(ownerId, listingId, photoId));
+    if (!record) return null;
     // A photograph stored before the thumbnail existed still has its full size.
-    if (size === 'thumb') return readPhoto(ownerId, listingId, photoId, 'full');
+    const encoded = size === 'thumb' ? record.thumb || record.main : record.main;
+    return { body: Buffer.from(encoded, 'base64'), type: 'image/jpeg' };
+  } catch {
     return null;
   }
 }
 
 export async function deletePhoto(ownerId: string, listingId: string, photoId: string): Promise<void> {
   if (!SAFE_ID.test(photoId)) return;
-  const dir = listingDir(ownerId, listingId);
-  await rm(path.join(dir, photoId), { force: true });
-  await rm(path.join(dir, thumbName(photoId)), { force: true });
-  const meta = await readMeta(dir);
-  if (meta[photoId]) {
-    delete meta[photoId];
-    await writeMeta(dir, meta);
+  try {
+    checkIds(ownerId, listingId);
+    await photos.remove(key(ownerId, listingId, photoId));
+  } catch {
+    /* nothing stored under that key */
   }
 }
 
@@ -222,10 +243,10 @@ export async function deletePhoto(ownerId: string, listingId: string, photoId: s
  */
 export async function pruneOrphans(ownerId: string, listingId: string, keep: string[]): Promise<void> {
   try {
-    const files = await readdir(listingDir(ownerId, listingId));
-    const wanted = new Set([...keep, ...keep.map(thumbName), 'meta.json']);
+    const wanted = new Set(keep);
+    const records = await listingPhotoRecords(ownerId, listingId);
     await Promise.all(
-      files.filter((f) => !wanted.has(f)).map((f) => deletePhoto(ownerId, listingId, f)),
+      records.filter((r) => !wanted.has(r.photoId)).map((r) => photos.remove(r.id)),
     );
   } catch {
     /* nothing uploaded for this listing yet */
@@ -234,5 +255,10 @@ export async function pruneOrphans(ownerId: string, listingId: string, keep: str
 
 /** Every file for a listing is removed when the listing itself is. */
 export async function deleteListingPhotos(ownerId: string, listingId: string): Promise<void> {
-  await rm(listingDir(ownerId, listingId), { recursive: true, force: true });
+  try {
+    const records = await listingPhotoRecords(ownerId, listingId);
+    await Promise.all(records.map((r) => photos.remove(r.id)));
+  } catch {
+    /* nothing uploaded for this listing */
+  }
 }

@@ -17,9 +17,12 @@ import { StatusBadge } from '../status';
 import { Menu, MenuItem, cx } from '../kit';
 import { HealthRing } from './health';
 import { Pulse, StatsInline } from './pulse';
+import { sgDate, sgDateShort } from '../../../lib/phase1/format';
 
-export const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
-export const fmtShort = (d: string) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+export const fmtDate = (d: string) => sgDate(d);
+/* Pinned to Singapore in `lib/phase1/format`, so the server and the browser
+   agree and a date-only value does not slip back a day. */
+export const fmtShort = sgDateShort;
 export const district = (n: number) => `D${String(n).padStart(2, '0')}`;
 
 export function daysUntil(iso: string | undefined, today: Date) {

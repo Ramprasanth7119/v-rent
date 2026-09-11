@@ -193,7 +193,7 @@ export default function OverviewView({ snapshot }: { snapshot: OpsSnapshot }) {
       </section>
 
       {/* ══════════════════════════════════════════════════════ queue health */}
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {queues.map((q, i) => {
           const Icon = QUEUE_ICON[q.id] ?? ShieldCheck;
           const pressure = q.oldestHours === null ? 0 : Math.min(100, (q.oldestHours / q.slaHours) * 100);

@@ -24,6 +24,7 @@ import { useDemo, TODAY } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
 import { districtName } from '../../../lib/phase1/performance';
 import { PLACEMENT_TIERS, placementTier, type PlacementBid } from '../../../lib/phase1/tools';
+import { sgDateShort } from '../../../lib/phase1/format';
 
 const ALL_DISTRICTS = Array.from({ length: 28 }, (_, i) => i + 1);
 
@@ -124,7 +125,7 @@ export default function PlacementPage() {
 
                       <div className="mt-3.5 flex items-center justify-between gap-3">
                         <span className="text-[12.5px] text-p1-text-3">
-                          {held ? `Held since ${new Date(bid!.startedAt).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}` : 'Not held'}
+                          {held ? `Held since ${sgDateShort(bid!.startedAt)}` : 'Not held'}
                         </span>
                         <Button
                           size="sm"

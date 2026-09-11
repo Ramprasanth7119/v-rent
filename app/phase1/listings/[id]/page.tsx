@@ -29,8 +29,9 @@ import { listingStats, enquiriesFor, ENQUIRY_STATUS, districtName } from '../../
 import {
   ArrowLeft, Bed, Bath, Maximize, Sofa, Pencil, Eye, Lock, Check, X, ShieldCheck, Building2, Send, Play, Pause,
   RotateCcw, Eye as EyeIcon, MessageSquare, Bookmark, TrendingUp, CalendarDays, TrainFront, MapPin, Percent } from 'lucide-react';
+import { sgDate } from '../../../../lib/phase1/format';
 
-const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDate = (d: string) => sgDate(d);
 const district = (n: number) => `D${String(n).padStart(2, '0')}`;
 
 const TABS = ['overview', 'performance', 'enquiries', 'compliance', 'activity', 'preview'] as const;

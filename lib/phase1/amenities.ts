@@ -124,7 +124,7 @@ async function fetchTheme(
   url.searchParams.set('queryName', query);
   url.searchParams.set('extents', extents(lat, lng, radius));
 
-  const res = await fetchWithTimeout(url, { headers: { Authorization: token }, cache: 'no-store' });
+  const res = await fetchWithTimeout(url, { headers: { Authorization: token }, cache: 'no-store', timeoutMs: 9000 });
   if (!res.ok) return [];
 
   const body = (await res.json()) as { SrchResults?: (ThemeRow & { FeatCount?: number })[] };
@@ -155,7 +155,9 @@ async function fetchTheme(
 }
 
 export type AmenityLookup =
-  | { status: 'ok'; radius: number; groups: AmenityGroup[] }
+  /* `missing` names the themes that did not answer in time. A panel showing
+     seven categories and saying so is worth more than an empty one. */
+  | { status: 'ok'; radius: number; groups: AmenityGroup[]; missing: string[] }
   | { status: 'no_token'; reason: string }
   | { status: 'failed'; reason: string };
 
@@ -168,19 +170,36 @@ export async function amenitiesAround(lat: number, lng: number, radius: number):
     };
   }
 
-  try {
-    // One request per theme, all at once: eight sequential round trips to a
-    // government service is the difference between half a second and four.
-    const results = await Promise.all(
-      CATALOGUE.map(async (c) => ({
-        key: c.key,
-        label: c.label,
-        source: c.source,
-        items: (await fetchTheme(c.query, lat, lng, radius, token)).slice(0, 12),
-      })),
-    );
-    return { status: 'ok', radius, groups: results };
-  } catch (err) {
-    return { status: 'failed', reason: err instanceof Error ? err.message : 'The theme service did not answer.' };
+  // One request per theme, all at once: eight sequential round trips to a
+  // government service is the difference between half a second and four.
+  //
+  // Settled rather than all: fired together these occasionally trip OneMap's
+  // throttle, and one theme timing out used to take the whole panel down with
+  // it. Each category stands or falls on its own now.
+  const settled = await Promise.allSettled(
+    CATALOGUE.map(async (c) => ({
+      key: c.key,
+      label: c.label,
+      source: c.source,
+      items: (await fetchTheme(c.query, lat, lng, radius, token)).slice(0, 12),
+    })),
+  );
+
+  const groups: AmenityGroup[] = [];
+  const missing: string[] = [];
+  settled.forEach((outcome, i) => {
+    if (outcome.status === 'fulfilled') groups.push(outcome.value);
+    else missing.push(CATALOGUE[i].label);
+  });
+
+  // Nothing at all came back: that is an outage, not a partial answer.
+  if (groups.length === 0) {
+    const first = settled[0];
+    const reason = first && first.status === 'rejected' && first.reason instanceof Error
+      ? first.reason.message
+      : 'The theme service did not answer.';
+    return { status: 'failed', reason };
   }
+
+  return { status: 'ok', radius, groups, missing };
 }

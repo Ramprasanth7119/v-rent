@@ -14,39 +14,16 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { KeyedMutex } from '../payments/concurrency';
 import type { AuditRow } from './audit-labels';
-import { DATA_DIR as dataRoot } from '../storage';
+import { store } from '../store/driver';
 
 export type { AuditAction, AuditRow } from './audit-labels';
 export { ACTION_LABEL, IS_ADVERSE } from './audit-labels';
 
-const DATA_DIR = dataRoot;
-const FILE = path.join(DATA_DIR, 'audit.json');
-
 /** Beyond this the oldest rows are dropped. Production keeps them all, elsewhere. */
 const MAX_ROWS = 5000;
 
-/** One writer at a time; the file is small and rewritten whole. */
-const lock = new KeyedMutex();
-
-async function readAll(): Promise<AuditRow[]> {
-  try {
-    const parsed = JSON.parse(await readFile(FILE, 'utf8')) as { rows?: AuditRow[] };
-    return parsed.rows ?? [];
-  } catch {
-    return [];
-  }
-}
-
-async function writeAll(rows: AuditRow[]) {
-  await mkdir(DATA_DIR, { recursive: true });
-  const tmp = `${FILE}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify({ rows }, null, 2), 'utf8');
-  await rename(tmp, FILE);
-}
+const rows = store<AuditRow>('audit');
 
 /**
  * Write one decision.
@@ -57,11 +34,14 @@ async function writeAll(rows: AuditRow[]) {
  */
 export async function record(row: Omit<AuditRow, 'id' | 'at'>): Promise<void> {
   try {
-    await lock.run('audit', async () => {
-      const rows = await readAll();
-      rows.push({ ...row, id: randomUUID(), at: new Date().toISOString() });
-      await writeAll(rows.slice(-MAX_ROWS));
-    });
+    /* An insert rather than a rewrite of the whole table, which is what
+       append-only should have meant all along: two officers deciding at the
+       same moment can no longer overwrite each other's row. */
+    await rows.appendCapped(
+      [{ ...row, id: randomUUID(), at: new Date().toISOString() }],
+      MAX_ROWS,
+      'at',
+    );
   } catch (err) {
     console.error('[v-rent] audit write failed', err);
   }
@@ -69,6 +49,5 @@ export async function record(row: Omit<AuditRow, 'id' | 'at'>): Promise<void> {
 
 /** Newest first. */
 export async function readAudit(limit = 200): Promise<AuditRow[]> {
-  const rows = await readAll();
-  return rows.slice(-limit).reverse();
+  return rows.list({ sort: { field: 'at', dir: -1 }, limit });
 }

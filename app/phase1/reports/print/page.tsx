@@ -28,6 +28,7 @@ import {
   KIND_LABEL, buildTable, describeFilters, filtersFromQuery, reportWindow,
   selectEnquiries, selectListings,
 } from '../../../../lib/phase1/reporting';
+import { sgDateLong } from '../../../../lib/phase1/format';
 
 export default function ReportPrintPage() {
   return (
@@ -38,7 +39,7 @@ export default function ReportPrintPage() {
 }
 
 const fmtDate = (d: Date) =>
-  d.toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+  sgDateLong(d);
 
 function Document() {
   const params = useSearchParams();

@@ -24,6 +24,7 @@ import { useDemo } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
 import { districtName, ENQUIRY_STATUS } from '../../../lib/phase1/performance';
 import type { Enquiry } from '../../../lib/phase1/workspace';
+import { sgDateLong } from '../../../lib/phase1/format';
 
 type TemplateId = 'reply' | 'viewing' | 'details' | 'gone';
 
@@ -83,7 +84,7 @@ export default function WhatsAppPage() {
             `Rent: ${sgd(l.monthlyRent)} a month\n` +
             `Size: ${l.sizeSqft.toLocaleString('en-SG')} sqft, ${l.bedrooms} bed ${l.bathrooms} bath\n` +
             `Furnishing: ${l.furnishing}\n` +
-            `Available: ${new Date(l.availableFrom).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })}\n` +
+            `Available: ${sgDateLong(l.availableFrom)}\n` +
             `Minimum lease: ${l.minLeaseMonths} months\n` +
             `District: D${String(l.district).padStart(2, '0')} ${districtName(l.district)}` +
             `${l.nearestMrt ? `\nNearest MRT: ${l.nearestMrt}` : ''}\n\nHappy to arrange a viewing.${sig}`

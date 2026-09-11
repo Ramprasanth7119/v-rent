@@ -17,6 +17,7 @@ import {
 import { Pill } from '../../../../components/phase1/status';
 import { useDemo } from '../../../../lib/phase1/DemoContext';
 import { SESSIONS } from '../../../../lib/phase1/learn';
+import { sgDateLong } from '../../../../lib/phase1/format';
 
 export default function SessionsPage() {
   const { state, setTools } = useDemo();
@@ -105,7 +106,7 @@ export default function SessionsPage() {
                   <p className="mt-1 max-w-[64ch] text-[13.5px] leading-6 text-p1-text-2">{session.summary}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Pill tone="neutral">
-                      Recorded {new Date(session.recorded).toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      Recorded {sgDateLong(session.recorded)}
                     </Pill>
                     <span className="inline-flex items-center gap-1.5 text-[12.5px] text-p1-text-3">
                       <Clock size={13} aria-hidden />

@@ -20,20 +20,17 @@
  * Server only.
  */
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 
 /* The row shape lives in `reqlog-labels` so a client component can use it
    without pulling `node:fs` into the browser bundle. */
 export type { RequestRow } from './reqlog-labels';
 import type { RequestRow } from './reqlog-labels';
-import { DATA_DIR as dataRoot } from '../storage';
-
-const DATA_DIR = dataRoot;
-const FILE = path.join(DATA_DIR, 'requests.json');
+import { store } from '../store/driver';
 
 /** A working week of traffic at prototype volumes. Oldest rows fall off. */
 const MAX_ROWS = 4000;
+
+const rows = store<RequestRow>('requests');
 
 /**
  * Writing a file on every request would make the log the slowest thing in the
@@ -48,29 +45,12 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 const FLUSH_AFTER_MS = 1000;
 const FLUSH_AT_ROWS = 25;
 
-async function readAll(): Promise<RequestRow[]> {
-  try {
-    const parsed = JSON.parse(await readFile(FILE, 'utf8')) as { rows?: RequestRow[] };
-    return parsed.rows ?? [];
-  } catch {
-    return [];
-  }
-}
-
-async function writeAll(rows: RequestRow[]) {
-  await mkdir(DATA_DIR, { recursive: true });
-  const tmp = `${FILE}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify({ rows }, null, 2), 'utf8');
-  await rename(tmp, FILE);
-}
-
 async function flush(): Promise<void> {
   if (buffer.length === 0) return;
   const pending = buffer;
   buffer = [];
   try {
-    const rows = [...pending, ...(await readAll())].slice(0, MAX_ROWS);
-    await writeAll(rows);
+    await rows.appendCapped(pending, MAX_ROWS, 'at');
   } catch {
     // A log that cannot write must not take the request down with it.
   }
@@ -91,7 +71,7 @@ function schedule() {
 
 /** Newest first, with anything still in memory included. */
 export async function readRequests(): Promise<RequestRow[]> {
-  const stored = await readAll();
+  const stored = await rows.list({ sort: { field: 'at', dir: -1 }, limit: MAX_ROWS });
   return [...buffer, ...stored].slice(0, MAX_ROWS);
 }
 

@@ -22,6 +22,7 @@ import {
   listingStats, totals, ENQUIRY_STATUS, Enquiry, EnquiryStatus, weeklyInsight, districtName } from '../../../lib/phase1/performance';
 import {
   Eye, MessageSquare, Bookmark, Percent, Lightbulb, TrendingUp, MessageCircle, Building2, ArrowRight, Phone, Inbox } from 'lucide-react';
+import { sgDateShort } from '../../../lib/phase1/format';
 
 type Period = '7d' | '30d';
 type Tab = 'overview' | 'enquiries';
@@ -101,7 +102,7 @@ export default function PerformancePage() {
       render: (e) => (
         <span className="text-[13px] tabular-nums">
           {e.budget ? sgd(e.budget) : '—'}
-          <span className="block text-[12px] text-p1-text-3">{e.moveIn ? new Date(e.moveIn).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' }) : 'Flexible'}</span>
+          <span className="block text-[12px] text-p1-text-3">{e.moveIn ? sgDateShort(e.moveIn) : 'Flexible'}</span>
         </span>
       ),
     },

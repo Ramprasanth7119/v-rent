@@ -25,6 +25,7 @@ import { ConfirmDialog, Dialog } from '../../../components/phase1/overlays';
 import { useDemo, TODAY, TODAY_ISO } from '../../../lib/phase1/DemoContext';
 import { districtName } from '../../../lib/phase1/performance';
 import { toolsId, type ViewingSlot } from '../../../lib/phase1/tools';
+import { sgWeekday } from '../../../lib/phase1/format';
 
 const START_TIMES = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 
@@ -41,7 +42,7 @@ const dayLabel = (date: string) => {
   const today = isoDate(TODAY);
   if (date === today) return 'Today';
   if (date === isoDate(addDays(TODAY, 1))) return 'Tomorrow';
-  return d.toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long' });
+  return sgWeekday(d);
 };
 
 export default function ViewingsPage() {

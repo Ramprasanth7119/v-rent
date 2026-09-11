@@ -107,6 +107,9 @@ export default function NeighbourhoodPage() {
 
   const groups: AmenityGroup[] = result?.status === 'ok' ? result.groups : [];
   const found = groups.reduce((n, g) => n + g.items.length, 0);
+  /* A category the theme service did not answer for in time. Saying which is
+     missing is honest; quietly showing seven of eight is not. */
+  const missing = result?.status === 'ok' ? result.missing : [];
 
   const summary = useMemo(() => {
     if (!groups.length) return '';
@@ -273,6 +276,13 @@ export default function NeighbourhoodPage() {
                 </h2>
                 <span className="text-[12.5px] text-p1-text-3">Nearest first, with the walk</span>
               </div>
+
+              {missing.length > 0 && (
+                <p className="rounded-p1 border border-dashed border-p1-line bg-p1-surface-2 px-3 py-2 text-[12.5px] text-p1-text-3">
+                  {missing.join(' and ')} did not respond in time, so {missing.length > 1 ? 'those categories are' : 'that category is'} not
+                  counted above. Search again to retry.
+                </p>
+              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 {groups.filter((g) => g.items.length > 0).map((g) => {

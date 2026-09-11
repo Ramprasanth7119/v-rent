@@ -17,8 +17,34 @@ import { displayAgency, displayName } from '../auth/cea';
 import { DemoListing, ListingStatus, PLANS, PlanOption, SEED_LISTINGS } from './data';
 import { EMPTY_TOOLS, type ToolsState } from './tools';
 
-/** The prototype's fixed "today", so every relative date reads the same in every run. */
-export const TODAY_ISO = '2026-08-28';
+/**
+ * Today, in Singapore.
+ *
+ * This was a fixed date so every relative figure read the same in every run,
+ * which is a fine property for a screenshot and a poor one for a product: the
+ * greeting said Friday 28 August while the calendar said something else, and
+ * everything measured from it — what expires this month, what was published
+ * this week — was measured from a day that had passed.
+ *
+ * Resolved in Singapore rather than wherever the machine happens to be, and to
+ * the day rather than the moment, for two reasons that matter equally: this is
+ * a Singapore product, and a value computed to the day is the same on the
+ * server and in the browser, so nothing renders one date and then hydrates to
+ * another.
+ */
+function singaporeToday(): string {
+  // 'en-CA' formats as YYYY-MM-DD, which is the shape the rest of this expects.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Singapore',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+export const TODAY_ISO = singaporeToday();
+
+/** Nine in the morning, so "today" is unambiguous on either side of midnight. */
 export const TODAY = new Date(`${TODAY_ISO}T09:00:00+08:00`);
 
 export type ApprovalStatus = 'not_submitted' | 'under_review' | 'approved' | 'rejected' | 'suspended';

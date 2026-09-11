@@ -14,8 +14,9 @@ import { districtName } from '../../../lib/phase1/performance';
 import { Gallery, PropertyImage } from '../PropertyImage';
 import { PropertyMap } from './PropertyMap';
 import { Avatar, Button, cx } from '../kit';
+import { sgDate } from '../../../lib/phase1/format';
 
-const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDate = (d: string) => sgDate(d);
 
 export function PublicPreview({
   listing, agent, compact = false, className = '', chrome = true, photos = [],

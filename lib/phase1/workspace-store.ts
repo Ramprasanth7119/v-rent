@@ -8,50 +8,30 @@
  * every caller goes through the three functions at the bottom.
  */
 
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import type { PublicAccount } from '../auth/store';
 import { KeyedMutex } from '../payments/concurrency';
 import { AgentProfile, DEFAULT_NOTIFICATIONS, seedWorkspace, WorkspaceState } from './workspace';
 import { EMPTY_TOOLS } from './tools';
 import { verificationPolicy } from './verification-policy';
 import type { DemoListing } from './data';
-import { DATA_DIR as dataRoot } from '../storage';
+import { store } from '../store/driver';
 
-const DATA_DIR = dataRoot;
-const FILE = path.join(DATA_DIR, 'workspaces.json');
-
+/** One record per account, keyed by the account id. */
 interface StoredWorkspace extends WorkspaceState {
+  id: string;
   updatedAt: string;
 }
 
-interface FileShape {
-  workspaces: Record<string, StoredWorkspace>;
-}
-
-/** Serialised per account: different agents write in parallel, one agent queues. */
-const lock = new KeyedMutex();
-
-async function readAll(): Promise<FileShape> {
-  try {
-    const parsed = JSON.parse(await readFile(FILE, 'utf8')) as FileShape;
-    return parsed.workspaces ? parsed : { workspaces: {} };
-  } catch {
-    return { workspaces: {} };
-  }
-}
+const workspaces = store<StoredWorkspace>('workspaces');
 
 /**
- * Write to a sibling file and rename over the target. A crash midway then
- * leaves the previous workspace intact rather than a truncated file that fails
- * to parse and silently resets every agent to a fresh portfolio.
+ * Serialised per account: different agents write in parallel, one agent queues.
+ *
+ * Still needed with a database behind the store, because the sequence here is
+ * read-decide-write rather than a single atomic update — two saves from the
+ * same agent arriving together would otherwise interleave and lose one.
  */
-async function writeAll(data: FileShape) {
-  await mkdir(DATA_DIR, { recursive: true });
-  const tmp = `${FILE}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-  await rename(tmp, FILE);
-}
+const lock = new KeyedMutex();
 
 /**
  * The stored record without the bookkeeping field, and with anything added to
@@ -64,6 +44,7 @@ async function writeAll(data: FileShape) {
 function strip(stored: StoredWorkspace): WorkspaceState {
   const rest = { ...stored } as Partial<StoredWorkspace>;
   delete rest.updatedAt;
+  delete rest.id;
   const w = rest as WorkspaceState;
   return {
     ...w,
@@ -96,13 +77,11 @@ export const isDemoAccount = (email: string) => {
 export async function loadWorkspace(user: PublicAccount): Promise<WorkspaceState> {
   const policy = await verificationPolicy();
   return lock.run(user.id, async () => {
-    const data = await readAll();
-    const existing = data.workspaces[user.id];
+    const existing = await workspaces.get(user.id);
     if (existing) return strip(existing);
 
     const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove, demo: isDemoAccount(user.email) });
-    data.workspaces[user.id] = { ...seeded, updatedAt: new Date().toISOString() };
-    await writeAll(data);
+    await workspaces.put({ ...seeded, id: user.id, updatedAt: new Date().toISOString() });
     return seeded;
   });
 }
@@ -113,19 +92,17 @@ export async function loadWorkspace(user: PublicAccount): Promise<WorkspaceState
  * what an account actually has rather than creating it by looking.
  */
 export async function readWorkspace(accountId: string): Promise<WorkspaceState | null> {
-  const data = await readAll();
-  const existing = data.workspaces[accountId];
+  const existing = await workspaces.get(accountId);
   return existing ? strip(existing) : null;
 }
 
 /** Merge a patch into the account's workspace and return the result. */
 export async function patchWorkspace(user: PublicAccount, patch: Partial<WorkspaceState>): Promise<WorkspaceState> {
   return lock.run(user.id, async () => {
-    const data = await readAll();
-    const base = data.workspaces[user.id] ?? { ...seedWorkspace(user, { autoApprove: true }), updatedAt: '' };
-    const next: StoredWorkspace = { ...base, ...patch, updatedAt: new Date().toISOString() };
-    data.workspaces[user.id] = next;
-    await writeAll(data);
+    const base = (await workspaces.get(user.id))
+      ?? { ...seedWorkspace(user, { autoApprove: true }), id: user.id, updatedAt: '' };
+    const next: StoredWorkspace = { ...base, ...patch, id: user.id, updatedAt: new Date().toISOString() };
+    await workspaces.put(next);
     return strip(next);
   });
 }
@@ -156,10 +133,8 @@ export async function findPublicListing(
 export async function resetWorkspace(user: PublicAccount): Promise<WorkspaceState> {
   const policy = await verificationPolicy();
   return lock.run(user.id, async () => {
-    const data = await readAll();
     const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove, demo: isDemoAccount(user.email) });
-    data.workspaces[user.id] = { ...seeded, updatedAt: new Date().toISOString() };
-    await writeAll(data);
+    await workspaces.put({ ...seeded, id: user.id, updatedAt: new Date().toISOString() });
     return seeded;
   });
 }

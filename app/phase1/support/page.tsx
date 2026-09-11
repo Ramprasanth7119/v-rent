@@ -23,6 +23,7 @@ import { Pill } from '../../../components/phase1/status';
 import { useDemo, TODAY, preferredName } from '../../../lib/phase1/DemoContext';
 import { SUPPORT_AREAS } from '../../../lib/phase1/learn';
 import { toolsId, type SupportTicket } from '../../../lib/phase1/tools';
+import { sgWeekday } from '../../../lib/phase1/format';
 
 const COMMON: { q: string; a: string; href?: string; linkLabel?: string }[] = [
   {
@@ -287,7 +288,7 @@ export default function SupportPage() {
           </Card>
 
           <Callout tone="info" title="Today">
-            {TODAY.toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'long' })} — the team is on
+            {sgWeekday(TODAY)} — the team is on
             and answering.
           </Callout>
         </aside>

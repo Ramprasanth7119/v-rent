@@ -28,6 +28,7 @@ import { useDemo, TODAY } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
 import { districtName } from '../../../lib/phase1/performance';
 import { toolsId, type Shortlist } from '../../../lib/phase1/tools';
+import { sgDate } from '../../../lib/phase1/format';
 
 export default function ShortlistsPage() {
   const router = useRouter();
@@ -259,7 +260,7 @@ export default function ShortlistsPage() {
                           {alive.length !== s.listingIds.length && <Pill tone="warning">{s.listingIds.length - alive.length} removed</Pill>}
                         </div>
                         <div className="mt-0.5 text-[12.5px] text-p1-text-3">
-                          {s.clientName ? `For ${s.clientName} · ` : ''}saved {new Date(s.createdAt).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {s.clientName ? `For ${s.clientName} · ` : ''}saved {sgDate(s.createdAt)}
                         </div>
                         {s.note && <p className="mt-1 text-[13px] leading-5 text-p1-text-2">{s.note}</p>}
                       </div>

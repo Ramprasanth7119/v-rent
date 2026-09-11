@@ -29,6 +29,7 @@ import {
   FEATURE_RATES, campaignActive, featureForecast, featureSpend, featurableListings, toolsId,
   type FeatureCampaign, type FeatureDays,
 } from '../../../lib/phase1/tools';
+import { sgDate } from '../../../lib/phase1/format';
 
 const DAY_OPTIONS: { days: FeatureDays; label: string; note: string }[] = [
   { days: 7, label: '7 days', note: 'A weekend and the weeknights either side of it.' },
@@ -39,7 +40,7 @@ const DAY_OPTIONS: { days: FeatureDays; label: string; note: string }[] = [
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const fmtDate = (s: string) =>
-  new Date(s).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+  sgDate(s);
 
 export default function FeaturedPage() {
   const { state, setTools } = useDemo();

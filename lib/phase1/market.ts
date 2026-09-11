@@ -116,8 +116,16 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
  * as simply wrong.
  */
 export const MARKET_MONTHS = (() => {
-  const END_YEAR = 2026;
-  const END_MONTH = 8; // August, the month the report covers to.
+  /* The last complete month, not this one. URA publishes lodged contracts in
+     arrears, so a window that ran to the current month would show a partial
+     month beside twelve full ones and read as a collapse in demand. */
+  const now = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit',
+  }).format(new Date());
+  const [thisYear, thisMonth] = now.split('-').map(Number);
+  const previous = thisYear * 12 + (thisMonth - 1) - 1;
+  const END_YEAR = Math.floor(previous / 12);
+  const END_MONTH = (previous % 12) + 1;
   const out: string[] = [];
   for (let i = 11; i >= 0; i -= 1) {
     const total = END_YEAR * 12 + (END_MONTH - 1) - i;

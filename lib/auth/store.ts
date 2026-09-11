@@ -10,19 +10,14 @@
  */
 
 import { randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { promisify } from 'node:util';
 import { displayAgency, displayName, lookupRegistration, type CeaRecord } from './cea';
 import type { EmailVerification } from './email-verification';
 import type { PasswordReset } from './password-reset';
-import { DATA_DIR as dataRoot, storageIsEphemeral } from '../storage';
+import { storageIsEphemeral } from '../storage';
+import { store, usingMongo } from '../store/driver';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
-
-const DATA_DIR = dataRoot;
-const USERS_FILE = path.join(DATA_DIR, 'accounts.json');
-const SECRET_FILE = path.join(DATA_DIR, 'session-secret');
 
 export type Role = 'agent' | 'admin';
 
@@ -106,48 +101,47 @@ export function passwordProblem(password: string): string | null {
 
 /* ------------------------------------------------------------------- store */
 
+const accounts = store<Account>('accounts');
+
+/** Single values the product keeps: the signing key, and little else. */
+const settings = store<{ id: string; value: string }>('settings');
+
+/**
+ * The whole table, for the few callers that genuinely need it.
+ *
+ * Kept because two of them walk every account to answer a question the store
+ * cannot: which accounts are pending review, and how many exist. At the scale
+ * this product is built for that is a handful of documents, and a query that
+ * matched the question would be a second thing to keep correct.
+ */
 export interface FileShape {
   accounts: Account[];
 }
 
 export async function readAccounts(): Promise<FileShape> {
-  return readAll();
+  return { accounts: await accounts.list() };
 }
 
 export async function writeAccounts(data: FileShape): Promise<void> {
-  return writeAll(data);
-}
-
-async function readAll(): Promise<FileShape> {
-  try {
-    return JSON.parse(await readFile(USERS_FILE, 'utf8')) as FileShape;
-  } catch {
-    return { accounts: [] };
-  }
-}
-
-async function writeAll(data: FileShape) {
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(USERS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  // Whole-table writes exist only for the callers above, which change one
+  // account at a time. Writing each is correct and avoids a delete-and-restore
+  // window where the table is empty.
+  await Promise.all(data.accounts.map((a) => accounts.put(a)));
 }
 
 const normalise = (email: string) => email.trim().toLowerCase();
 
 export async function findByEmail(email: string): Promise<Account | undefined> {
-  const { accounts } = await readAll();
-  const target = normalise(email);
-  return accounts.find((a) => a.email === target);
+  return (await accounts.findOne({ email: normalise(email) })) ?? undefined;
 }
 
 export async function findById(id: string): Promise<Account | undefined> {
-  const { accounts } = await readAll();
-  return accounts.find((a) => a.id === id);
+  return (await accounts.get(id)) ?? undefined;
 }
 
 export async function findByCea(registrationNo: string): Promise<Account | undefined> {
-  const { accounts } = await readAll();
   const target = registrationNo.trim().toUpperCase();
-  return accounts.find((a) => a.cea?.registrationNo === target);
+  return (await accounts.findOne({ 'cea.registrationNo': target })) ?? undefined;
 }
 
 export async function createAccount(input: {
@@ -158,9 +152,8 @@ export async function createAccount(input: {
   role?: Role;
   cea?: CeaSnapshot;
 }): Promise<Account> {
-  const data = await readAll();
   const email = normalise(input.email);
-  if (data.accounts.some((a) => a.email === email)) {
+  if (await accounts.findOne({ email })) {
     throw new Error('An account with this email address already exists.');
   }
   const { passwordHash, passwordSalt } = await hashPassword(input.password);
@@ -175,23 +168,18 @@ export async function createAccount(input: {
     createdAt: new Date().toISOString(),
     cea: input.cea,
   };
-  data.accounts.push(account);
-  await writeAll(data);
+  await accounts.put(account);
   return account;
 }
 
 export async function recordLogin(id: string) {
-  const data = await readAll();
-  const account = data.accounts.find((a) => a.id === id);
-  if (!account) return;
-  account.lastLoginAt = new Date().toISOString();
-  await writeAll(data);
+  await accounts.patch(id, { lastLoginAt: new Date().toISOString() });
 }
 
 /** Admin-only: every registered agent. */
 export async function listAccounts(): Promise<PublicAccount[]> {
-  const { accounts } = await readAll();
-  return accounts.map(publicAccount).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const all = await accounts.list({ sort: { field: 'createdAt', dir: -1 } });
+  return all.map(publicAccount);
 }
 
 /* ------------------------------------------------------------------ secret */
@@ -215,24 +203,26 @@ export async function sessionSecret(): Promise<string> {
   const fromEnv = process.env.VRENT_SESSION_SECRET;
   if (fromEnv && fromEnv.length >= 32) return fromEnv;
 
-  if (storageIsEphemeral) {
+  /* A generated key is only safe where it can be kept. With a database behind
+     the store it can be, and every instance reads the same one. Without one, on
+     a platform whose disk is discarded when the instance recycles, it cannot:
+     each instance would sign with its own key and reject the others' cookies —
+     which looks like a session that silently evaporates and points nowhere near
+     the cause. Better to refuse and say what is missing. */
+  if (storageIsEphemeral && !usingMongo) {
     throw new Error(
-      'VRENT_SESSION_SECRET is not set and this instance has no durable storage to keep a '
-      + 'generated one in. Sessions cannot be signed consistently across instances without it. '
-      + 'Set it to 32 or more random characters — `openssl rand -hex 32` — in the deployment '
-      + 'environment.',
+      'VRENT_SESSION_SECRET is not set and this instance has nowhere durable to keep a generated '
+      + 'one. Sessions cannot be signed consistently across instances without it. Set it to 32 or '
+      + 'more random characters — `openssl rand -hex 32` — in the deployment environment, or '
+      + 'configure MONGODB_URI.',
     );
   }
 
-  try {
-    const existing = (await readFile(SECRET_FILE, 'utf8')).trim();
-    if (existing.length >= 32) return existing;
-  } catch {
-    /* falls through to generation */
-  }
+  const kept = await settings.get('session-secret');
+  if (kept && kept.value.length >= 32) return kept.value;
+
   const generated = randomBytes(32).toString('hex');
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(SECRET_FILE, generated, 'utf8');
+  await settings.put({ id: 'session-secret', value: generated });
   return generated;
 }
 
@@ -302,16 +292,16 @@ const DEMO_AGENT_FALLBACK: CeaRecord = {
  */
 async function syncPasswordFromEnv(existing: Account, chosen: string | undefined, label: string) {
   if (!chosen || (await verifyPassword(chosen, existing))) return;
-  const data = await readAll();
-  const account = data.accounts.find((a) => a.id === existing.id);
-  if (!account) return;
   const { passwordHash, passwordSalt } = await hashPassword(chosen);
-  account.passwordHash = passwordHash;
-  account.passwordSalt = passwordSalt;
-  account.failedAttempts = 0;
-  delete account.lockedUntil;
-  await writeAll(data);
-  console.info(`[v-rent] ${label} password synchronised from the environment`);
+  const changed = await accounts.patch(existing.id, {
+    passwordHash,
+    passwordSalt,
+    failedAttempts: 0,
+    // A declared password is the source of truth; a lock from earlier attempts
+    // against the previous one should not outlive it.
+    lockedUntil: undefined,
+  });
+  if (changed) console.info(`[v-rent] ${label} password synchronised from the environment`);
 }
 
 /**

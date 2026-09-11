@@ -13,6 +13,13 @@ import { startSession } from '../../../../lib/auth/session';
 import { clearFailures, isLocked, recordFailure } from '../../../../lib/auth/password-reset';
 import { logged } from '../../../../lib/phase1/reqlog';
 
+/** Said when the fault is ours, and the visitor can only try later. */
+const UNAVAILABLE = {
+  error: 'V-RENT cannot reach its records at the moment. Nothing is wrong with your details — '
+    + 'try again in a minute.',
+  code: 'store_unavailable',
+} as const;
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -45,11 +52,21 @@ async function POST_handler(req: Request) {
   const password = typeof body.password === 'string' ? body.password : '';
   if (!email || !password) return NextResponse.json(FAILED, { status: 401 });
 
-  // Makes sure the two declared demo accounts exist on a fresh install, and
-  // that their passwords still match what the environment says they are.
-  await ensureDemoAccounts();
+  /* Everything from here touches the store. When that is unreachable the
+     honest answer is "not now", not a 500 with an empty body — which is
+     indistinguishable from a wrong password to the person looking at it, and
+     from a code bug to the person they report it to. */
+  let account;
+  try {
+    // Makes sure the two declared demo accounts exist on a fresh install, and
+    // that their passwords still match what the environment says they are.
+    await ensureDemoAccounts();
+    account = await findByEmail(email);
+  } catch (err) {
+    console.error('[v-rent] sign-in could not reach the store:', err);
+    return NextResponse.json(UNAVAILABLE, { status: 503 });
+  }
 
-  const account = await findByEmail(email);
   if (!account) return NextResponse.json(FAILED, { status: 401 });
 
   // A locked account is refused with the same message as a wrong password.
@@ -63,23 +80,25 @@ async function POST_handler(req: Request) {
     return NextResponse.json(FAILED, { status: 401 });
   }
 
-  await clearFailures(account.id);
-  await recordLogin(account.id);
-
-  /* Signing the cookie is the one step here that can fail on a misconfigured
-     deployment rather than on anything the visitor did. Saying so plainly beats
-     a 500: the person seeing it can do nothing about it, but the person they
-     report it to can fix it in a minute. */
+  /* The password was right, so from here every remaining failure is ours:
+     a store that will not write, or a deployment with no signing key. Both are
+     things the visitor can do nothing about and should not be told to retype
+     their password over. */
   try {
+    await clearFailures(account.id);
+    await recordLogin(account.id);
     await startSession(account);
   } catch (err) {
     console.error('[v-rent] could not start a session:', err);
+    const missingKey = err instanceof Error && err.message.includes('VRENT_SESSION_SECRET');
     return NextResponse.json(
-      {
-        error: 'This deployment is not configured to sign in users yet. The server is missing its '
-          + 'session signing key.',
-        code: 'not_configured',
-      },
+      missingKey
+        ? {
+          error: 'This deployment is not configured to sign in users yet. The server is missing '
+            + 'its session signing key.',
+          code: 'not_configured',
+        }
+        : UNAVAILABLE,
       { status: 503 },
     );
   }

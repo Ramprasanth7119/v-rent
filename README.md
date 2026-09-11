@@ -40,6 +40,8 @@ honestly when it is missing, and the screen that needs it says so.
 | `VRENT_DEMO_AGENT_EMAIL`, `VRENT_DEMO_AGENT_PASSWORD` | A demo agent account with a portfolio already in it |
 | `VRENT_DEMO_AGENT_CEA`, `VRENT_DEMO_AGENT_MOBILE` | That account's registration details |
 | `ONEMAP_TOKEN` | Reverse geocoding and neighbourhood amenities. Tiles, search and static maps need no token. |
+| `MONGODB_URI` | Where records are kept. **Set this on any deployment** — see below. |
+| `MONGODB_DB` | Database name. Otherwise taken from the URI, or `vrent`. |
 | `VRENT_SESSION_SECRET` | Signing cookies. **Required on any serverless deployment** — see below. |
 | `VRENT_DATA_DIR` | Overrides where state is written. See below. |
 
@@ -82,35 +84,47 @@ JSON under `.data/`, written through a per-key mutex and an atomic rename. Every
 the small set of functions at the bottom of each store, so swapping the storage is a change to one
 file each.
 
-## Data that outlives a restart
+## Where records live
 
-| File | Written by |
+Everything goes through `lib/store/driver.ts`, which has two backends.
+
+| `MONGODB_URI` | Backend |
 | --- | --- |
-| `.data/accounts.json` | Registration and sign-in |
-| `.data/workspaces.json` | Everything an agent owns: listings, enquiries, tools |
-| `.data/audit.json` | Verification, moderation and suspension decisions. Append-only. |
-| `.data/requests.json` | Every API call: method, route, status, duration, signed-in account |
+| Set | MongoDB, one collection per kind of record |
+| Not set | JSON files under the data directory below |
 
-`.data/` is gitignored. Deleting it resets the instance; accounts re-seed on next sign-in.
+The file backend is kept on purpose: a laptop should need no database to run the product, and the
+tests should not need one either. Everywhere else, set the URI. A cloud platform mounts the
+deployment read-only and gives the function a `/tmp` that belongs to one instance and is discarded
+when it recycles — so without a database, signing in fails outright, and once that is worked around,
+an account created at two o'clock is gone by three.
 
-### Where that directory actually is
-
-`lib/storage.ts` resolves it once, and every store reads it from there.
-
-| Environment | Location |
+| Collection | Holds |
 | --- | --- |
-| Local, or any long-running server | `.data` beside the source |
-| Serverless (Vercel, Lambda, Netlify) | `/tmp/vrent-data` — the only writable path |
-| `VRENT_DATA_DIR` set | Wherever it points |
+| `accounts` | Registration and sign-in |
+| `workspaces` | Everything an agent owns: listings, enquiries, tools |
+| `audit` | Verification, moderation and suspension decisions |
+| `requests` | Every API call: method, route, status, duration, signed-in account |
+| `photos` | Uploaded photographs, full size and thumbnail |
+| `settings` | Single values, including a generated signing key |
 
-A deployment bundle is mounted read-only, so without this the first write — signing in — fails with
-`ENOENT: mkdir '/var/task/.data'`.
+On MongoDB Atlas, Network Access has to allow the platform's addresses. Vercel publishes no fixed
+range, so in practice that means `0.0.0.0/0` with a strong password on a user scoped to this
+database.
 
-**On serverless, state does not survive a cold start.** `/tmp` belongs to one instance. The product
-copes: accounts re-seed from the environment on the next sign-in and a workspace re-seeds from the
-sample portfolio, so a cold start gives a clean, correct demo rather than an error. It is not a place
-to keep anything that matters. For that, set `VRENT_DATA_DIR` to a mounted volume, or replace the
-four functions at the bottom of each store with a database client — they are the only callers.
+### The file directory
+
+`lib/storage.ts` resolves it once: `.data` beside the source normally, `/tmp/vrent-data` on a
+serverless runtime — the only writable path there — and `VRENT_DATA_DIR` overrides both. It is
+gitignored. Deleting it resets the instance; accounts re-seed from the environment on the next
+sign-in.
+
+### When the database is unreachable
+
+`/api/health` says so, along with everything else this instance is missing. Sign-in and sign-up
+answer with a sentence explaining it is not the visitor's fault. The first attempt waits out one
+connection timeout; the rest of that request fails immediately rather than waiting out six of them,
+and the next request tries again.
 
 ### Sessions
 
@@ -148,6 +162,12 @@ flush in batches, so the log is never the slowest thing in a request.
 
 The operations console reads it at **Reports & audit → API activity**, with endpoints named for what
 they do rather than for their path.
+
+## Checking a deployment
+
+`GET /api/health` reports the backend, whether it is reachable and how long it took, which
+environment variables are set — presence, never values — and a plain-English list of what will go
+wrong. It is the first thing to open when a deployment behaves oddly.
 
 ## Talking to other people's servers
 
