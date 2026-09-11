@@ -101,7 +101,7 @@ export default function CheckoutPage() {
           {stage === 'waiting' && (
             <Card padding="lg">
               <div className="py-6 text-center" role="status" aria-live="polite">
-                <Spinner size={32} className="mx-auto mb-5 text-p1-accent" />
+                <Spinner size={32} className="mx-auto mb-5 text-p1-primary dark:text-p1-info" />
                 <h2 className="text-[20px] font-semibold text-p1-text">Confirming your payment…</h2>
                 <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
                   This usually takes a few seconds. Your subscription is activated only once the provider confirms the payment.

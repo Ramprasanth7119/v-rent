@@ -171,10 +171,10 @@ export function Tabs<T extends string>({ items, value, onChange, label = 'Sectio
         return (
           <button key={t.key} role="tab" type="button" aria-selected={on} onClick={() => onChange(t.key)}
             className={cx('relative -mb-px flex h-11 shrink-0 items-center gap-2 border-b-2 px-3.5 text-[14px] font-medium transition-colors cursor-pointer',
-              on ? 'border-p1-primary text-p1-text dark:border-p1-accent' : 'border-transparent text-p1-text-2 hover:text-p1-text')}>
+              on ? 'border-p1-primary text-p1-text dark:border-p1-info' : 'border-transparent text-p1-text-2 hover:text-p1-text')}>
             {t.icon && <span aria-hidden className={on ? 'text-p1-text' : 'text-p1-text-3'}>{t.icon}</span>}
             {t.label}
-            {typeof t.count === 'number' && <span className={cx('rounded-full px-1.5 text-[12px] tabular-nums', on ? 'bg-p1-primary text-white dark:bg-p1-accent dark:text-p1-accent-on' : 'bg-p1-subtle text-p1-text-3')}>{t.count}</span>}
+            {typeof t.count === 'number' && <span className={cx('rounded-full px-1.5 text-[12px] tabular-nums', on ? 'bg-p1-primary text-white dark:bg-p1-info dark:text-p1-primary-on' : 'bg-p1-subtle text-p1-text-3')}>{t.count}</span>}
           </button>
         );
       })}

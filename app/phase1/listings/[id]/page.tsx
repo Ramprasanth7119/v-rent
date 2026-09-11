@@ -171,7 +171,7 @@ function ListingDetailBody() {
                 { icon: Sofa, label: 'Furnishing', value: l.furnishing.replace(' furnished', '') },
               ].map((f) => (
                 <div key={f.label} className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-accent-text" aria-hidden><f.icon size={18} /></span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-primary dark:text-p1-info" aria-hidden><f.icon size={18} /></span>
                   <div className="min-w-0">
                     <div className="text-[13px] text-p1-text-3">{f.label}</div>
                     <div className="truncate text-[15px] font-semibold text-p1-text">{f.value}</div>
@@ -291,7 +291,7 @@ function ListingDetailBody() {
                 <>
                   <div className="rounded-xl border border-p1-border bg-p1-subtle/50 p-4 sm:p-5">
                     <div className="mb-4 flex flex-wrap items-center gap-2">
-                      <ShieldCheck size={18} className="text-p1-accent-text" aria-hidden />
+                      <ShieldCheck size={18} className="text-p1-primary dark:text-p1-info" aria-hidden />
                       <span className="text-[15px] font-semibold text-p1-text">Compliance snapshot</span>
                       {isLive
                         ? <Pill tone="success" className="ml-auto">Frozen at publication</Pill>
@@ -318,7 +318,7 @@ function ListingDetailBody() {
                   {activity.map((x, i) => (
                     <li key={i} className="flex gap-3">
                       <div className="flex flex-col items-center">
-                        <span className={cx('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', x.actor === 'system' ? 'bg-p1-text-3' : 'bg-p1-accent')} aria-hidden />
+                        <span className={cx('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', x.actor === 'system' ? 'bg-p1-text-3' : 'bg-p1-primary')} aria-hidden />
                         {i < activity.length - 1 && <span className="mt-1 w-px flex-1 bg-p1-border" aria-hidden />}
                       </div>
                       <div className="min-w-0 pb-1">
@@ -362,7 +362,7 @@ function ListingDetailBody() {
                   <div className="min-w-0 flex-1">
                     <div className="text-[14px] font-medium text-p1-text">{g.label}<span className="sr-only">{g.pass ? ' — passed' : ' — failed'}</span></div>
                     <div className="mt-0.5 text-[13px] text-p1-text-2">{g.detail}</div>
-                    {!g.pass && g.fixHref && <Link href={g.fixHref} className="mt-1 inline-block text-[13px] font-semibold text-p1-accent-text underline-offset-4 hover:underline">{g.fixLabel} →</Link>}
+                    {!g.pass && g.fixHref && <Link href={g.fixHref} className="mt-1 inline-block text-[13px] font-semibold text-p1-primary dark:text-p1-info underline-offset-4 hover:underline">{g.fixLabel} →</Link>}
                   </div>
                 </li>
               ))}

@@ -43,7 +43,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 {t.body && <div className="mt-0.5 text-[13px] leading-5 text-p1-text-2">{t.body}</div>}
                 {t.action && (
                   <button type="button" onClick={() => { t.action!.onClick(); setItems((s) => s.filter((x) => x.id !== t.id)); }}
-                    className="mt-1.5 text-[13px] font-semibold text-p1-accent-text underline-offset-4 hover:underline cursor-pointer">
+                    className="mt-1.5 text-[13px] font-semibold text-p1-primary underline-offset-4 dark:text-p1-info hover:underline cursor-pointer">
                     {t.action.label}
                   </button>
                 )}

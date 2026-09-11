@@ -107,9 +107,9 @@ export default function StatusPage() {
 
           <SectionCard title="What happens next">
             <ul className="space-y-3 text-[14px] leading-5 text-p1-text-2">
-              <li className="flex gap-3"><UserCheck size={18} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden /><span><span className="font-medium text-p1-text">A person makes the decision.</span> The register confirms your registration exists; an officer confirms it is you.</span></li>
-              <li className="flex gap-3"><CreditCard size={18} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden /><span><span className="font-medium text-p1-text">Then you choose a plan.</span> Payment is only asked for after approval.</span></li>
-              <li className="flex gap-3"><CalendarCheck size={18} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden /><span><span className="font-medium text-p1-text">Verification stays current.</span> Your registration is re-checked daily. If it lapses, publishing pauses until it is renewed — you keep your account.</span></li>
+              <li className="flex gap-3"><UserCheck size={18} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden /><span><span className="font-medium text-p1-text">A person makes the decision.</span> The register confirms your registration exists; an officer confirms it is you.</span></li>
+              <li className="flex gap-3"><CreditCard size={18} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden /><span><span className="font-medium text-p1-text">Then you choose a plan.</span> Payment is only asked for after approval.</span></li>
+              <li className="flex gap-3"><CalendarCheck size={18} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden /><span><span className="font-medium text-p1-text">Verification stays current.</span> Your registration is re-checked daily. If it lapses, publishing pauses until it is renewed — you keep your account.</span></li>
             </ul>
           </SectionCard>
 

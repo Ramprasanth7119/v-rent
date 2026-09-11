@@ -60,7 +60,7 @@ export default function PlansPage() {
             <Card
               key={p.code}
               padding="lg"
-              className={cx('relative flex flex-col', recommended && 'border-2 border-p1-accent shadow-p1-md', selected && 'ring-2 ring-p1-accent/40')}
+              className={cx('relative flex flex-col', recommended && 'border-2 border-p1-primary shadow-p1-md', selected && 'ring-2 ring-p1-primary/35')}
             >
               {recommended && (
                 <span className="absolute -top-3.5 left-1/2 -translate-x-1/2">
@@ -111,7 +111,7 @@ export default function PlansPage() {
               <div className="mt-0.5 text-[13px] text-p1-text-3">{c.note}</div>
             </div>
           ))}
-          <div className="rounded-xl border-2 border-p1-accent bg-p1-accent-soft/50 p-4">
+          <div className="rounded-xl border-2 border-p1-primary bg-p1-primary-soft/60 p-4">
             <div className="text-[13px] font-medium text-p1-text-2">V-RENT, all plans</div>
             <div className="mt-1 text-[24px] font-semibold tabular-nums text-p1-success">{sgd(PLANS[0].priceYearSgd)}–{sgd(PLANS[2].priceYearSgd)}<span className="text-[13px] font-normal text-p1-text-3">/yr</span></div>
             <div className="mt-0.5 text-[13px] text-p1-text-3">quota included, no credits</div>

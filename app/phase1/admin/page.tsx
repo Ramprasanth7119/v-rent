@@ -75,7 +75,7 @@ export default async function AdminOverviewPage() {
           <Card padding="none">
             <div className="flex items-center justify-between px-5 py-4">
               <h2 className="text-[16px] font-semibold text-p1-text">Recent audit activity</h2>
-              <Link href="/phase1/admin/reports" className="text-[13px] font-medium text-p1-accent-text hover:underline underline-offset-4">View all</Link>
+              <Link href="/phase1/admin/reports" className="text-[13px] font-medium text-p1-primary dark:text-p1-info hover:underline underline-offset-4">View all</Link>
             </div>
             <ul className="divide-y divide-p1-border border-t border-p1-border">
               {AUDIT_LOG.slice(0, 5).map((r, i) => (

@@ -234,7 +234,7 @@ export default function PaymentPage() {
                     role="status"
                     aria-live="polite"
                   >
-                    {polling ? <Spinner size={14} className="text-p1-accent" /> : <QrCode size={14} />}
+                    {polling ? <Spinner size={14} className="text-p1-primary dark:text-p1-info" /> : <QrCode size={14} />}
                     {polling ? 'Waiting for your bank to confirm the transfer…' : 'Checking…'}
                   </div>
                   <p className="mt-3 text-[13px] leading-5 text-p1-text-3">

@@ -95,7 +95,7 @@ export default function VerificationQueue({
       <Card padding="lg" className="mb-6 border-transparent bg-p1-primary text-white">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
           <div>
-            <div className="mb-1.5 flex items-center gap-2 text-[12.5px] font-semibold text-p1-accent">
+            <div className="mb-1.5 flex items-center gap-2 text-[12.5px] font-semibold text-p1-primary dark:text-p1-info">
               <Gauge size={14} aria-hidden />
               Verification policy
             </div>
@@ -126,7 +126,7 @@ export default function VerificationQueue({
               <span className="font-p1display text-[22px] font-medium tabular-nums">{policy.agentCount}</span>
             </div>
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/15" aria-hidden>
-              <div className="h-full rounded-full bg-p1-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
+              <div className="h-full rounded-full bg-p1-primary transition-[width] duration-500" style={{ width: `${pct}%` }} />
             </div>
             <p className="mt-2.5 text-[12.5px] leading-5 text-white/60">
               {policy.autoApprove

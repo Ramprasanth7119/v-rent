@@ -189,7 +189,7 @@ export function Gallery({ seed, count, srcs = [] }: { seed: string; count: numbe
             onClick={() => setActive(i)}
             aria-label={`Photograph ${i + 1}`}
             className={`shrink-0 overflow-hidden rounded-lg transition-all cursor-pointer ${
-              i === active ? 'ring-2 ring-p1-accent ring-offset-2 ring-offset-p1-surface' : 'opacity-60 hover:opacity-100'
+              i === active ? 'ring-2 ring-p1-primary ring-offset-2 ring-offset-p1-surface' : 'opacity-60 hover:opacity-100'
             }`}
           >
             <PropertyImage seed={seed} variant={i} rounded="rounded-lg" className="h-14 w-20" src={srcs[i]} alt="" />

@@ -108,7 +108,7 @@ export default function PropertiesPage() {
                     ))}
                     {p.units.length > 3 && <li className="px-3 py-1.5 text-[12px] text-p1-text-3">+{p.units.length - 3} more</li>}
                   </ul>
-                  <Link href={`/phase1/listings?q=${encodeURIComponent(p.project)}`} className="mt-auto inline-flex items-center gap-1.5 pt-4 text-[14px] font-semibold text-p1-accent-text underline-offset-4 hover:underline">
+                  <Link href={`/phase1/listings?q=${encodeURIComponent(p.project)}`} className="mt-auto inline-flex items-center gap-1.5 pt-4 text-[14px] font-semibold text-p1-primary dark:text-p1-info underline-offset-4 hover:underline">
                     View listings <ArrowRight size={15} aria-hidden />
                   </Link>
                 </div>

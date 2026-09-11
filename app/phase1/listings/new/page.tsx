@@ -433,7 +433,7 @@ function ListingWizard() {
           crumbs={[{ label: 'Listings', href: '/phase1/listings' }, { label: 'Create listing' }]}
           eyebrow="New listing"
           title="Create a listing"
-          description="Six short steps. Your progress is saved as you go, so you can come back later."
+          description="Seven short steps. Your progress is saved as you go, so you can come back later."
           meta={<span className="inline-flex items-center gap-1.5 text-[13px] text-p1-text-3"><Check size={14} className="text-p1-success" aria-hidden /> Draft saved just now</span>}
         />
       )}
@@ -469,10 +469,10 @@ function ListingWizard() {
                       aria-pressed={chosen}
                       className={cx(
                         'flex flex-col items-start rounded-xl border-2 p-5 text-left transition-colors cursor-pointer',
-                        chosen ? 'border-p1-accent bg-p1-accent-soft/40' : 'border-p1-border hover:border-p1-border-strong hover:bg-p1-subtle/50',
+                        chosen ? 'border-p1-primary bg-p1-primary-soft/60 shadow-p1-sm' : 'border-p1-border hover:border-p1-border-strong hover:bg-p1-subtle/50',
                       )}
                     >
-                      <span className={cx('flex h-11 w-11 items-center justify-center rounded-lg', chosen ? 'bg-p1-accent text-p1-accent-on' : 'bg-p1-subtle text-p1-text-3')} aria-hidden>
+                      <span className={cx('flex h-11 w-11 items-center justify-center rounded-lg', chosen ? 'bg-p1-primary text-white' : 'bg-p1-subtle text-p1-text-3')} aria-hidden>
                         {option === 'rent' ? <KeyRound size={20} /> : <Tag size={20} />}
                       </span>
                       <span className="mt-3.5 text-[16px] font-semibold text-p1-text">
@@ -508,7 +508,7 @@ function ListingWizard() {
                     <li key={m.postal}>
                       <button type="button" role="option" aria-selected={false} onClick={() => { setAddr(m); setQuery(m.label); }}
                         className="flex w-full items-center gap-3 border-b border-p1-border px-4 py-3 text-left last:border-b-0 hover:bg-p1-subtle cursor-pointer">
-                        <MapPin size={17} className="shrink-0 text-p1-accent-text" aria-hidden />
+                        <MapPin size={17} className="shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />
                         <span className="min-w-0">
                           <span className="block truncate text-[14px] font-medium text-p1-text">{m.label}</span>
                           <span className="block text-[13px] text-p1-text-3">Singapore {m.postal} · {m.project}</span>
@@ -535,10 +535,10 @@ function ListingWizard() {
                   <PropertyMap className="mt-4" lat={addr.lat} lng={addr.lng} label={addr.label} height={200} />
 
                   {template && !templateUsed && (
-                    <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-p1-accent/40 bg-p1-accent-soft/40 px-4 py-3">
+                    <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-p1-primary/25 bg-p1-primary-soft/60 px-4 py-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-[13.5px] font-semibold text-p1-text">
-                          <Sparkles size={14} className="text-p1-accent-text" aria-hidden />
+                          <Sparkles size={14} className="text-p1-primary dark:text-p1-info" aria-hidden />
                           You have listed here before
                         </div>
                         <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">
@@ -665,7 +665,7 @@ function ListingWizard() {
                 )}
               </div>
               <div className="mt-6 rounded-xl border border-p1-border bg-p1-subtle/50 p-4">
-                <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-p1-text"><ShieldCheck size={16} className="text-p1-accent-text" aria-hidden /> Your details on this advertisement</div>
+                <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-p1-text"><ShieldCheck size={16} className="text-p1-primary dark:text-p1-info" aria-hidden /> Your details on this advertisement</div>
                 <p className="text-[15px] text-p1-text">{state.profile.fullName} · {state.profile.ceaNumber} · {state.profile.agency} ({state.profile.agencyLicence})</p>
                 <p className="mt-2 text-[13px] leading-5 text-p1-text-2">Required on every advertisement by CEA rules. They are frozen onto the listing when it goes live, so a later change of agency does not alter this advertisement.</p>
               </div>
@@ -676,7 +676,7 @@ function ListingWizard() {
                     <li key={g.id} className="flex items-start gap-3 py-2.5">
                       <span className={cx('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full', g.pass ? 'bg-p1-success-soft text-p1-success' : 'bg-p1-danger-soft text-p1-danger')} aria-hidden>{g.pass ? <Check size={12} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}</span>
                       <span className="min-w-0 flex-1 text-[14px] text-p1-text">{g.label}<span className="sr-only">{g.pass ? ' — passed' : ' — failed'}</span>
-                        {!g.pass && g.fixHref && <Link href={g.fixHref} className="ml-2 text-[13px] font-semibold text-p1-accent-text underline-offset-4 hover:underline">{g.fixLabel} →</Link>}
+                        {!g.pass && g.fixHref && <Link href={g.fixHref} className="ml-2 text-[13px] font-semibold text-p1-primary underline-offset-4 hover:underline dark:text-p1-info">{g.fixLabel} →</Link>}
                       </span>
                     </li>
                   ))}
@@ -731,7 +731,7 @@ function ListingWizard() {
                 const done = editing ? i !== step : i < step;
                 const row = (
                   <>
-                    <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold', done ? 'bg-p1-success text-white' : i === step ? 'bg-p1-accent text-p1-accent-on' : 'bg-p1-subtle text-p1-text-3')} aria-hidden>{done ? <Check size={13} strokeWidth={3} /> : i + 1}</span>
+                    <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold', done ? 'bg-p1-success text-white' : i === step ? 'bg-p1-primary text-white' : 'bg-p1-subtle text-p1-text-3')} aria-hidden>{done ? <Check size={13} strokeWidth={3} /> : i + 1}</span>
                     <span className={cx(i === step ? 'font-semibold text-p1-text' : done ? 'text-p1-text-2' : 'text-p1-text-3')}>{s.label}</span>
                   </>
                 );
@@ -750,9 +750,9 @@ function ListingWizard() {
           </SectionCard>
           <SectionCard title="Tips" padding="sm" icon={<Lightbulb size={17} />}>
             <ul className="space-y-3 text-[13px] leading-5 text-p1-text-2">
-              <li className="flex gap-2"><Sparkles size={14} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden />Lead with what a tenant cannot see in the photos: quiet stack, no west sun, walking time to the MRT.</li>
-              <li className="flex gap-2"><Camera size={14} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden />Shoot in daylight with the lights on. Ten or more photos get more enquiries.</li>
-              <li className="flex gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden />Your CEA details are added automatically — no need to type them into the description.</li>
+              <li className="flex gap-2"><Sparkles size={14} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />Lead with what a tenant cannot see in the photos: quiet stack, no west sun, walking time to the MRT.</li>
+              <li className="flex gap-2"><Camera size={14} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />Shoot in daylight with the lights on. Ten or more photos get more enquiries.</li>
+              <li className="flex gap-2"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />Your CEA details are added automatically — no need to type them into the description.</li>
             </ul>
           </SectionCard>
           {!canPublish && <Callout tone="warning" title="Publication is currently blocked">You can still save a draft and publish once the checklist passes.</Callout>}

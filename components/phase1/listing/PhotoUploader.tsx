@@ -129,7 +129,7 @@ export function PhotoUploader({
         onDrop={(e) => { e.preventDefault(); setDragging(false); if (!full) accept(e.dataTransfer.files); }}
         className={cx(
           'rounded-xl border-2 border-dashed transition-colors',
-          full ? 'border-p1-border bg-p1-subtle/30' : dragging ? 'border-p1-accent bg-p1-accent-soft/50' : 'border-p1-border-strong bg-p1-subtle/40',
+          full ? 'border-p1-border bg-p1-subtle/30' : dragging ? 'border-p1-primary bg-p1-primary-soft/70' : 'border-p1-border-strong bg-p1-subtle/40',
         )}
       >
         <button

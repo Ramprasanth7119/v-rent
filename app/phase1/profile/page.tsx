@@ -137,7 +137,7 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center text-center">
               <div className="relative">
                 <Avatar name={name} size="xl" />
-                <button type="button" aria-label="Add profile photo" className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-p1-surface bg-p1-accent text-p1-accent-on shadow-p1-sm"><Camera size={15} /></button>
+                <button type="button" aria-label="Add profile photo" className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-p1-surface bg-p1-primary text-white shadow-p1-sm"><Camera size={15} /></button>
               </div>
               <div className="mt-3 text-[17px] font-semibold text-p1-text">{name}</div>
               <div className="text-[14px] text-p1-text-2">{p.agency || 'No agency on file'}</div>

@@ -213,7 +213,7 @@ export default function ImportPage() {
                 onDrop={(e) => { e.preventDefault(); void takeFile(e.dataTransfer.files[0]); }}
               >
                 <button type="button" onClick={() => input.current?.click()}
-                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-p1-border-strong bg-p1-subtle/40 px-4 py-14 text-center transition-colors hover:border-p1-accent hover:bg-p1-accent-soft/40 cursor-pointer">
+                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-p1-border-strong bg-p1-subtle/40 px-4 py-14 text-center transition-colors hover:border-p1-primary hover:bg-p1-primary-soft/60 cursor-pointer">
                   <span className="flex h-14 w-14 items-center justify-center rounded-full bg-p1-primary-soft text-p1-primary" aria-hidden><Upload size={26} /></span>
                   <span className="mt-4 text-[16px] font-semibold text-p1-text">Drag your CSV here, or choose a file</span>
                   <span className="mt-1 text-[13px] text-p1-text-3">
@@ -273,7 +273,7 @@ export default function ImportPage() {
                 { Icon: FilePlus2, t: 'Create drafts', d: 'Valid rows become drafts. Add photos, then publish each one.' },
               ].map((s, i) => (
                 <li key={s.t} className="flex gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-accent-text" aria-hidden><s.Icon size={17} /></span>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-primary dark:text-p1-info" aria-hidden><s.Icon size={17} /></span>
                   <div>
                     <div className="text-[14px] font-semibold text-p1-text">{i + 1}. {s.t}</div>
                     <div className="mt-0.5 text-[13px] leading-5 text-p1-text-2">{s.d}</div>
