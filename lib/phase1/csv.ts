@@ -48,7 +48,11 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ''));
 }
 
-const normalise = (header: string) => header.trim().toLowerCase().replace(/[\s_-]+/g, '');
+/**
+ * Everything that is not a letter or a digit goes, not just spaces: a real file
+ * says "No. of Bedrooms" or "Size (sqft)", and the punctuation is noise.
+ */
+const normalise = (header: string) => header.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 /**
  * What each column might be called. First match wins, so the most specific

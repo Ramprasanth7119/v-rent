@@ -83,13 +83,12 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <div className="mt-2 text-right">
-            <button
-              type="button"
-              className="cursor-pointer text-[13px] text-p1-text-2 underline-offset-4 hover:text-p1-text hover:underline"
-              onClick={() => setError('Password reset by email is part of the full build. For the proof of concept, create a new account instead.')}
+            <Link
+              href="/phase1/forgot"
+              className="text-[13px] text-p1-text-2 underline-offset-4 hover:text-p1-text hover:underline"
             >
               Forgotten your password?
-            </button>
+            </Link>
           </div>
         </div>
 
