@@ -16,10 +16,11 @@ import { promisify } from 'node:util';
 import { displayAgency, displayName, lookupRegistration, type CeaRecord } from './cea';
 import type { EmailVerification } from './email-verification';
 import type { PasswordReset } from './password-reset';
+import { DATA_DIR as dataRoot } from '../storage';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
-const DATA_DIR = path.join(process.cwd(), '.data');
+const DATA_DIR = dataRoot;
 const USERS_FILE = path.join(DATA_DIR, 'accounts.json');
 const SECRET_FILE = path.join(DATA_DIR, 'session-secret');
 

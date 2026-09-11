@@ -21,8 +21,9 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { KeyedMutex } from './concurrency';
 import { ALLOWED_TRANSITIONS, type IntentStatus, type PaymentIntent } from './types';
+import { DATA_DIR as dataRoot } from '../storage';
 
-const DATA_DIR = path.join(process.cwd(), '.data');
+const DATA_DIR = dataRoot;
 const FILE = path.join(DATA_DIR, 'payments.json');
 
 interface Persisted {

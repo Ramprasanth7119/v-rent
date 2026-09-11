@@ -40,6 +40,7 @@ honestly when it is missing, and the screen that needs it says so.
 | `VRENT_DEMO_AGENT_EMAIL`, `VRENT_DEMO_AGENT_PASSWORD` | A demo agent account with a portfolio already in it |
 | `VRENT_DEMO_AGENT_CEA`, `VRENT_DEMO_AGENT_MOBILE` | That account's registration details |
 | `ONEMAP_TOKEN` | Reverse geocoding and neighbourhood amenities. Tiles, search and static maps need no token. |
+| `VRENT_DATA_DIR` | Overrides where state is written. See below. |
 
 OneMap issues short-lived tokens. When one expires the pin-drop falls back to asking for a postal
 code and the neighbourhood screen says the service is not configured; nothing else is affected.
@@ -91,6 +92,25 @@ file each.
 
 `.data/` is gitignored. Deleting it resets the instance; accounts re-seed on next sign-in.
 
+### Where that directory actually is
+
+`lib/storage.ts` resolves it once, and every store reads it from there.
+
+| Environment | Location |
+| --- | --- |
+| Local, or any long-running server | `.data` beside the source |
+| Serverless (Vercel, Lambda, Netlify) | `/tmp/vrent-data` — the only writable path |
+| `VRENT_DATA_DIR` set | Wherever it points |
+
+A deployment bundle is mounted read-only, so without this the first write — signing in — fails with
+`ENOENT: mkdir '/var/task/.data'`.
+
+**On serverless, state does not survive a cold start.** `/tmp` belongs to one instance. The product
+copes: accounts re-seed from the environment on the next sign-in and a workspace re-seeds from the
+sample portfolio, so a cold start gives a clean, correct demo rather than an error. It is not a place
+to keep anything that matters. For that, set `VRENT_DATA_DIR` to a mounted volume, or replace the
+four functions at the bottom of each store with a database client — they are the only callers.
+
 ## Request logging
 
 `lib/phase1/reqlog.ts` exports `logged()`, which wraps a route export without changing its
@@ -107,6 +127,14 @@ flush in batches, so the log is never the slowest thing in a request.
 
 The operations console reads it at **Reports & audit → API activity**, with endpoints named for what
 they do rather than for their path.
+
+## Talking to other people's servers
+
+Every outbound call goes through `fetchWithTimeout` in `lib/http.ts`, which gives up after six
+seconds. `fetch` has no default timeout, so a government service having a slow afternoon would
+otherwise become a request of ours that hangs until the platform kills it — and on a serverless
+runtime that burns the whole function budget. Every screen that makes one of these calls already
+knows how to say "that lookup did not come back"; the timeout is what lets it.
 
 ## Conventions
 

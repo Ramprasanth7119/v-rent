@@ -15,6 +15,8 @@
  *    the active register" — never "expired". We report it that way.
  */
 
+import { fetchWithTimeout } from '../http';
+
 const RESOURCE_ID = 'd_07c63be0f37e6e59c07a4ddc2fd87fcb';
 const ENDPOINT = 'https://data.gov.sg/api/action/datastore_search';
 
@@ -104,7 +106,7 @@ async function query(filters: Record<string, string>, limit = 20): Promise<RawRe
   url.searchParams.set('filters', JSON.stringify(filters));
   url.searchParams.set('limit', String(limit));
 
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { accept: 'application/json' },
     // The register changes three times a day; a short cache keeps a demo snappy
     // without ever showing yesterday's registration status.
@@ -148,7 +150,7 @@ export async function searchByName(term: string, limit = 8): Promise<CeaRecord[]
   url.searchParams.set('limit', String(limit));
 
   try {
-    const res = await fetch(url, { headers: { accept: 'application/json' }, next: { revalidate: 300 } });
+    const res = await fetchWithTimeout(url, { headers: { accept: 'application/json' }, next: { revalidate: 300 } });
     if (!res.ok) return [];
     const body = (await res.json()) as { result?: { records?: RawRecord[] } };
     return (body.result?.records ?? []).map(toRecord).filter((r): r is CeaRecord => r !== null);

@@ -12,6 +12,8 @@
  * token; that is the only change, and it lives in `authHeaders` below.
  */
 
+import { fetchWithTimeout } from '../http';
+
 const ENDPOINT = 'https://www.onemap.gov.sg/api/common/elastic/search';
 const STATIC_MAP = 'https://www.onemap.gov.sg/api/staticmap/getStaticImage';
 const REVERSE = 'https://www.onemap.gov.sg/api/public/revgeocode';
@@ -142,7 +144,7 @@ export async function searchAddress(term: string, limit = 8): Promise<AddressMat
   url.searchParams.set('pageNum', '1');
 
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: authHeaders(),
       // Deliberately uncached. Addresses do not move, but caching by URL also
       // caches an empty or failed answer, and a lookup that transiently failed
@@ -191,7 +193,7 @@ export function staticMapUrl(
 /** Fetch that image. Returns null rather than throwing: a missing map is not an error. */
 export async function fetchStaticMap(lat: number, lng: number, size?: { width?: number; height?: number }) {
   try {
-    const res = await fetch(staticMapUrl(lat, lng, size), { headers: authHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(staticMapUrl(lat, lng, size), { headers: authHeaders(), cache: 'no-store' });
     if (!res.ok) return null;
     const type = res.headers.get('content-type') ?? 'image/png';
     return { body: Buffer.from(await res.arrayBuffer()), type };
@@ -244,7 +246,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseL
   url.searchParams.set('otherFeatures', 'N');
 
   try {
-    const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+    const res = await fetchWithTimeout(url, { headers: authHeaders(), cache: 'no-store' });
     if (res.status === 401 || res.status === 403) {
       return { status: 'needs_postal', reason: 'The OneMap key configured for this server was refused.' };
     }

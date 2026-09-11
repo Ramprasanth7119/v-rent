@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DUPLICATE_WITHIN, PhotoQuality, hammingDistance, processPhoto } from './image';
+import { DATA_DIR as dataRoot } from '../storage';
 
 /** What an agent may upload, and how much of it. */
 export const MAX_PHOTOS_PER_LISTING = 6;
@@ -35,7 +36,7 @@ export const ACCEPTED_TYPES: Record<string, string> = {
 
 export const ACCEPT_ATTRIBUTE = Object.keys(ACCEPTED_TYPES).join(',');
 
-const UPLOAD_ROOT = path.join(process.cwd(), '.data', 'uploads');
+const UPLOAD_ROOT = path.join(dataRoot, 'uploads');
 
 /**
  * Ids are generated here, so a name from the browser never reaches the disk.

@@ -16,8 +16,9 @@ import { AgentProfile, DEFAULT_NOTIFICATIONS, seedWorkspace, WorkspaceState } fr
 import { EMPTY_TOOLS } from './tools';
 import { verificationPolicy } from './verification-policy';
 import type { DemoListing } from './data';
+import { DATA_DIR as dataRoot } from '../storage';
 
-const DATA_DIR = path.join(process.cwd(), '.data');
+const DATA_DIR = dataRoot;
 const FILE = path.join(DATA_DIR, 'workspaces.json');
 
 interface StoredWorkspace extends WorkspaceState {

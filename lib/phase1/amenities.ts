@@ -11,6 +11,8 @@
  * instead of pretending the area has no amenities in it.
  */
 
+import { fetchWithTimeout } from '../http';
+
 const THEMES = 'https://www.onemap.gov.sg/api/public/themesvc/retrieveTheme';
 
 export interface AmenityGroup {
@@ -122,7 +124,7 @@ async function fetchTheme(
   url.searchParams.set('queryName', query);
   url.searchParams.set('extents', extents(lat, lng, radius));
 
-  const res = await fetch(url, { headers: { Authorization: token }, cache: 'no-store' });
+  const res = await fetchWithTimeout(url, { headers: { Authorization: token }, cache: 'no-store' });
   if (!res.ok) return [];
 
   const body = (await res.json()) as { SrchResults?: (ThemeRow & { FeatCount?: number })[] };

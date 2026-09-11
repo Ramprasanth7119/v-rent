@@ -3,7 +3,7 @@ import { Lead, mockLeads, LeadTimelineEvent } from '../mock-data/leads';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Keep local in-memory active list
-let activeLeads = [...mockLeads];
+const activeLeads = [...mockLeads];
 
 export const getLeads = async (agentId?: string): Promise<Lead[]> => {
   await delay(300);

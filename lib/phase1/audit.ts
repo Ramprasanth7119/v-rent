@@ -18,11 +18,12 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { KeyedMutex } from '../payments/concurrency';
 import type { AuditRow } from './audit-labels';
+import { DATA_DIR as dataRoot } from '../storage';
 
 export type { AuditAction, AuditRow } from './audit-labels';
 export { ACTION_LABEL, IS_ADVERSE } from './audit-labels';
 
-const DATA_DIR = path.join(process.cwd(), '.data');
+const DATA_DIR = dataRoot;
 const FILE = path.join(DATA_DIR, 'audit.json');
 
 /** Beyond this the oldest rows are dropped. Production keeps them all, elsewhere. */

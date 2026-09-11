@@ -27,8 +27,9 @@ import path from 'node:path';
    without pulling `node:fs` into the browser bundle. */
 export type { RequestRow } from './reqlog-labels';
 import type { RequestRow } from './reqlog-labels';
+import { DATA_DIR as dataRoot } from '../storage';
 
-const DATA_DIR = path.join(process.cwd(), '.data');
+const DATA_DIR = dataRoot;
 const FILE = path.join(DATA_DIR, 'requests.json');
 
 /** A working week of traffic at prototype volumes. Oldest rows fall off. */

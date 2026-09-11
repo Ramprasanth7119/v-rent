@@ -14,8 +14,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { DATA_DIR as dataRoot } from './storage';
 
-const OUTBOX = path.join(process.cwd(), '.data', 'outbox');
+const OUTBOX = path.join(dataRoot, 'outbox');
 
 export interface Message {
   to: string;
