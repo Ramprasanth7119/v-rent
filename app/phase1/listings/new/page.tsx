@@ -147,6 +147,10 @@ function ListingWizard() {
     builtYear: editing?.builtYear,
   }));
   const [confirmPublish, setConfirmPublish] = useState(false);
+  /* Photographs are uploaded before we leave the page. Without this the dialog
+     closed and nothing visibly happened until the upload finished, so the
+     agent was left looking at the form wondering whether it had worked. */
+  const [committing, setCommitting] = useState(false);
 
   /**
    * Address search runs against OneMap while the agent types. Debounced, and a
@@ -357,24 +361,38 @@ function ListingWizard() {
   });
 
   const saveDraft = async () => {
-    if (!addr) return;
-    const listing = build('draft');
-    addListing(listing);
-    await commitPhotos(listing.id);
-    push({ tone: 'success', title: 'Draft saved', body: 'You can finish and publish it from My listings.' });
-    router.push('/phase1/listings');
+    if (!addr || committing) return;
+    setCommitting(true);
+    try {
+      const listing = build('draft');
+      addListing(listing);
+      await commitPhotos(listing.id);
+      push({ tone: 'success', title: 'Draft saved', body: 'You can finish and publish it from My listings.' });
+      router.push('/phase1/listings');
+    } catch {
+      push({ tone: 'error', title: 'The draft was not saved', body: 'Your photographs did not finish uploading. Try again in a moment.' });
+      setCommitting(false);
+    }
   };
 
   const publish = async () => {
-    setConfirmPublish(false);
-    if (!addr) return;
-    const listing = build(canPublish ? 'published' : 'draft');
-    addListing(listing);
-    await commitPhotos(listing.id);
-    push(canPublish
-      ? { tone: 'success', title: 'Listing published', body: `${addr.project} is now live.` }
-      : { tone: 'warn', title: 'Saved as draft', body: 'Publication is blocked — see the checklist.' });
-    router.push('/phase1/listings');
+    if (!addr || committing) return;
+    // The dialog stays open with its button working until the photographs are
+    // up, so the wait is visibly the product's and not a click that missed.
+    setCommitting(true);
+    try {
+      const listing = build(canPublish ? 'published' : 'draft');
+      addListing(listing);
+      await commitPhotos(listing.id);
+      setConfirmPublish(false);
+      push(canPublish
+        ? { tone: 'success', title: 'Listing published', body: `${addr.project} is now live.` }
+        : { tone: 'warn', title: 'Saved as draft', body: 'Publication is blocked — see the checklist.' });
+      router.push('/phase1/listings');
+    } catch {
+      push({ tone: 'error', title: 'The listing was not published', body: 'Your photographs did not finish uploading. Try again in a moment.' });
+      setCommitting(false);
+    }
   };
 
   /* --------------------------------------------------------------- editing */
@@ -881,8 +899,8 @@ function ListingWizard() {
                 <Button variant="primary" rightIcon={<ChevronRight size={16} />} disabled={!canAdvance} onClick={() => setStep((s) => s + 1)}>Continue</Button>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => void saveDraft()}>Save as draft</Button>
-                  <Button variant="primary" size="md" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish} onClick={() => setConfirmPublish(true)}>
+                  <Button variant="outline" loading={committing} onClick={() => void saveDraft()}>Save as draft</Button>
+                  <Button variant="primary" size="md" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish || committing} onClick={() => setConfirmPublish(true)}>
                     {canPublish ? 'Publish listing' : 'Publication blocked'}
                   </Button>
                 </div>
@@ -893,8 +911,16 @@ function ListingWizard() {
 
       </div>
 
-      <ConfirmDialog open={confirmPublish} onClose={() => setConfirmPublish(false)} onConfirm={editing ? publishEdit : () => void publish()}
-        title="Publish this listing?" description="It goes live immediately and uses one listing slot on your plan." confirmLabel="Publish listing" />
+      <ConfirmDialog
+        open={confirmPublish}
+        onClose={() => { if (!committing) setConfirmPublish(false); }}
+        onConfirm={editing ? publishEdit : () => void publish()}
+        loading={committing}
+        title="Publish this listing?"
+        description={committing
+          ? 'Uploading your photographs. This stays open until they are safely stored.'
+          : 'It goes live immediately and uses one listing slot on your plan.'}
+        confirmLabel="Publish listing" />
 
     </>
   );

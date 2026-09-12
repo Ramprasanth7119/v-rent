@@ -18,6 +18,7 @@ import { Button, TextInput, Callout, Checkbox, cx } from '../../../components/ph
 import {
   ArrowRight, ArrowLeft, BadgeCheck, Search, Building2, CalendarClock, Check, IdCard, Loader2, RotateCcw,
 } from 'lucide-react';
+import { useToast } from '../../../components/phase1/Toast';
 import { sgDate, sgTime } from '../../../lib/phase1/format';
 
 interface CeaRecord {
@@ -129,6 +130,7 @@ function SignupBody() {
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const { push } = useToast();
   const [formError, setFormError] = useState('');
 
   const rules = [
@@ -156,6 +158,11 @@ function SignupBody() {
         setFormError(body.error ?? 'The account could not be created. Try again.');
         return;
       }
+      push({
+        tone: 'success',
+        title: 'Account created',
+        body: 'Your CEA registration was matched. Your application is with a verification officer.',
+      });
       router.replace('/phase1/dashboard');
       router.refresh();
     } catch {

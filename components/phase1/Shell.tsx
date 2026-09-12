@@ -15,6 +15,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useToast } from './Toast';
 import {
   FileSpreadsheet, Home, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Upload, Plus, Gavel, Receipt, BarChart3, Users,
   Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, ChevronDown, LogOut, LayoutGrid, MapPinned,
@@ -54,6 +55,9 @@ const TITLES: Record<string, string> = {
 
 /** Account ids are UUIDs; a raw one in a breadcrumb tells a reader nothing. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* How often the console checks for work that arrived from someone else. */
+const QUEUE_POLL_MS = 15_000;
 
 function crumbLabel(segment: string): string {
   if (TITLES[segment]) return TITLES[segment];
@@ -202,6 +206,14 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
   const { toggle: toggleTheme, ready: themeReady } = useTheme(setDarkMode, isDarkMode);
   const pathname = usePathname();
   const router = useRouter();
+  const { push } = useToast();
+
+  /* Signing out navigates to the sign-in page, which on its own is hard to
+     tell from a session that expired. Saying it was deliberate is the point. */
+  const signOutAndSay = () => {
+    push({ tone: 'success', title: 'Signed out', body: 'Your session on this device has ended.' });
+    void signOut();
+  };
   const crumbs = useCrumbs(pathname);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -240,21 +252,53 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
   // page it points at is worse than no badge. Fixtures are the fallback until
   // the first response lands.
   const [queues, setQueues] = useState({ verification: VERIFICATION_QUEUE.length, moderation: MODERATION_QUEUE.length });
+  /* What the counts were last time, so a change can be told from a repeat. */
+  const seen = useRef<{ verification: number; moderation: number } | null>(null);
   useEffect(() => {
     if (!isAdminAccount) return;
     let live = true;
-    fetch('/api/phase1/admin/queues')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body: { verification?: number; moderation?: number } | null) => {
-        if (!live || !body) return;
-        setQueues({
+
+    /**
+     * Work arrives from other people. An agent signs up and joins the
+     * verification queue; a listing is submitted and joins moderation. Fetching
+     * this once per navigation meant an officer sitting on the console saw
+     * neither until they happened to click something.
+     *
+     * The count is cheap to ask for. When it has actually changed, the screen
+     * itself is re-rendered from the server too — that is what brings the new
+     * row into the list rather than only moving a number in the sidebar.
+     */
+    const poll = async () => {
+      if (!live || document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch('/api/phase1/admin/queues', { cache: 'no-store' });
+        if (!res.ok || !live) return;
+        const body = (await res.json()) as { verification?: number; moderation?: number };
+        const next = {
           verification: body.verification ?? VERIFICATION_QUEUE.length,
           moderation: body.moderation ?? MODERATION_QUEUE.length,
-        });
-      })
-      .catch(() => {});
-    return () => { live = false; };
-  }, [isAdminAccount, pathname]);
+        };
+        if (!live) return;
+        setQueues(next);
+        const before = seen.current;
+        seen.current = next;
+        if (before && (before.verification !== next.verification || before.moderation !== next.moderation)) {
+          router.refresh();
+        }
+      } catch {
+        /* offline or mid-deploy: leave the badge as it stands */
+      }
+    };
+
+    void poll();
+    const id = setInterval(poll, QUEUE_POLL_MS);
+    document.addEventListener('visibilitychange', poll);
+    return () => {
+      live = false;
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', poll);
+    };
+  }, [isAdminAccount, pathname, router]);
 
   const attention = state.listings.filter((l) => !l.archived && (l.status === 'rejected' || (l.status === 'draft' && l.images === 0))).length;
   const newEnquiries = state.enquiries.filter((e) => e.status === 'new').length;
@@ -274,7 +318,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
       { href: '/phase1/placement', label: 'Search placement', icon: Star },
     ] },
     { title: 'Clients', items: [
-      { href: '/phase1/performance', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'warning' },
+      { href: '/phase1/enquiries', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'warning' },
       { href: '/phase1/viewings', label: 'Viewings', icon: CalendarClock },
       { href: '/phase1/whatsapp', label: 'WhatsApp handover', icon: Phone },
       { href: '/phase1/shortlists', label: 'Client shortlists', icon: FileText },
@@ -369,7 +413,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
             <div className="truncate text-[13px] font-semibold text-white">{userName}</div>
             <div className="truncate text-[11.5px] text-white/55">{userSub}</div>
           </div>
-          <button type="button" onClick={() => void signOut()} title="Sign out" aria-label="Sign out"
+          <button type="button" onClick={signOutAndSay} title="Sign out" aria-label="Sign out"
             className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white/55 hover:bg-white/10 hover:text-white">
             <LogOut size={15} aria-hidden />
           </button>
@@ -441,7 +485,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                   <Popover open={pop === 'bell'} onClose={() => setPop(null)} width="w-96">
                     <div className="flex items-center justify-between border-b border-p1-border px-4 py-3">
                       <span className="text-[14px] font-semibold text-p1-text">Notifications</span>
-                      {!isAdmin && newEnquiries > 0 && <Link href="/phase1/dashboard#enquiries" onClick={() => setPop(null)} className="text-[12.5px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">{newEnquiries} new enquir{newEnquiries === 1 ? 'y' : 'ies'}</Link>}
+                      {!isAdmin && newEnquiries > 0 && <Link href="/phase1/enquiries" onClick={() => setPop(null)} className="text-[12.5px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">{newEnquiries} new enquir{newEnquiries === 1 ? 'y' : 'ies'}</Link>}
                     </div>
                     <ul className="max-h-96 overflow-y-auto">
                       {alerts.length === 0 && <li className="px-4 py-6 text-center text-[13px] text-p1-text-3">Nothing yet. Decisions about your account and your listings appear here.</li>}
@@ -516,7 +560,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                       <li>
                         <button
                           type="button"
-                          onClick={() => { setPop(null); void signOut(); }}
+                          onClick={() => { setPop(null); signOutAndSay(); }}
                           className="flex h-10 w-full cursor-pointer items-center gap-3 px-4 text-left hover:bg-p1-subtle/60"
                         >
                           <LogOut size={15} className="text-p1-text-3" aria-hidden /> Sign out

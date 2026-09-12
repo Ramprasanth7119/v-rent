@@ -143,6 +143,10 @@ interface DemoContextValue {
 const Ctx = createContext<DemoContextValue | null>(null);
 
 const SAVE_DELAY_MS = 400;
+/* How often an open workspace checks the server for a decision made elsewhere.
+   Slow enough that a day of having the tab open is a few hundred requests,
+   quick enough that an approval lands while the agent is still looking. */
+const POLL_MS = 15_000;
 
 export function DemoProvider({ initial, children }: { initial?: WorkspaceState | null; children: React.ReactNode }) {
   const [state, setState] = useState<DemoState>(() => (initial ? fromWorkspace(initial) : SIGNED_OUT));
@@ -219,30 +223,35 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
   };
 
   /**
-   * Pull the workspace again when the tab comes back to the front.
+   * Keep the workspace in step with the server while the agent is looking at it.
    *
    * Some of what this holds is not the agent's to change: a verification
-   * officer approves an application, a registration lapses at the register.
-   * Until now the provider only ever wrote — the state was read once, when the
-   * page was rendered on the server — so a decision made while the agent had
-   * the tab open never arrived and they had to know to reload.
+   * officer approves an application, a moderator rejects a listing, a
+   * registration lapses at the register. The provider used to only ever write —
+   * state was read once, when the page was rendered on the server — so a
+   * decision taken while the agent had the tab open never arrived and they had
+   * to know to reload.
    *
-   * A pending save wins: the agent's own unsaved edit must not be replaced by
-   * an older copy from the server.
+   * It polls while the tab is visible and stops when it is not, so a
+   * backgrounded tab costs nothing, and re-reads the moment it comes back. A
+   * pending save wins: the agent's own unsaved edit is never replaced by an
+   * older copy from the server.
    */
   useEffect(() => {
     if (!persists) return;
 
+    let stopped = false;
+
     const resync = async () => {
-      if (document.visibilityState !== 'visible' || timer.current) return;
+      if (stopped || document.visibilityState !== 'visible' || timer.current) return;
       try {
         const res = await fetch('/api/phase1/workspace', { cache: 'no-store' });
         if (!res.ok) return;
         const body = (await res.json()) as { workspace: WorkspaceState };
-        const fresh = fromWorkspace(body.workspace);
         // Still nothing of the agent's in flight, now that we have waited on
         // the network.
-        if (timer.current) return;
+        if (stopped || timer.current) return;
+        const fresh = fromWorkspace(body.workspace);
         latest.current = fresh;
         setState(fresh);
       } catch {
@@ -250,9 +259,12 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
       }
     };
 
+    const id = setInterval(resync, POLL_MS);
     window.addEventListener('focus', resync);
     document.addEventListener('visibilitychange', resync);
     return () => {
+      stopped = true;
+      clearInterval(id);
       window.removeEventListener('focus', resync);
       document.removeEventListener('visibilitychange', resync);
     };

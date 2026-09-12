@@ -14,6 +14,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
 import { Button, TextInput, Callout } from '../../../components/phase1/kit';
 import { ArrowRight } from 'lucide-react';
+import { useToast } from '../../../components/phase1/Toast';
+import { preferredName } from '../../../lib/phase1/DemoContext';
 
 export default function LoginPage() {
   return (
@@ -35,6 +37,7 @@ function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const { push } = useToast();
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -47,13 +50,18 @@ function SignIn() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const body = (await res.json()) as { ok?: boolean; error?: string; user?: { role: string } };
+      const body = (await res.json()) as { ok?: boolean; error?: string; user?: { role: string; fullName?: string } };
       if (!res.ok || !body.ok) {
         setError(body.error ?? 'Could not sign you in. Try again.');
         return;
       }
       /* Back to whatever they were trying to open, where that was a page in
          this workspace; the role decides otherwise. */
+      push({
+        tone: 'success',
+        title: body.user?.role === 'admin' ? 'Signed in to the operations console' : 'Signed in',
+        body: body.user?.fullName ? `Welcome back, ${preferredName(body.user.fullName)}.` : undefined,
+      });
       router.replace(next ?? (body.user?.role === 'admin' ? '/phase1/admin' : '/phase1/dashboard'));
       router.refresh();
     } catch {

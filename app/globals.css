@@ -71,7 +71,14 @@ html {
   --animate-shimmer: shimmer 2.5s infinite linear;
 }
 
-/* Custom Scrollbars */
+/* Custom Scrollbars.
+   The ::-webkit- pseudo-elements are Chromium and Safari; Firefox reads the two
+   standard properties instead. Both are needed or one engine keeps the wide
+   default bars and the layout sits a few pixels narrower there. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -97,11 +104,13 @@ body {
 /* Glassmorphism utility */
 .glass {
   background: rgba(11, 30, 63, 0.05);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(226, 232, 240, 0.2);
 }
 .dark .glass {
   background: rgba(5, 13, 26, 0.6);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(30, 41, 59, 0.7);
 }
@@ -385,6 +394,7 @@ body {
 }
 
 /* Scrollbar inside the prototype — a little wider for older hands. */
+.p1 * { scrollbar-color: var(--p1-border-strong) transparent; }
 .p1 ::-webkit-scrollbar { width: 10px; height: 10px; }
 .p1 ::-webkit-scrollbar-thumb { background: var(--p1-border-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 
@@ -446,6 +456,7 @@ body {
 .p1-sticky-bar {
   position: sticky; bottom: 0; z-index: 20;
   background: color-mix(in srgb, var(--p1-surface) 92%, transparent);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
