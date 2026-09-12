@@ -21,7 +21,7 @@
  * the pagination lives in a stylesheet rather than in a canvas.
  */
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Fragment, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -33,6 +33,8 @@ import { PropertyImage } from '../../../../components/phase1/PropertyImage';
 import { useDemo, TODAY, preferredName } from '../../../../lib/phase1/DemoContext';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { DemoListing, sgd } from '../../../../lib/phase1/data';
+import { TRANSACTIONS, monthLabel, type Transaction } from '../../../../lib/phase1/market';
+import type { AmenityGroup } from '../../../../lib/phase1/amenities';
 import { DEAL_LABEL, dealOf, priceLabel, psf } from '../../../../lib/phase1/pricing';
 import { districtName } from '../../../../lib/phase1/performance';
 import { listingPhotos } from '../../../../lib/phase1/photos';
@@ -68,9 +70,10 @@ const WASH = '#F2F6F7';
  * cannot.
  */
 function PageFrame({
-  page, total, title, right, footLeft, children,
+  page, total, title, right, footLeft, provenance, children,
 }: {
-  page: number; total: number; title: string; right: string; footLeft: string; children: React.ReactNode;
+  page: number; total: number; title: string; right: string; footLeft: string;
+  provenance?: string; children: React.ReactNode;
 }) {
   return (
     <section className="vr-page vr-break flex flex-col px-10 py-6">
@@ -83,7 +86,11 @@ function PageFrame({
         <span>{right}</span>
       </div>
 
-      <div className="flex-1 pt-4">{children}</div>
+      {provenance && (
+        <div className="truncate pt-1 text-[8.5px]" style={{ color: MUTED }}>{provenance}</div>
+      )}
+
+      <div className="flex-1 pt-3">{children}</div>
 
       <div
         className="mt-4 flex items-baseline justify-between gap-4 pt-2 text-[9px]"
@@ -206,6 +213,123 @@ function MarketSection({ market }: { market: MarketPosition }) {
   );
 }
 
+/** A ruled heading, so a section reads as a section rather than a bold line. */
+function SectionHead({ n, title, note }: { n?: string; title: string; note?: string }) {
+  return (
+    <div className="vr-block mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-1.5" style={{ borderBottom: `1.5px solid ${INK}` }}>
+      <h2 className="font-p1display text-[16px] font-bold tracking-[-0.015em]" style={{ color: INK }}>
+        {n && <span className="mr-2 tabular-nums" style={{ color: MUTED }}>{n}</span>}
+        {title}
+      </h2>
+      {note && <span className="text-[10.5px]" style={{ color: MUTED }}>{note}</span>}
+    </div>
+  );
+}
+
+/**
+ * What sits around the address, by category, with the walk from the door.
+ *
+ * The distances are real: they come from the Singapore Land Authority's own
+ * theme datasets through the neighbourhood endpoint, measured from the point
+ * OneMap matched the address to. A category the service did not answer for is
+ * named rather than quietly omitted, because a client comparing two properties
+ * would otherwise read the gap as "nothing nearby".
+ */
+function AmenityTable({ groups, missing }: { groups: AmenityGroup[]; missing: string[] }) {
+  const withItems = groups.filter((g) => g.items.length > 0);
+  /* Six rows is what the sheet has room for beside the map. Nearest first, so
+     the ones cut are the ones furthest away. */
+  const shown = [...withItems].sort((a, b) => a.items[0].metres - b.items[0].metres).slice(0, 6);
+  const trimmed = withItems.length - shown.length;
+  if (withItems.length === 0) {
+    return (
+      <p className="rounded-lg px-4 py-3 text-[11.5px] leading-[1.6]" style={{ background: WASH, color: MUTED }}>
+        The amenity service did not answer for this address. Nothing can be said about what is nearby from this
+        document; ask your agent and they will check it for you.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="vr-wide"><table className="w-full border-collapse text-left text-[11px]" style={{ tableLayout: 'fixed' }}>
+        <thead>
+          <tr>
+            {[['Category', '25%'], ['Nearest', '40%'], ['Walk', '19%'], ['More', '16%']].map(([h, w], i) => (
+              <th key={h} style={{ color: MUTED, borderBottom: `1.5px solid ${INK}`, width: w }}
+                className={cx('py-1 pr-2 text-[9px] font-semibold uppercase tracking-[0.07em]', i >= 2 && 'text-right')}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((g) => {
+            const near = g.items[0];
+            return (
+              <tr key={g.key} style={{ borderBottom: `1px solid ${RULE}` }}>
+                <td className="truncate py-1 pr-2" style={{ color: MUTED }}>{g.label}</td>
+                <td className="truncate py-1 pr-2 font-medium">{near.name}</td>
+                <td className="whitespace-nowrap py-1 pr-2 text-right tabular-nums">
+                  {(near.metres / 1000).toFixed(2)} km
+                  <span style={{ color: MUTED }}> · {Math.max(1, Math.round(near.metres / 80))} min</span>
+                </td>
+                <td className="whitespace-nowrap py-1 text-right tabular-nums" style={{ color: MUTED }}>
+                  {g.items.length > 1 ? `+${g.items.length - 1}` : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table></div>
+      <p className="mt-1.5 text-[9.5px] leading-[1.45]" style={{ color: MUTED }}>
+        Straight-line distance from the address; walk estimated at 80 m a minute. &ldquo;+n&rdquo; is how many more of
+        that kind are within a kilometre.
+        {trimmed > 0 ? ` ${trimmed} further categor${trimmed === 1 ? 'y' : 'ies'} omitted for space.` : ''}
+        {missing.length > 0 ? ` ${missing.join(' and ')} did not respond in time.` : ''}
+        {' '}Source: OneMap, Singapore Land Authority.
+      </p>
+    </>
+  );
+}
+
+/**
+ * The lodged contracts a comparison rests on, listed one by one.
+ *
+ * A median is an assertion; the contracts under it are the evidence. Printing
+ * them is what lets a client — or the landlord's own agent — check the figure
+ * rather than take it, which is the difference between a report and a claim.
+ */
+function EvidenceTable({ rows }: { rows: Transaction[] }) {
+  if (rows.length === 0) {
+    return <p className="text-[11.5px]" style={{ color: MUTED }}>No lodged contracts matched this unit closely enough to list.</p>;
+  }
+  return (
+    <table className="w-full border-collapse text-left text-[11px]">
+      <thead>
+        <tr>
+          {['Project', 'Street', 'District', 'Beds', 'Size', 'Monthly rent', 'PSF', 'Lease month'].map((h, i) => (
+            <th key={h} className={cx('py-1.5 pr-2.5 text-[9px] font-semibold uppercase tracking-[0.07em]', i >= 3 && 'text-right')}
+              style={{ color: MUTED, borderBottom: `1.5px solid ${INK}` }}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((t) => (
+          <tr key={t.id} style={{ borderBottom: `1px solid ${RULE}` }}>
+            <td className="py-1 pr-2.5 font-medium">{t.project}</td>
+            <td className="py-1 pr-2.5" style={{ color: MUTED }}>{t.street}</td>
+            <td className="py-1 pr-2.5 text-right tabular-nums" style={{ color: MUTED }}>D{String(t.district).padStart(2, '0')}</td>
+            <td className="py-1 pr-2.5 text-right tabular-nums">{t.bedrooms}</td>
+            <td className="py-1 pr-2.5 text-right tabular-nums whitespace-nowrap">{t.sizeSqft.toLocaleString('en-SG')} sqft</td>
+            <td className="py-1 pr-2.5 text-right font-semibold tabular-nums">{sgd(t.monthlyRent)}</td>
+            <td className="py-1 pr-2.5 text-right tabular-nums">${(t.monthlyRent / t.sizeSqft).toFixed(2)}</td>
+            <td className="py-1 text-right tabular-nums" style={{ color: MUTED }}>{monthLabel(t.month)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 /* ------------------------------------------------------------------ page */
 
 function Shortlist() {
@@ -231,6 +355,11 @@ function Shortlist() {
   const printedOn = sgDateLong(TODAY);
   const agentName = preferredName(p.fullName) || 'Your agent';
   const footer = `${p.fullName} · CEA ${p.ceaNumber} · ${p.agency}${p.agencyLicence ? ` (${p.agencyLicence})` : ''}`;
+  /* Repeated on every sheet. A page that arrives detached from the rest should
+     still say who prepared it, when, and who it was prepared for — which is
+     also what stops one client's document being passed off as another's. */
+  const provenance = `Prepared ${printedOn} by ${agentName}${p.mobile ? ` (${p.mobile})` : ''}`
+    + `${forClient ? `, for ${forClient}` : ''}`;
 
   const summary = useMemo(() => {
     if (!chosen.length) return null;
@@ -246,12 +375,65 @@ function Shortlist() {
     };
   }, [chosen]);
 
-  // Photographs and map tiles have to be in the page before the print dialog
-  // opens, or the saved PDF has empty frames where they should be.
+  /**
+   * What is near each address, fetched once for the document.
+   *
+   * The neighbourhood endpoint reads the Singapore Land Authority's theme
+   * datasets live, so the distances in the document are measured rather than
+   * remembered. One request per property, all at once; a property whose
+   * address was never matched to a point is skipped rather than waited on.
+   */
+  const [around, setAround] = useState<Record<string, { groups: AmenityGroup[]; missing: string[] }>>({});
   useEffect(() => {
-    const timer = setTimeout(() => setReady(true), 900);
+    let live = true;
+    const located = chosen.filter((l) => l.lat !== undefined && l.lng !== undefined);
+    if (located.length === 0) return;
+    void Promise.all(located.map(async (l) => {
+      try {
+        const res = await fetch(`/api/phase1/neighbourhood?lat=${l.lat}&lng=${l.lng}&radius=1000`, { cache: 'no-store' });
+        if (!res.ok) return null;
+        const body = await res.json() as { status: string; groups?: AmenityGroup[]; missing?: string[] };
+        if (body.status !== 'ok') return null;
+        return [l.id, { groups: body.groups ?? [], missing: body.missing ?? [] }] as const;
+      } catch {
+        return null;
+      }
+    })).then((pairs) => {
+      if (!live) return;
+      setAround(Object.fromEntries(pairs.filter((x): x is NonNullable<typeof x> => x !== null)));
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.join(',')]);
+
+  // Photographs, map tiles and the amenity tables all have to be in the page
+  // before the print dialog opens, or the saved PDF has empty frames and empty
+  // tables where they should be.
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 2600);
     return () => clearTimeout(timer);
   }, []);
+
+  /* Cover, how to read, two per property, then the two annexes and the
+     notice. Every frame states it, so a detached sheet still says where it sat. */
+  const TOTAL = chosen.length * 2 + 5;
+
+  /* Every contract across the districts the shortlist touches, newest first.
+     The annex prints as many as fit; the count of the rest is stated. */
+  const annexPool = useMemo(() => {
+    const districts = new Set(chosen.map((l) => l.district));
+    const beds = new Set(chosen.map((l) => l.bedrooms));
+    return TRANSACTIONS.filter((t) => districts.has(t.district) && beds.has(t.bedrooms)).length;
+  }, [chosen]);
+
+  const annexRows = useMemo(() => {
+    const districts = new Set(chosen.map((l) => l.district));
+    const beds = new Set(chosen.map((l) => l.bedrooms));
+    return TRANSACTIONS
+      .filter((t) => districts.has(t.district) && beds.has(t.bedrooms))
+      .sort((x, y) => y.month.localeCompare(x.month))
+      .slice(0, 26);
+  }, [chosen]);
 
   if (chosen.length === 0) {
     return (
@@ -279,7 +461,7 @@ function Shortlist() {
           </Link>
           <div className="flex items-center gap-3">
             <span className="text-[13px] text-p1-text-3">
-              {chosen.length + 2} pages · {chosen.length} propert{chosen.length === 1 ? 'y' : 'ies'}
+              {TOTAL} pages · {chosen.length} propert{chosen.length === 1 ? 'y' : 'ies'}
             </span>
             <Button leftIcon={<Printer size={16} />} disabled={!ready} onClick={() => window.print()}>
               {ready ? 'Save as PDF' : 'Preparing…'}
@@ -337,7 +519,7 @@ function Shortlist() {
             <h2 className="mt-9 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>
               In this document
             </h2>
-            <table className="mt-3 w-full border-collapse text-left text-[12.5px]">
+            <div className="vr-wide mt-3"><table className="w-full border-collapse text-left text-[12.5px]">
               <thead>
                 <tr>
                   {['#', 'Property', 'District', 'Beds', 'Size', 'Rent'].map((h, i) => (
@@ -366,7 +548,7 @@ function Shortlist() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
 
             {summary && (
               <p className="mt-4 text-[11.5px] leading-[1.6]" style={{ color: MUTED }}>
@@ -390,21 +572,91 @@ function Shortlist() {
             </div>
           </section>
 
-          {/* ═══════════════════════════════════════════ one page per property */}
+          {/* ══════════════════════════════════════ how to read this report */}
+          <PageFrame page={2} total={TOTAL} title="How to read this report" right={printedOn} footLeft={footer} provenance={provenance}>
+            <SectionHead n="1" title="How to read this report" />
+
+            <p className="max-w-[86ch] text-[12.5px] leading-[1.7]">
+              This document describes {chosen.length} propert{chosen.length === 1 ? 'y' : 'ies'}
+              {forClient ? <> selected for <strong>{forClient}</strong></> : null} by {agentName} of {p.agency}.
+              Each property is given two pages: what the unit is, and where it sits — both in Singapore and against
+              what comparable units are actually letting for. The annexes at the back carry the evidence the figures
+              rest on, so nothing in here has to be taken on trust.
+            </p>
+
+            <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              {[
+                ['What is in each property section',
+                 'Photographs as supplied by the agent, the facts a tenant filters on — bedrooms, size, furnishing, lease terms — the description in full, and the address on a map.'],
+                ['Where the market figures come from',
+                 'Lease contracts lodged with the Urban Redevelopment Authority, which every private residential tenancy in Singapore must be. Nothing here is an asking price scraped from a portal.'],
+                ['How the comparison is drawn',
+                 'Against the closest available set: the same project and bedroom count where enough contracts exist, the same district otherwise. The basis is stated on every property so a thin sample is never read as a broad one.'],
+                ['Why per square foot, not monthly rent',
+                 'A large unit and a small one in the same project let for very different monthly rents and almost the same rate per square foot. Judging on the rate is what stops size being mistaken for value.'],
+                ['What the amenity distances are',
+                 'Measured from the point the Singapore Land Authority matched the address to, through its own published datasets. Walking time is estimated at 80 metres a minute.'],
+                ['What this document is not',
+                 'Not a valuation, not a survey, and not an offer. Figures were correct on the date printed and change as new contracts are lodged.'],
+              ].map(([h, t]) => (
+                <div key={h} className="vr-block">
+                  <h3 className="text-[11.5px] font-semibold" style={{ color: INK }}>{h}</h3>
+                  <p className="mt-1 text-[11.5px] leading-[1.6]" style={{ color: MUTED }}>{t}</p>
+                </div>
+              ))}
+            </div>
+
+            <SectionHead n="2" title="Basic information" note="As held on the platform" />
+            <div className="vr-wide"><table className="w-full border-collapse text-left text-[11.5px]">
+              <thead>
+                <tr>
+                  {['#', 'Property', 'Type', 'Tenure', 'District', 'Beds', 'Size', 'Asking'].map((h, i) => (
+                    <th key={h} className={cx('py-1.5 pr-2.5 text-[9.5px] font-semibold uppercase tracking-[0.07em]', i >= 4 && 'text-right')}
+                      style={{ color: MUTED, borderBottom: `1.5px solid ${INK}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {chosen.map((l, i) => (
+                  <tr key={l.id} style={{ borderBottom: `1px solid ${RULE}` }}>
+                    <td className="py-1.5 pr-2.5 tabular-nums" style={{ color: MUTED }}>{i + 1}</td>
+                    <td className="py-1.5 pr-2.5"><span className="font-medium">{l.project}</span> <span style={{ color: MUTED }}>{l.unitNo}</span></td>
+                    <td className="py-1.5 pr-2.5" style={{ color: MUTED }}>{l.propertyType}</td>
+                    <td className="py-1.5 pr-2.5" style={{ color: MUTED }}>{l.tenure ?? '—'}</td>
+                    <td className="py-1.5 pr-2.5 text-right tabular-nums" style={{ color: MUTED }}>D{String(l.district).padStart(2, '0')}</td>
+                    <td className="py-1.5 pr-2.5 text-right tabular-nums">{l.bedrooms}</td>
+                    <td className="py-1.5 pr-2.5 text-right tabular-nums whitespace-nowrap">{l.sizeSqft.toLocaleString('en-SG')} sqft</td>
+                    <td className="py-1.5 text-right font-semibold tabular-nums">{sgd(l.monthlyRent)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          </PageFrame>
+
+          {/* ═════════════════ two pages per property: the unit, then the place */}
           {chosen.map((l, i) => {
             const photos = listingPhotos(user?.id, l);
             const price = priceLabel(l);
             const market = marketPosition(l);
             const amenities = l.amenities ?? [];
+            const near = around[l.id];
+            /* The contracts the median rests on — the same project first,
+               falling back to the district, newest lease month first. */
+            const evidence = TRANSACTIONS
+              .filter((t) => t.project === l.project && t.bedrooms === l.bedrooms)
+              .concat(TRANSACTIONS.filter((t) => t.project !== l.project && t.district === l.district && t.bedrooms === l.bedrooms))
+              .sort((x, y) => y.month.localeCompare(x.month))
+              .slice(0, 6);
 
             return (
+              <Fragment key={l.id}>
               <PageFrame
-                key={l.id}
-                page={i + 2}
-                total={chosen.length + 2}
-                title={`Property ${i + 1} of ${chosen.length}${forClient ? ` · ${forClient}` : ''}`}
+                page={i * 2 + 3}
+                total={TOTAL}
+                title={`Property ${i + 1} of ${chosen.length} — the unit${forClient ? ` · ${forClient}` : ''}`}
                 right={l.reference}
                 footLeft={footer}
+                provenance={provenance}
               >
                 <div className="flex flex-wrap items-start justify-between gap-5">
                   <div className="min-w-0 flex-1 basis-64">
@@ -436,9 +688,9 @@ function Shortlist() {
                   <div className="col-span-2 overflow-hidden rounded-lg" style={{ border: `1px solid ${RULE}` }}>
                     {photos[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element -- our own route, fixed size, must print
-                      <img src={photos[0]} alt={`${l.project} ${l.unitNo}`} className="h-[164px] w-full object-cover" />
+                      <img src={photos[0]} alt={`${l.project} ${l.unitNo}`} className="h-[248px] w-full object-cover" />
                     ) : (
-                      <PropertyImage seed={l.reference + l.project} variant={0} rounded="rounded-none" className="h-[164px] w-full object-cover" alt="" />
+                      <PropertyImage seed={l.reference + l.project} variant={0} rounded="rounded-none" className="h-[248px] w-full object-cover" alt="" />
                     )}
                   </div>
                   <div className="grid gap-2">
@@ -446,22 +698,34 @@ function Shortlist() {
                       <div key={n} className="overflow-hidden rounded-lg" style={{ border: `1px solid ${RULE}` }}>
                         {photos[n] ? (
                           // eslint-disable-next-line @next/next/no-img-element -- our own route, fixed size, must print
-                          <img src={photos[n]} alt={`${l.project} photograph ${n + 1}`} className="h-[78px] w-full object-cover" />
+                          <img src={photos[n]} alt={`${l.project} photograph ${n + 1}`} className="h-[120px] w-full object-cover" />
                         ) : (
-                          <PropertyImage seed={l.reference + l.project} variant={n} rounded="rounded-none" className="h-[78px] w-full object-cover" alt="" />
+                          <PropertyImage seed={l.reference + l.project} variant={n} rounded="rounded-none" className="h-[120px] w-full object-cover" alt="" />
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
                 {photos.length > 3 && (
-                  <p className="mt-1.5 text-[10.5px]" style={{ color: MUTED }}>
-                    {photos.length - 3} further photograph{photos.length - 3 === 1 ? '' : 's'} available on request.
-                  </p>
+                  <>
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {photos.slice(3, 7).map((src, n) => (
+                        <div key={src} className="overflow-hidden rounded-lg" style={{ border: `1px solid ${RULE}` }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- our own route, fixed size, must print */}
+                          <img src={src} alt={`${l.project} photograph ${n + 4}`} className="h-[92px] w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                    {photos.length > 7 && (
+                      <p className="mt-1.5 text-[10.5px]" style={{ color: MUTED }}>
+                        {photos.length - 7} further photograph{photos.length - 7 === 1 ? '' : 's'} available on request.
+                      </p>
+                    )}
+                  </>
                 )}
 
                 {/* ------------------------------------------ facts and map */}
-                <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'minmax(0,1fr) 216px' }}>
+                <div className="vr-split vr-split-216 mt-4 grid gap-4">
                   <div className="min-w-0">
                     <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>The unit</h3>
                     <div className="mt-2 grid grid-cols-2 gap-x-5 gap-y-2.5">
@@ -479,27 +743,16 @@ function Shortlist() {
                   </div>
 
                   <div className="shrink-0">
-                    <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>Where it is</h3>
-                    {l.lat !== undefined && l.lng !== undefined ? (
-                      <figure className="mt-2.5 overflow-hidden rounded-lg" style={{ border: `1px solid ${RULE}` }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element -- proxied from OneMap, must print */}
-                        <img
-                          src={`/api/phase1/map?lat=${l.lat}&lng=${l.lng}&w=448&h=320`}
-                          alt={`Map showing ${l.project}`}
-                          className="h-[120px] w-full object-cover"
-                        />
-                        <figcaption className="px-2.5 py-1.5 text-[9.5px]" style={{ color: MUTED, borderTop: `1px solid ${RULE}`, background: WASH }}>
-                          OneMap · Singapore Land Authority
-                        </figcaption>
-                      </figure>
-                    ) : (
-                      <p className="mt-2.5 rounded-lg px-3 py-2.5 text-[11.5px] leading-[1.5]" style={{ background: WASH, color: MUTED }}>
-                        This address has not been matched to a point on the map.
-                      </p>
-                    )}
-                    <p className="mt-2 inline-flex items-start gap-1.5 text-[10.5px] leading-[1.5]" style={{ color: MUTED }}>
-                      <MapPin size={11} className="mt-[2px] shrink-0" aria-hidden />
-                      {l.address}, Singapore {l.postalCode}
+                    <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>Address</h3>
+                    <p className="mt-2 inline-flex items-start gap-1.5 text-[11.5px] leading-[1.6]" style={{ color: INK }}>
+                      <MapPin size={12} className="mt-[3px] shrink-0" style={{ color: MUTED }} aria-hidden />
+                      <span>
+                        {l.address}<br />Singapore {l.postalCode}<br />
+                        <span style={{ color: MUTED }}>District {String(l.district).padStart(2, '0')} · {districtName(l.district)}</span>
+                      </span>
+                    </p>
+                    <p className="mt-3 rounded-lg px-3 py-2 text-[10.5px] leading-[1.5]" style={{ background: WASH, color: MUTED }}>
+                      The map, what is nearby and the price evidence for this unit are on the next page.
                     </p>
                   </div>
                 </div>
@@ -523,19 +776,153 @@ function Shortlist() {
                   </section>
                 )}
 
-                {/* ----------------------------------------- market position */}
-                {market && <MarketSection market={market} />}
               </PageFrame>
+              <PageFrame
+                page={i * 2 + 4}
+                total={TOTAL}
+                title={`Property ${i + 1} of ${chosen.length} — where it is${forClient ? ` · ${forClient}` : ''}`}
+                right={l.reference}
+                footLeft={footer}
+                provenance={provenance}
+              >
+                <SectionHead
+                  n={`${i + 1}`}
+                  title={`${l.project} ${l.unitNo}`}
+                  note={`${l.address}, Singapore ${l.postalCode}`}
+                />
+
+                <div className="vr-split vr-split-268 grid gap-5">
+                  <div className="min-w-0">
+                    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>
+                      What is within a kilometre
+                    </h3>
+                    {near
+                      ? <AmenityTable groups={near.groups} missing={near.missing} />
+                      : (
+                        <p className="rounded-lg px-4 py-3 text-[11.5px] leading-[1.6]" style={{ background: WASH, color: MUTED }}>
+                          {l.lat === undefined
+                            ? 'This address has not been matched to a point on the map, so nothing nearby can be measured from it.'
+                            : 'The amenity service did not answer for this address in time.'}
+                        </p>
+                      )}
+                  </div>
+
+                  <div className="shrink-0">
+                    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>Site map</h3>
+                    {l.lat !== undefined && l.lng !== undefined ? (
+                      <figure className="overflow-hidden rounded-lg" style={{ border: `1px solid ${RULE}` }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- proxied from OneMap, must print */}
+                        <img
+                          src={`/api/phase1/map?lat=${l.lat}&lng=${l.lng}&w=512&h=512`}
+                          alt={`Map showing ${l.project}`}
+                          className="h-[196px] w-full object-cover"
+                        />
+                        <figcaption className="px-2.5 py-1.5 text-[9.5px]" style={{ color: MUTED, borderTop: `1px solid ${RULE}`, background: WASH }}>
+                          OneMap · Singapore Land Authority
+                        </figcaption>
+                      </figure>
+                    ) : (
+                      <p className="rounded-lg px-3 py-2.5 text-[11.5px] leading-[1.5]" style={{ background: WASH, color: MUTED }}>
+                        This address has not been matched to a point on the map.
+                      </p>
+                    )}
+                    {l.nearestMrt && (
+                      <p className="mt-2 inline-flex items-start gap-1.5 text-[10.5px] leading-[1.5]" style={{ color: MUTED }}>
+                        <TrainFront size={11} className="mt-[2px] shrink-0" aria-hidden /> Nearest MRT — {l.nearestMrt}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {market && <MarketSection market={market} />}
+
+                <section className="vr-block mt-4">
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>
+                    The contracts behind that figure
+                  </h3>
+                  <div className="vr-wide"><EvidenceTable rows={evidence} /></div>
+                </section>
+              </PageFrame>
+              </Fragment>
             );
           })}
 
+          {/* ══════════════════════════════════ annex A — the full evidence */}
+          <PageFrame
+            page={chosen.length * 2 + 3}
+            total={TOTAL}
+            title={`Annex A — lease evidence${forClient ? ` · ${forClient}` : ''}`}
+            right={printedOn}
+            footLeft={footer}
+            provenance={provenance}
+          >
+            <SectionHead n="A" title="Lease evidence" note="Lodged with the Urban Redevelopment Authority" />
+            <p className="mb-3 max-w-[86ch] text-[11.5px] leading-[1.65]" style={{ color: MUTED }}>
+              Every contract used to position the properties in this document, in one place. These are lodged
+              tenancies, not asking prices: in Singapore a private residential tenancy must be lodged with the URA,
+              which is what makes them evidence rather than opinion. Listed newest first, across the districts the
+              shortlist covers.
+            </p>
+            <div className="vr-wide"><EvidenceTable rows={annexRows} /></div>
+            <p className="mt-3 text-[10px] leading-[1.5]" style={{ color: MUTED }}>
+              Showing {annexRows.length} of {annexPool} matching contracts. The remainder are available on request.
+            </p>
+          </PageFrame>
+
+          {/* ══════════════════════════════════ annex B — how it is derived */}
+          <PageFrame
+            page={chosen.length * 2 + 4}
+            total={TOTAL}
+            title={`Annex B — method${forClient ? ` · ${forClient}` : ''}`}
+            right={printedOn}
+            footLeft={footer}
+            provenance={provenance}
+          >
+            <SectionHead n="B" title="How the figures are derived" />
+
+            <dl className="grid gap-3.5">
+              {[
+                ['Median rent',
+                 'The middle figure of the matched contracts, not the average. One unusually high or low lease moves an average and leaves a median where it was, which is why the middle is the honest number to quote.'],
+                ['Rent per square foot',
+                 'Monthly rent divided by the unit\u2019s floor area. Comparisons in this document are drawn on this rather than on the monthly rent, because a large unit and a small one in the same project let for very different rents at almost the same rate.'],
+                ['Basis of comparison',
+                 'The closest set with enough contracts to mean anything: the same project and bedroom count first, then the same district and bedroom count, then the island. The basis actually used is printed on every property.'],
+                ['Sample size',
+                 'How many lodged contracts the figures rest on. A figure drawn from a handful is marked as such — the confidence note on each property says so in words rather than leaving it to be inferred.'],
+                ['Twelve-month change',
+                 'The first third of the period measured against the last third, which is steadier than comparing two single months.'],
+                ['Projection',
+                 'A straight-line fit over the last twelve monthly medians, extended three months and rounded to the nearest fifty dollars. It is a direction of travel. It is not a forecast, and it is not a valuation.'],
+                ['Amenity distances',
+                 'Straight-line distance from the point the Singapore Land Authority matched the address to, taken from its published theme datasets. Walking time is estimated at 80 metres a minute and does not account for crossings or lifts.'],
+              ].map(([k, v]) => (
+                <div key={k} className="vr-block grid gap-x-5 sm:grid-cols-[150px_minmax(0,1fr)]">
+                  <dt className="text-[11.5px] font-semibold" style={{ color: INK }}>{k}</dt>
+                  <dd className="text-[11.5px] leading-[1.65]" style={{ color: MUTED }}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <section className="vr-block mt-6 rounded-lg px-5 py-4" style={{ background: WASH }}>
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>Sources</h3>
+              <ul className="mt-2 grid gap-1.5 text-[11.5px] leading-[1.6]">
+                <li>Lease contracts — Urban Redevelopment Authority.</li>
+                <li>Address matching, maps and amenity datasets — OneMap, Singapore Land Authority.</li>
+                <li>Salesperson registration — Council for Estate Agencies public register, via data.gov.sg.</li>
+                <li>Photographs and property particulars — supplied by the agent named on this document.</li>
+              </ul>
+            </section>
+          </PageFrame>
+
           {/* ══════════════════════════════════════════════════ closing page */}
           <PageFrame
-            page={chosen.length + 2}
-            total={chosen.length + 2}
+            page={TOTAL}
+            total={TOTAL}
             title={`Property shortlist${forClient ? ` · ${forClient}` : ''}`}
             right={printedOn}
             footLeft={footer}
+            provenance={provenance}
           >
             <h2 className="font-p1display text-[24px] font-bold leading-tight tracking-[-0.02em]">What happens next</h2>
 
@@ -601,11 +988,23 @@ function Shortlist() {
         would leave white text on white paper.
       */}
       <style jsx global>{`
+        /* Screen only: the document is A4, the reader's phone is not. The
+           print block below puts both back to the fixed layout. */
+        .vr-split { grid-template-columns: minmax(0, 1fr); }
+        .vr-wide { overflow-x: auto; }
+        @media (min-width: 720px) {
+          .vr-split-216 { grid-template-columns: minmax(0, 1fr) 216px; }
+          .vr-split-268 { grid-template-columns: minmax(0, 1fr) 268px; }
+        }
+
         @media print {
           @page {
             size: A4;
             margin: 16mm 0 18mm;
           }
+          .vr-split-216 { grid-template-columns: minmax(0, 1fr) 216px; }
+          .vr-split-268 { grid-template-columns: minmax(0, 1fr) 268px; }
+          .vr-wide { overflow-x: visible; }
           .no-print { display: none !important; }
           body { background: #fff !important; }
 
