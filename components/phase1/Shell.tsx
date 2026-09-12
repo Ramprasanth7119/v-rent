@@ -513,7 +513,15 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                       {!isAdmin && <li><Link href="/phase1/profile" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><IdCard size={15} className="text-p1-text-3" aria-hidden /> My profile</Link></li>}
                       {!isAdmin && <li><Link href="/phase1/checkout" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><Receipt size={15} className="text-p1-text-3" aria-hidden /> Subscription and billing</Link></li>}
                       {!isAdmin && <li><Link href="/phase1/settings" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><Settings size={15} className="text-p1-text-3" aria-hidden /> Settings</Link></li>}
-                      <li><Link href="/phase1/login" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><LogOut size={15} className="text-p1-text-3" aria-hidden /> Sign out</Link></li>
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => { setPop(null); void signOut(); }}
+                          className="flex h-10 w-full cursor-pointer items-center gap-3 px-4 text-left hover:bg-p1-subtle/60"
+                        >
+                          <LogOut size={15} className="text-p1-text-3" aria-hidden /> Sign out
+                        </button>
+                      </li>
                     </ul>
 
                   </Popover>
