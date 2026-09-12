@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Button, LinkButton, Card, SectionCard, ProgressBar, Callout, TextInput, TextArea, SelectInput,
-  Checkbox, Field, FieldGrid, EmptyState, cx } from '../../../../components/phase1/kit';
+  Checkbox, Field, FieldGrid, EmptyState, Spinner, cx } from '../../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
@@ -15,13 +15,14 @@ import { LocationPicker } from '../../../../components/phase1/listing/LocationPi
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
 import { DemoListing, ListingStatus, sgd } from '../../../../lib/phase1/data';
+import type { UnitFacts, UnitLookup } from '../../../../lib/phase1/unit-lookup';
 import { DealType, dealOf } from '../../../../lib/phase1/pricing';
 import type { AddressMatch as OneMapMatch } from '../../../../lib/phase1/onemap';
 import { districtName } from '../../../../lib/phase1/performance';
 import { AMENITIES } from '../../../../lib/phase1/agents';
 import {
-  Check, X, MapPin, Search, Lock, ChevronLeft, ChevronRight, ShieldCheck, Lightbulb, Camera, Sparkles,
-  SearchX, Send, Save, KeyRound, Tag, Map as MapIcon, Type as TypeIcon, Bed, Ruler } from 'lucide-react';
+  Check, X, MapPin, Search, Lock, ChevronLeft, ChevronRight, ShieldCheck, Lightbulb, Sparkles,
+  SearchX, Send, Save, KeyRound, Tag, Map as MapIcon, Type as TypeIcon, Bed, Ruler, Wand2, ArrowRight } from 'lucide-react';
 
 const STEPS = [
   { label: 'Sale or rent', description: 'What this listing is' },
@@ -123,6 +124,10 @@ function ListingWizard() {
      unit they drove to and could not spell. */
   const [addrMode, setAddrMode] = useState<'search' | 'map'>('search');
   const [unitNo, setUnitNo] = useState(() => editing?.unitNo ?? '');
+  /* What the platform already knows about this unit — see the effect below. */
+  const [unitKnown, setUnitKnown] = useState<UnitLookup | null>(null);
+  const [unitChecking, setUnitChecking] = useState(false);
+  const [unitFilled, setUnitFilled] = useState(false);
   const [beds, setBeds] = useState(() => String(editing?.bedrooms ?? 2));
   const [baths, setBaths] = useState(() => String(editing?.bathrooms ?? 2));
   const [sqft, setSqft] = useState(() => String(editing?.sizeSqft ?? 850));
@@ -235,6 +240,64 @@ function ListingWizard() {
 
   /** Unit numbers arrive in several shapes; normalise on write. */
   const normalisedUnit = unitNo ? '#' + unitNo.replace(/^#/, '').replace(/^unit\s*/i, '').trim() : '';
+
+  /**
+   * Ask what is known about this unit once the address and the number are both
+   * settled.
+   *
+   * Debounced, because it runs while the number is being typed and half a unit
+   * number matches nothing useful. The answer is advisory throughout: a unit
+   * somebody else is advertising is ordinary, and a unit the agent already has
+   * is their business to resolve, so nothing here blocks the form.
+   */
+  useEffect(() => {
+    let live = true;
+    const unit = normalisedUnit.replace('#', '');
+    const postal = addr?.postal;
+
+    /* Everything, including clearing the last answer, happens on the timer:
+       a short unit number matches nothing useful, and setting state in the
+       body of an effect makes React render again before it has finished. */
+    const timer = setTimeout(async () => {
+      if (!live) return;
+      if (!postal || unit.length < 3) { setUnitKnown(null); setUnitChecking(false); return; }
+
+      setUnitChecking(true);
+      try {
+        const params = new URLSearchParams({ postalCode: postal, unit });
+        if (editing?.id) params.set('exclude', editing.id);
+        const res = await fetch(`/api/phase1/unit?${params.toString()}`, { cache: 'no-store' });
+        if (!live) return;
+        setUnitKnown(res.ok ? ((await res.json()) as UnitLookup) : null);
+      } catch {
+        if (live) setUnitKnown(null);
+      } finally {
+        if (live) setUnitChecking(false);
+      }
+    }, 450);
+
+    return () => { live = false; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addr?.postal, normalisedUnit, editing?.id]);
+
+  /** Carry the measurable facts across from a previous listing of this unit. */
+  const fillFromUnit = (facts: UnitFacts) => {
+    setSqft(String(facts.sizeSqft));
+    setBeds(String(facts.bedrooms));
+    setBaths(String(facts.bathrooms));
+    setPropertyType(facts.propertyType);
+    setFurnishing(facts.furnishing);
+    if (facts.amenities.length) setAmenities(facts.amenities);
+    if (facts.nearestMrt || facts.tenure || facts.builtYear) {
+      setCarried({ nearestMrt: facts.nearestMrt, tenure: facts.tenure, builtYear: facts.builtYear });
+    }
+    setUnitFilled(true);
+    push({
+      tone: 'success',
+      title: `Filled in from ${facts.unitNo}`,
+      body: 'Size, layout and fittings carried across. The rent and the description are still yours to write.',
+    });
+  };
 
   const canAdvance = [
     true,
@@ -744,8 +807,81 @@ function ListingWizard() {
           {step === 2 && (
             <SectionCard title="Unit details" description="These appear on the listing and help tenants filter by size.">
               <div className="grid gap-5 sm:grid-cols-2">
-                <TextInput label="Unit number" required value={unitNo} onChange={(e) => setUnitNo(e.target.value)} placeholder="12-34"
-                  hint={normalisedUnit ? <>Will be shown as <span className="font-mono text-p1-text">{normalisedUnit}</span></> : 'Floor and unit, for example 12-34'} />
+                <TextInput
+                  label="Unit number"
+                  required
+                  value={unitNo}
+                  onChange={(e) => { setUnitNo(e.target.value); setUnitFilled(false); }}
+                  placeholder="12-34"
+                  rightSlot={unitChecking ? <Spinner size={14} /> : undefined}
+                  hint={normalisedUnit
+                    ? <>Will be shown as <span className="font-mono text-p1-text">{normalisedUnit}</span></>
+                    : 'Floor and unit, for example 12-34'}
+                  containerClassName="sm:col-span-2"
+                />
+
+                {unitKnown && (unitKnown.yours || unitKnown.sameStack || unitKnown.othersAdvertising > 0) && (
+                  <div className="grid gap-3 sm:col-span-2">
+                    {unitKnown.yours && !unitKnown.yours.archived
+                      && unitKnown.yours.status !== 'expired' && unitKnown.yours.status !== 'rejected' ? (
+                      <Callout tone="warning" title="You are already advertising this unit">
+                        <span className="block">
+                          {unitKnown.yours.reference} · {unitKnown.yours.project} {unitKnown.yours.unitNo} ·{' '}
+                          {sgd(unitKnown.yours.monthlyRent)}/month
+                        </span>
+                        <span className="mt-1 block">
+                          Publishing a second listing for the same unit puts two of your own advertisements in front of
+                          the same tenant. Edit the one you have unless this is genuinely a different unit.
+                        </span>
+                        <Link
+                          href={`/phase1/listings/${unitKnown.yours.listingId}`}
+                          className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-p1-primary underline-offset-4 hover:underline dark:text-p1-info"
+                        >
+                          Open that listing <ArrowRight size={13} aria-hidden />
+                        </Link>
+                      </Callout>
+                    ) : unitKnown.yours ? (
+                      <Callout tone="info" title="You have let this unit before">
+                        <span className="block">
+                          {unitKnown.yours.reference} · {unitKnown.yours.sizeSqft.toLocaleString('en-SG')} sqft ·{' '}
+                          {unitKnown.yours.bedrooms} bed · {unitKnown.yours.bathrooms} bath · {unitKnown.yours.furnishing}
+                        </span>
+                        {!unitFilled && (
+                          <Button size="sm" variant="outline" className="mt-2.5" leftIcon={<Wand2 size={14} />}
+                            onClick={() => fillFromUnit(unitKnown.yours!)}>
+                            Fill in from that listing
+                          </Button>
+                        )}
+                      </Callout>
+                    ) : unitKnown.sameStack ? (
+                      <Callout tone="neutral" title={`Same stack as ${unitKnown.sameStack.unitNo}`}>
+                        <span className="block">
+                          You listed {unitKnown.sameStack.unitNo} in this block —{' '}
+                          {unitKnown.sameStack.sizeSqft.toLocaleString('en-SG')} sqft ·{' '}
+                          {unitKnown.sameStack.bedrooms} bed · {unitKnown.sameStack.bathrooms} bath. Units in the same
+                          stack usually share a footprint and a layout.
+                        </span>
+                        {!unitFilled && (
+                          <Button size="sm" variant="outline" className="mt-2.5" leftIcon={<Wand2 size={14} />}
+                            onClick={() => fillFromUnit(unitKnown.sameStack!)}>
+                            Start from those figures
+                          </Button>
+                        )}
+                      </Callout>
+                    ) : null}
+
+                    {unitKnown.othersAdvertising > 0 && (
+                      <Callout tone="neutral" title={
+                        unitKnown.othersAdvertising === 1
+                          ? 'Another agent is advertising this unit'
+                          : `${unitKnown.othersAdvertising} other agents are advertising this unit`
+                      }>
+                        An open mandate to more than one agency is ordinary and nothing here is blocked. It is worth
+                        knowing before you price it, and a moderator will see the same thing when you publish.
+                      </Callout>
+                    )}
+                  </div>
+                )}
                 <TextInput label="Floor area (sqft)" required inputMode="numeric" value={sqft} onChange={(e) => setSqft(e.target.value.replace(/\D/g, ''))} hint="Strata area as shown on the lease" />
                 <SelectInput label="Property type" value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)}
                   options={['Condominium', 'HDB', 'Apartment', 'Landed', 'Executive Condominium'].map((v) => ({ value: v, label: v }))} />

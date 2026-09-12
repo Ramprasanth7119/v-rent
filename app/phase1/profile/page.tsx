@@ -17,18 +17,15 @@
  */
 
 import {
-  Avatar, Button, Callout, Card, Field, FieldGrid, PageHeader, ProgressBar, SectionCard,
-  TextArea, TextInput,
+  Avatar, Callout, Card, Field, FieldGrid, PageHeader, ProgressBar, SectionCard, Spinner, TextArea, TextInput,
 } from '../../../components/phase1/kit';
 import { StatusBadge } from '../../../components/phase1/status';
-import { useToast } from '../../../components/phase1/Toast';
 import { useDemo, preferredName } from '../../../lib/phase1/DemoContext';
-import { User, Briefcase, BadgeCheck, Camera, ShieldCheck, ArrowRight } from 'lucide-react';
+import { BadgeCheck, Briefcase, Check, ShieldCheck, User } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProfilePage() {
   const { state, setProfile, saving } = useDemo();
-  const { push } = useToast();
   const p = state.profile;
 
   const registered = Boolean(p.ceaNumber);
@@ -92,13 +89,14 @@ export default function ProfilePage() {
                 onChange={(e) => setProfile({ mobile: e.target.value })}
                 hint="Shown to tenants who ask to call. Changing it asks for a new confirmation code."
               />
-              <Field label="Email address" value={p.email} />
+              <div>
+                <Field label="Email address" value={p.email} />
+                <p className="mt-1.5 text-[12.5px] leading-5 text-p1-text-3">
+                  How you sign in. Change it in{' '}
+                  <Link href="/phase1/settings" className="font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">Settings</Link>.
+                </p>
+              </div>
             </div>
-            <p className="mt-4 text-[13px] leading-5 text-p1-text-3">
-              Your email address is how you sign in, so it is changed from{' '}
-              <Link href="/phase1/settings" className="font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">Settings</Link>{' '}
-              rather than here.
-            </p>
           </SectionCard>
 
           <SectionCard title="Professional information" icon={<Briefcase size={18} />}>
@@ -121,24 +119,17 @@ export default function ProfilePage() {
             </div>
           </SectionCard>
 
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <span className="text-[13px] text-p1-text-3">{saving ? 'Saving…' : 'Changes are saved as you type.'}</span>
-            <Button
-              variant="outline"
-              onClick={() => push({ tone: 'success', title: 'Profile saved', body: 'Your details are up to date.' })}
-            >
-              Done
-            </Button>
+          <div className="flex items-center justify-end gap-2 text-[13px] text-p1-text-3">
+            {saving
+              ? <><Spinner size={13} /> Saving…</>
+              : <><Check size={14} className="text-p1-success" aria-hidden /> Saved automatically</>}
           </div>
         </div>
 
-        <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+        <div className="lg:sticky lg:top-24 lg:self-start">
           <Card>
             <div className="flex flex-col items-center text-center">
-              <div className="relative">
-                <Avatar name={name} size="xl" />
-                <button type="button" aria-label="Add profile photo" className="absolute -bottom-1 -right-1 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 border-p1-surface bg-p1-primary text-white shadow-p1-sm"><Camera size={15} /></button>
-              </div>
+              <Avatar name={name} size="xl" />
               <div className="mt-3 text-[17px] font-semibold text-p1-text">{name}</div>
               <div className="text-[14px] text-p1-text-2">{p.agency || 'No agency on file'}</div>
               {registered && (
@@ -148,22 +139,6 @@ export default function ProfilePage() {
               )}
             </div>
             <ProgressBar value={completeness} label="Profile completeness" className="mt-5" tone={completeness === 100 ? 'success' : 'accent'} />
-            <p className="mt-2 text-[13px] leading-5 text-p1-text-3">
-              A biography, a mobile number and your years of experience are all a tenant has to judge you by before
-              they call.
-            </p>
-          </Card>
-
-          <Card className="bg-p1-subtle/60">
-            <div className="text-[14px] font-semibold text-p1-text">Where these details appear</div>
-            <ul className="mt-2 space-y-1.5 text-[14px] leading-5 text-p1-text-2">
-              <li>The compliance line on every listing you publish.</li>
-              <li>Your public agent page, once the tenant site opens.</li>
-              <li>The enquiry a tenant sends, so they know who replied.</li>
-            </ul>
-            <Link href="/phase1/listings" className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">
-              See your listings <ArrowRight size={13} aria-hidden />
-            </Link>
           </Card>
         </div>
       </div>
