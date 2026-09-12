@@ -24,7 +24,7 @@ import type { DirectoryAgent } from '../../../../../lib/phase1/admin-directory';
 import { DemoListing, sgd } from '../../../../../lib/phase1/data';
 import { dealOf, priceLabel } from '../../../../../lib/phase1/pricing';
 import {
-  ArrowLeft, Ban, RotateCcw, Mail, Phone, Building2, MessageSquare, Bed, Bath, Maximize, Check, Clock, Building } from 'lucide-react';
+  ArrowLeft, Ban, RotateCcw, Mail, Phone, Building2, MessageSquare, Bed, Bath, Maximize, Check, Clock, Building, X } from 'lucide-react';
 
 const REASONS = [
   { value: 'fraud', label: 'Fraud suspected' },
@@ -37,7 +37,8 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
   const router = useRouter();
   const { push } = useToast();
   const [override, setOverride] = useState<DirectoryAgent['status'] | null>(null);
-  const [confirm, setConfirm] = useState<null | 'suspend' | 'reinstate'>(null);
+  const [confirm, setConfirm] = useState<null | 'suspend' | 'reinstate' | 'approve' | 'reject'>(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [reason, setReason] = useState('fraud');
   const [message, setMessage] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,6 +49,8 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
   const effectiveStatus = override ?? agent.status;
   const expired = effectiveStatus === 'verification_expired';
   const isSuspended = effectiveStatus === 'suspended';
+  /* The decision this screen exists to support, when there is one to make. */
+  const awaitingDecision = effectiveStatus === 'under_review';
 
   /** Real accounts are changed on the server; sample rows only on this screen. */
   const act = async (action: 'suspend' | 'reinstate') => {
@@ -80,6 +83,46 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
     }
   };
 
+  /**
+   * Approve or reject the application.
+   *
+   * The same endpoint the verification queue posts to, so a decision taken
+   * here is the decision taken there: it writes the agent's workspace, records
+   * who decided and why in the audit trail, and notifies the agent. An officer
+   * reading an application should not have to go and find another screen to
+   * act on what they have just read.
+   */
+  const decide = async (action: 'approve' | 'reject') => {
+    setConfirm(null);
+    const next = action === 'approve' ? 'approved' : 'rejected';
+
+    if (!agent.real) {
+      setOverride(next);
+      push({ tone: 'info', title: 'Sample agent', body: 'Nothing was changed — this row is demonstration data, not an account.' });
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await fetch('/api/phase1/admin/verification', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ accountId: agent.id, action, reason: rejectReason.trim() }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setOverride(next);
+      setRejectReason('');
+      push(action === 'approve'
+        ? { tone: 'success', title: 'Application approved', body: 'The agent can choose a plan and publish.' }
+        : { tone: 'warn', title: 'Application rejected', body: 'The agent has been told what to correct.' });
+      router.refresh();
+    } catch {
+      push({ tone: 'error', title: 'That did not go through', body: 'The application was not changed. Try again in a moment.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const banner = {
     approved: {
       tone: 'success' as const,
@@ -90,6 +133,11 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
       tone: 'danger' as const,
       title: `CEA registration lapsed on ${agent.ceaValidUntil}`,
       body: 'The agent can still sign in, but cannot publish. Live listings entered the grace period automatically.',
+    },
+    rejected: {
+      tone: 'danger' as const,
+      title: 'Application rejected',
+      body: 'The agent was told what to correct. They keep their account and their drafts, and the application can be looked at again once they have acted on it.',
     },
     under_review: {
       tone: 'warning' as const,
@@ -131,6 +179,12 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
         actions={
           <>
             <Button variant="outline" leftIcon={<MessageSquare size={15} />} onClick={() => setMessage(true)}>Message agent</Button>
+            {awaitingDecision && (
+              <>
+                <Button variant="outline" loading={busy} leftIcon={<X size={15} />} onClick={() => setConfirm('reject')}>Reject</Button>
+                <Button variant="primary" loading={busy} leftIcon={<Check size={15} />} onClick={() => setConfirm('approve')}>Approve</Button>
+              </>
+            )}
             {isSuspended ? (
               <Button variant="primary" loading={busy} leftIcon={<RotateCcw size={15} />} onClick={() => setConfirm('reinstate')}>Reinstate</Button>
             ) : (
@@ -140,7 +194,15 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
         }
       />
 
-      <Callout tone={banner.tone} title={banner.title} className="mb-6">{banner.body}</Callout>
+      <Callout tone={banner.tone} title={banner.title} className="mb-6">
+        {banner.body}
+        {awaitingDecision && (
+          <span className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" loading={busy} leftIcon={<Check size={14} />} onClick={() => setConfirm('approve')}>Approve application</Button>
+            <Button size="sm" variant="outline" loading={busy} leftIcon={<X size={14} />} onClick={() => setConfirm('reject')}>Reject</Button>
+          </span>
+        )}
+      </Callout>
 
       <div className="vr-stagger mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Listings" value={listings.length} hint={`${published.length} published`} />
@@ -250,6 +312,34 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
         title="Reinstate this agent?" description="Access and publication rights are restored. Their listings return to their previous state."
         onConfirm={() => void act('reinstate')}
       />
+
+      <ConfirmDialog
+        open={confirm === 'approve'} onClose={() => setConfirm(null)} confirmLabel="Approve application"
+        title="Approve this application?"
+        description={agent.real
+          ? 'The agent can choose a plan and publish. The decision is recorded against your name in the audit trail.'
+          : 'This row is demonstration data, so nothing will actually change.'}
+        onConfirm={() => void decide('approve')}
+      />
+
+      <ConfirmDialog
+        open={confirm === 'reject'} onClose={() => setConfirm(null)} destructive confirmLabel="Reject application"
+        title="Reject this application?"
+        description="The agent keeps their account and their drafts. They are told what to correct and can apply again."
+        confirmDisabled={rejectReason.trim().length === 0}
+        onConfirm={() => void decide('reject')}
+      >
+        <label htmlFor="reject-reason" className="mb-1.5 block text-[14px] font-medium text-p1-text">What needs correcting</label>
+        <textarea
+          id="reject-reason"
+          rows={3}
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value.slice(0, 500))}
+          placeholder="The registration number does not match the name on the CEA register."
+          className="w-full rounded-[10px] border border-p1-border-strong bg-p1-surface px-3.5 py-2.5 text-[15px] text-p1-text"
+        />
+        <p className="mt-1.5 text-[13px] text-p1-text-3">Sent to the agent and recorded in the audit trail. A rejection without a reason leaves them nothing to act on.</p>
+      </ConfirmDialog>
 
       <Dialog open={message} onClose={() => setMessage(false)} title={`Message ${agent.name}`} description="Sent by email and shown in their notifications."
         footer={<><Button variant="outline" onClick={() => setMessage(false)}>Cancel</Button><Button onClick={() => { setMessage(false); push({ tone: 'success', title: 'Message sent' }); }}>Send</Button></>}>

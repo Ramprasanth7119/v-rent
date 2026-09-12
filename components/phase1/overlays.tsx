@@ -95,8 +95,8 @@ export function Dialog({
 }
 
 export function ConfirmDialog({
-  open, onClose, onConfirm, title, description, confirmLabel = 'Confirm', cancelLabel = 'Cancel', destructive = false, children, loading,
-}: { open: boolean; onClose: () => void; onConfirm: () => void; title: React.ReactNode; description?: React.ReactNode; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; children?: React.ReactNode; loading?: boolean }) {
+  open, onClose, onConfirm, title, description, confirmLabel = 'Confirm', cancelLabel = 'Cancel', destructive = false, children, loading, confirmDisabled = false,
+}: { open: boolean; onClose: () => void; onConfirm: () => void; title: React.ReactNode; description?: React.ReactNode; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; children?: React.ReactNode; loading?: boolean; confirmDisabled?: boolean }) {
   return (
     <Dialog open={open} onClose={onClose} title={
       <span className="flex items-center gap-2.5">
@@ -106,7 +106,9 @@ export function ConfirmDialog({
     } description={description} size="sm"
       footer={<>
         <Button variant="outline" onClick={onClose}>{cancelLabel}</Button>
-        <Button variant={destructive ? 'danger' : 'primary'} onClick={onConfirm} loading={loading} data-autofocus>{confirmLabel}</Button>
+        {/* Held until whatever the dialog asks for is there — better than
+            letting the officer confirm and meet a failure. */}
+        <Button variant={destructive ? 'danger' : 'primary'} onClick={onConfirm} loading={loading} disabled={confirmDisabled} data-autofocus>{confirmLabel}</Button>
       </>}>
       {children}
     </Dialog>

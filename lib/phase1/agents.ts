@@ -11,7 +11,7 @@ export interface AgentRow {
   ceaNumber: string;
   agency: string;
   agencyLicence: string;
-  status: 'approved' | 'under_review' | 'suspended' | 'verification_expired';
+  status: 'approved' | 'under_review' | 'rejected' | 'suspended' | 'verification_expired';
   plan: string | null;
   joinedAt: string;
   ceaValidUntil: string;

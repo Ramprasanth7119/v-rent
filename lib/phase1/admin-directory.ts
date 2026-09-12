@@ -41,6 +41,10 @@ function standing(w: WorkspaceState | null): AgentRow['status'] {
   if (w.approval === 'suspended') return 'suspended';
   if (w.ceaValidUntil && !stillRegistered(w.ceaValidUntil)) return 'verification_expired';
   if (w.approval === 'approved') return 'approved';
+  // A refused application is not a pending one. Showing it as "under review"
+  // left an officer unable to tell the two apart, and made a decision they had
+  // already taken look as though it had never been made.
+  if (w.approval === 'rejected') return 'rejected';
   return 'under_review';
 }
 
