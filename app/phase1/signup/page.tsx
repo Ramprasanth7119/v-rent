@@ -14,7 +14,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
-import { Button, TextInput, Callout, Checkbox, cx } from '../../../components/phase1/kit';
+import { Button, Callout, Checkbox, PasswordInput, TextInput, cx } from '../../../components/phase1/kit';
 import {
   ArrowRight, ArrowLeft, BadgeCheck, Search, Building2, CalendarClock, Check, IdCard, Loader2, RotateCcw,
 } from 'lucide-react';
@@ -410,9 +410,8 @@ function SignupBody() {
           />
 
           <div>
-            <TextInput
+            <PasswordInput
               label="Password"
-              type="password"
               required
               autoComplete="new-password"
               value={password}

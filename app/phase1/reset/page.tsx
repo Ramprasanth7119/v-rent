@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { KeyRound, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
-import { Button, TextInput } from '../../../components/phase1/kit';
+import { Button, PasswordInput } from '../../../components/phase1/kit';
 
 export default function ResetPasswordPage() {
   return (
@@ -102,9 +102,8 @@ function ResetPassword() {
       footer={<Link href="/phase1/login" className="text-[14px] font-medium text-p1-text-2 hover:text-p1-text">Back to sign in</Link>}
     >
       <form className="space-y-5" onSubmit={submit}>
-        <TextInput
+        <PasswordInput
           label="New password"
-          type="password"
           required
           autoComplete="new-password"
           value={password}
@@ -113,9 +112,8 @@ function ResetPassword() {
           error={tooShort ? 'At least twelve characters.' : undefined}
           hint={!tooShort ? 'Twelve characters or more.' : undefined}
         />
-        <TextInput
+        <PasswordInput
           label="Repeat it"
-          type="password"
           required
           autoComplete="new-password"
           value={confirm}

@@ -4,8 +4,8 @@
  * Form controls. Every control is labelled, 44px tall, and reports errors next to the field.
  */
 
-import React, { useId } from 'react';
-import { Check, AlertCircle, HelpCircle, Search, X } from 'lucide-react';
+import React, { useId, useState } from 'react';
+import { Check, AlertCircle, HelpCircle, Search, X, Eye, EyeOff } from 'lucide-react';
 import { cx } from './primitives';
 
 export function FormField({
@@ -60,6 +60,49 @@ export function TextInput({
             {...rest}
           />
           {rightSlot && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-p1-text-3">{rightSlot}</span>}
+        </div>
+      )}
+    </FormField>
+  );
+}
+
+/**
+ * A password field with a reveal.
+ *
+ * The button is inside the field rather than beside it, is a real button so a
+ * keyboard reaches it, and says which of the two states it will move to — a
+ * control labelled only "show" is ambiguous once the password is already
+ * visible. Revealing is per-field and resets when the page is left, so nothing
+ * is remembered that should not be.
+ */
+export function PasswordInput({
+  label, hint, error, required, optional, help, leftIcon, className = '', containerClassName, ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> & Common & { leftIcon?: React.ReactNode }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <FormField label={label} hint={hint} error={error} required={required} optional={optional} help={help} id={rest.id} className={containerClassName}>
+      {(id, by) => (
+        <div className="relative">
+          {leftIcon && <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-p1-text-3" aria-hidden>{leftIcon}</span>}
+          <input
+            id={id}
+            type={shown ? 'text' : 'password'}
+            aria-describedby={by}
+            aria-invalid={!!error || undefined}
+            aria-required={required || undefined}
+            className={cx(INPUT_BASE, 'h-11 pr-11', leftIcon && 'pl-10', border(error), className)}
+            {...rest}
+          />
+          <button
+            type="button"
+            onClick={() => setShown((v) => !v)}
+            aria-pressed={shown}
+            aria-label={shown ? 'Hide password' : 'Show password'}
+            title={shown ? 'Hide password' : 'Show password'}
+            className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-p1-text-3 transition-colors hover:bg-p1-subtle hover:text-p1-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-p1-primary"
+          >
+            {shown ? <EyeOff size={17} aria-hidden /> : <Eye size={17} aria-hidden />}
+          </button>
         </div>
       )}
     </FormField>

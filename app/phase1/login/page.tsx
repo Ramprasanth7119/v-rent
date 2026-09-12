@@ -12,7 +12,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
-import { Button, TextInput, Callout } from '../../../components/phase1/kit';
+import { Button, Callout, PasswordInput, TextInput } from '../../../components/phase1/kit';
 import { ArrowRight } from 'lucide-react';
 import { useToast } from '../../../components/phase1/Toast';
 import { preferredName } from '../../../lib/phase1/DemoContext';
@@ -73,8 +73,8 @@ function SignIn() {
 
   return (
     <AuthLayout
-      title="Sign in to V-RENT"
-      subtitle="Manage your listings, your subscription and your CEA verification in one place."
+      title="Sign in"
+      pitch={false}
       footer={
         <span>
           New to V-RENT?{' '}
@@ -98,15 +98,13 @@ function SignIn() {
           required
           autoComplete="email"
           autoFocus
-          placeholder="you@agency.com.sg"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
         <div>
-          <TextInput
+          <PasswordInput
             label="Password"
-            type="password"
             required
             autoComplete="current-password"
             value={password}
@@ -127,10 +125,6 @@ function SignIn() {
         </Button>
       </form>
 
-      <p className="mt-8 border-t border-p1-border pt-5 text-[12.5px] leading-6 text-p1-text-3">
-        Signing in creates a session that lasts twelve hours. Two-factor authentication for administrators, single
-        sign-on for agencies and Singpass sign-in are part of the full build.
-      </p>
     </AuthLayout>
   );
 }

@@ -84,7 +84,7 @@ export default function DashboardPage() {
     })),
     ...(newEnquiries ? [{
       key: 'enq', title: `${newEnquiries} enquir${newEnquiries === 1 ? 'y is' : 'ies are'} waiting for a reply`, why: 'Tenants who enquired in the last two days have not heard back.',
-      tone: 'warning' as const, href: '/phase1/performance', cta: 'Open enquiries', icon: <MessageSquare size={15} />,
+      tone: 'warning' as const, href: '/phase1/enquiries', cta: 'Open enquiries', icon: <MessageSquare size={15} />,
     }] : []),
     ...drafts.filter((l) => l.images === 0).map((l) => ({
       key: `pho-${l.id}`, listing: l, title: `${l.project} ${l.unitNo} has no photographs`, why: 'A listing without photos cannot be published and gets almost no enquiries.',
@@ -137,7 +137,7 @@ export default function DashboardPage() {
         <Metric label="Expiring" value={expiringSoon.length} icon={<CalendarClock size={15} />}
           tone={expiringSoon.length ? 'warning' : 'default'} hint="Within 30 days" href="/phase1/listings?status=published" />
         <Metric label="Enquiries" value={newEnquiries} icon={<MessageSquare size={15} />}
-          tone={newEnquiries ? 'info' : 'default'} hint="Awaiting reply" href="/phase1/performance" />
+          tone={newEnquiries ? 'info' : 'default'} hint="Awaiting reply" href="/phase1/enquiries" />
         <Metric label="Views, 7 days" value={t.views7d.toLocaleString()} icon={<Eye size={15} />}
           delta={{ value: `${viewTrend > 0 ? '+' : ''}${viewTrend}%`, good: viewTrend >= 0, label: 'week on week' }}
           hint="All live listings" href="/phase1/performance" />

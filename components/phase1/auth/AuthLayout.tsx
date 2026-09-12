@@ -64,6 +64,7 @@ export function AuthLayout({
   children,
   footer,
   wide = false,
+  pitch = true,
 }: {
   title: string;
   subtitle?: React.ReactNode;
@@ -71,6 +72,14 @@ export function AuthLayout({
   footer?: React.ReactNode;
   /** Widens the form column for the multi-step account form. */
   wide?: boolean;
+  /**
+   * Whether the panel argues the case for an account.
+   *
+   * True where that argument is still open — creating an account, resetting a
+   * password before a first sign-in. False on sign-in, where the reader has
+   * already decided and the three claims are just more to read past.
+   */
+  pitch?: boolean;
 }) {
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-b from-[#E1EFF4] to-p1-bg px-4 py-6 sm:px-6 sm:py-10 dark:from-[#0C2630]">
@@ -113,19 +122,21 @@ export function AuthLayout({
                 <h2 className="font-p1display text-[27px] font-bold leading-[1.16] tracking-[-0.022em] text-white text-balance xl:text-[30px]">
                   Every listing you publish carries proof that you are registered to sell it.
                 </h2>
-                <ul className="mt-8 space-y-5">
-                  {POINTS.map((p) => (
-                    <li key={p.title} className="flex gap-3.5">
-                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-p1-accent" aria-hidden>
-                        <p.icon size={16} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-[14px] font-semibold text-white">{p.title}</span>
-                        <span className="mt-0.5 block text-[13px] leading-[1.55] text-white/60">{p.body}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {pitch && (
+                  <ul className="mt-8 space-y-5">
+                    {POINTS.map((p) => (
+                      <li key={p.title} className="flex gap-3.5">
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-p1-accent" aria-hidden>
+                          <p.icon size={16} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[14px] font-semibold text-white">{p.title}</span>
+                          <span className="mt-0.5 block text-[13px] leading-[1.55] text-white/60">{p.body}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <p className="relative mt-auto pt-10 text-[11.5px] leading-5 text-white/45">
