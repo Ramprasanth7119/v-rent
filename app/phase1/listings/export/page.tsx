@@ -59,6 +59,11 @@ const MUTED = '#5A6E76';
 const RULE = '#DCE5E8';
 const WASH = '#F2F6F7';
 
+/* What fits on an annex sheet with room around it, and how far the annex is
+   allowed to run before the rest is offered on request instead. */
+const ANNEX_ROWS_PER_PAGE = 20;
+const ANNEX_MAX_PAGES = 3;
+
 /**
  * The strip at the top and bottom of every sheet after the cover.
  *
@@ -78,7 +83,7 @@ function PageFrame({
   return (
     <section className="vr-page vr-break flex flex-col px-10 py-6">
       <div
-        className="flex items-baseline justify-between gap-4 pb-2 text-[9px] uppercase tracking-[0.08em]"
+        className="flex shrink-0 items-baseline justify-between gap-4 pb-2 text-[9px] uppercase tracking-[0.08em]"
         style={{ color: MUTED, borderBottom: `0.5px solid ${RULE}` }}
       >
         <span className="font-bold tracking-[0.06em]" style={{ color: INK }}>V-RENT</span>
@@ -87,13 +92,13 @@ function PageFrame({
       </div>
 
       {provenance && (
-        <div className="truncate pt-1 text-[8.5px]" style={{ color: MUTED }}>{provenance}</div>
+        <div className="shrink-0 truncate pt-1 text-[8.5px]" style={{ color: MUTED }}>{provenance}</div>
       )}
 
-      <div className="flex-1 pt-3">{children}</div>
+      <div className="min-h-0 flex-1 pt-3">{children}</div>
 
       <div
-        className="mt-4 flex items-baseline justify-between gap-4 pt-2 text-[9px]"
+        className="mt-4 flex shrink-0 items-baseline justify-between gap-4 pt-2 text-[9px]"
         style={{ color: MUTED, borderTop: `0.5px solid ${RULE}` }}
       >
         <span className="truncate">{footLeft}</span>
@@ -115,30 +120,78 @@ function Fact({ icon: Icon, label, value }: { icon: typeof Bed; label: string; v
   );
 }
 
-/** The twelve monthly medians, drawn small enough to sit beside a paragraph. */
-function TrendLine({ values }: { values: number[] }) {
+
+/**
+ * Twelve monthly medians, at a size a client can actually read off.
+ *
+ * The unit's own rate is drawn across as a dashed rule, because the question
+ * the page is answering is not "what has the market done" on its own — it is
+ * "where does this asking rent sit against what the market has done". A month
+ * with nothing lodged is a gap in the line rather than a zero, which would
+ * otherwise draw a cliff that never happened.
+ */
+function TrendChart({ market }: { market: MarketPosition }) {
+  const values = market.trend;
   const real = values.filter(Boolean);
   if (real.length < 3) return null;
-  const max = Math.max(...real);
-  const min = Math.min(...real);
-  const span = max - min || 1;
-  const W = 168;
-  const H = 40;
 
-  const points = values.map((v, i) => ({
-    x: (i / Math.max(1, values.length - 1)) * W,
-    y: v ? H - ((v - min) / span) * (H - 6) - 3 : null,
-  })).filter((p): p is { x: number; y: number } => p.y !== null);
+  const W = 620;
+  const H = 132;
+  const PAD_L = 44;
+  const PAD_B = 16;
 
-  const d = points.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const hi = Math.max(...real, market.medianRent);
+  const lo = Math.min(...real, market.medianRent);
+  const top = hi + (hi - lo || hi * 0.1) * 0.18;
+  const bottom = Math.max(0, lo - (hi - lo || hi * 0.1) * 0.18);
+  const span = top - bottom || 1;
+
+  const x = (i: number) => PAD_L + (i / Math.max(1, values.length - 1)) * (W - PAD_L - 8);
+  const y = (v: number) => (H - PAD_B) - ((v - bottom) / span) * (H - PAD_B - 8);
+
+  /* Consecutive runs, so a month with no contracts breaks the line instead of
+     being drawn as zero. */
+  const runs: { i: number; v: number }[][] = [];
+  values.forEach((v, i) => {
+    if (!v) { runs.push([]); return; }
+    if (!runs.length) runs.push([]);
+    runs[runs.length - 1].push({ i, v });
+  });
+
+  const median = y(market.medianRent);
+  const ticks = [bottom + span * 0.1, bottom + span * 0.5, bottom + span * 0.9];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden className="shrink-0">
-      <path d={`${d} L${W} ${H} L0 ${H} Z`} fill="#0A5C73" fillOpacity="0.08" />
-      <path d={d} fill="none" stroke="#0A5C73" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-      {points.length > 0 && (
-        <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="2.6" fill="#0A5C73" />
-      )}
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img"
+      aria-label={`Median rent for comparable units over twelve months, from ${market.trendLabels[0]} to ${market.trendLabels[market.trendLabels.length - 1]}`}>
+      {ticks.map((t) => (
+        <g key={t}>
+          <line x1={PAD_L} x2={W - 8} y1={y(t)} y2={y(t)} stroke={RULE} strokeWidth="1" />
+          <text x={PAD_L - 7} y={y(t) + 3} textAnchor="end" fontSize="8.5" fill={MUTED}>
+            {Math.round(t / 100) / 10}k
+          </text>
+        </g>
+      ))}
+
+      {runs.filter((r) => r.length > 1).map((r, k) => (
+        <path key={k} fill="none" stroke="#0A5C73" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+          d={r.map((pt, j) => `${j ? 'L' : 'M'}${x(pt.i).toFixed(1)} ${y(pt.v).toFixed(1)}`).join(' ')} />
+      ))}
+      {runs.flat().map((pt) => (
+        <circle key={pt.i} cx={x(pt.i)} cy={y(pt.v)} r="2.4" fill="#0A5C73" />
+      ))}
+
+      <line x1={PAD_L} x2={W - 8} y1={median} y2={median} stroke="#B4703A" strokeWidth="1.2" strokeDasharray="5 3" />
+      <text x={W - 10} y={median - 5} textAnchor="end" fontSize="8.5" fill="#B4703A">
+        median {sgd(market.medianRent)}
+      </text>
+
+      {market.trendLabels.map((lab, i) => (
+        i % 3 === 0 || i === market.trendLabels.length - 1 ? (
+          <text key={lab} x={x(i)} y={H - 3} textAnchor={i === 0 ? 'start' : i === market.trendLabels.length - 1 ? 'end' : 'middle'}
+            fontSize="8.5" fill={MUTED}>{lab}</text>
+        ) : null
+      ))}
     </svg>
   );
 }
@@ -157,7 +210,7 @@ function MarketSection({ market }: { market: MarketPosition }) {
         </span>
       </div>
 
-      <div className="grid gap-4 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="px-4 py-3">
         <div>
           <p className="text-[12.5px] leading-[1.6]" style={{ color: INK }}>
             Comparable units let at a median of <strong>{sgd(market.medianRent)}</strong> a month — a range of{' '}
@@ -186,13 +239,7 @@ function MarketSection({ market }: { market: MarketPosition }) {
           </dl>
         </div>
 
-        <div className="shrink-0">
-          <TrendLine values={market.trend} />
-          <div className="mt-0.5 flex justify-between text-[9px]" style={{ color: MUTED }}>
-            <span>{market.trendLabels[0]}</span>
-            <span>{market.trendLabels[market.trendLabels.length - 1]}</span>
-          </div>
-        </div>
+
       </div>
 
       {market.outlook.length > 0 && (
@@ -214,9 +261,12 @@ function MarketSection({ market }: { market: MarketPosition }) {
 }
 
 /** A ruled heading, so a section reads as a section rather than a bold line. */
-function SectionHead({ n, title, note }: { n?: string; title: string; note?: string }) {
+function SectionHead({ n, title, note, first = false }: { n?: string; title: string; note?: string; first?: boolean }) {
   return (
-    <div className="vr-block mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-1.5" style={{ borderBottom: `1.5px solid ${INK}` }}>
+    <div
+      className={cx('vr-block mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2', !first && 'mt-9')}
+      style={{ borderBottom: `1.5px solid ${INK}` }}
+    >
       <h2 className="font-p1display text-[16px] font-bold tracking-[-0.015em]" style={{ color: INK }}>
         {n && <span className="mr-2 tabular-nums" style={{ color: MUTED }}>{n}</span>}
         {title}
@@ -237,10 +287,8 @@ function SectionHead({ n, title, note }: { n?: string; title: string; note?: str
  */
 function AmenityTable({ groups, missing }: { groups: AmenityGroup[]; missing: string[] }) {
   const withItems = groups.filter((g) => g.items.length > 0);
-  /* Six rows is what the sheet has room for beside the map. Nearest first, so
-     the ones cut are the ones furthest away. */
-  const shown = [...withItems].sort((a, b) => a.items[0].metres - b.items[0].metres).slice(0, 6);
-  const trimmed = withItems.length - shown.length;
+  /* Nearest first: the closest of each kind is the one a client asks about. */
+  const shown = [...withItems].sort((a, b) => a.items[0].metres - b.items[0].metres);
   if (withItems.length === 0) {
     return (
       <p className="rounded-lg px-4 py-3 text-[11.5px] leading-[1.6]" style={{ background: WASH, color: MUTED }}>
@@ -257,7 +305,7 @@ function AmenityTable({ groups, missing }: { groups: AmenityGroup[]; missing: st
           <tr>
             {[['Category', '25%'], ['Nearest', '40%'], ['Walk', '19%'], ['More', '16%']].map(([h, w], i) => (
               <th key={h} style={{ color: MUTED, borderBottom: `1.5px solid ${INK}`, width: w }}
-                className={cx('py-1 pr-2 text-[9px] font-semibold uppercase tracking-[0.07em]', i >= 2 && 'text-right')}>{h}</th>
+                className={cx('py-2 pr-2 text-[9px] font-semibold uppercase tracking-[0.07em]', i >= 2 && 'text-right')}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -266,13 +314,13 @@ function AmenityTable({ groups, missing }: { groups: AmenityGroup[]; missing: st
             const near = g.items[0];
             return (
               <tr key={g.key} style={{ borderBottom: `1px solid ${RULE}` }}>
-                <td className="truncate py-1 pr-2" style={{ color: MUTED }}>{g.label}</td>
-                <td className="truncate py-1 pr-2 font-medium">{near.name}</td>
-                <td className="whitespace-nowrap py-1 pr-2 text-right tabular-nums">
+                <td className="truncate py-2 pr-2" style={{ color: MUTED }}>{g.label}</td>
+                <td className="truncate py-2 pr-2 font-medium">{near.name}</td>
+                <td className="whitespace-nowrap py-2 pr-2 text-right tabular-nums">
                   {(near.metres / 1000).toFixed(2)} km
                   <span style={{ color: MUTED }}> · {Math.max(1, Math.round(near.metres / 80))} min</span>
                 </td>
-                <td className="whitespace-nowrap py-1 text-right tabular-nums" style={{ color: MUTED }}>
+                <td className="whitespace-nowrap py-2 text-right tabular-nums" style={{ color: MUTED }}>
                   {g.items.length > 1 ? `+${g.items.length - 1}` : '—'}
                 </td>
               </tr>
@@ -283,7 +331,6 @@ function AmenityTable({ groups, missing }: { groups: AmenityGroup[]; missing: st
       <p className="mt-1.5 text-[9.5px] leading-[1.45]" style={{ color: MUTED }}>
         Straight-line distance from the address; walk estimated at 80 m a minute. &ldquo;+n&rdquo; is how many more of
         that kind are within a kilometre.
-        {trimmed > 0 ? ` ${trimmed} further categor${trimmed === 1 ? 'y' : 'ies'} omitted for space.` : ''}
         {missing.length > 0 ? ` ${missing.join(' and ')} did not respond in time.` : ''}
         {' '}Source: OneMap, Singapore Land Authority.
       </p>
@@ -313,16 +360,16 @@ function EvidenceTable({ rows }: { rows: Transaction[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((t) => (
-          <tr key={t.id} style={{ borderBottom: `1px solid ${RULE}` }}>
-            <td className="py-1 pr-2.5 font-medium">{t.project}</td>
-            <td className="py-1 pr-2.5" style={{ color: MUTED }}>{t.street}</td>
-            <td className="py-1 pr-2.5 text-right tabular-nums" style={{ color: MUTED }}>D{String(t.district).padStart(2, '0')}</td>
-            <td className="py-1 pr-2.5 text-right tabular-nums">{t.bedrooms}</td>
-            <td className="py-1 pr-2.5 text-right tabular-nums whitespace-nowrap">{t.sizeSqft.toLocaleString('en-SG')} sqft</td>
-            <td className="py-1 pr-2.5 text-right font-semibold tabular-nums">{sgd(t.monthlyRent)}</td>
-            <td className="py-1 pr-2.5 text-right tabular-nums">${(t.monthlyRent / t.sizeSqft).toFixed(2)}</td>
-            <td className="py-1 text-right tabular-nums" style={{ color: MUTED }}>{monthLabel(t.month)}</td>
+        {rows.map((t, i) => (
+          <tr key={t.id} style={{ borderBottom: `1px solid ${RULE}`, background: i % 2 ? WASH : undefined }}>
+            <td className="py-2 pr-2.5 font-medium">{t.project}</td>
+            <td className="py-2 pr-2.5" style={{ color: MUTED }}>{t.street}</td>
+            <td className="py-2 pr-2.5 text-right tabular-nums" style={{ color: MUTED }}>D{String(t.district).padStart(2, '0')}</td>
+            <td className="py-2 pr-2.5 text-right tabular-nums">{t.bedrooms}</td>
+            <td className="py-2 pr-2.5 text-right tabular-nums whitespace-nowrap">{t.sizeSqft.toLocaleString('en-SG')} sqft</td>
+            <td className="py-2 pr-2.5 text-right font-semibold tabular-nums">{sgd(t.monthlyRent)}</td>
+            <td className="py-2 pr-2.5 text-right tabular-nums">${(t.monthlyRent / t.sizeSqft).toFixed(2)}</td>
+            <td className="py-2 text-right tabular-nums" style={{ color: MUTED }}>{monthLabel(t.month)}</td>
           </tr>
         ))}
       </tbody>
@@ -414,10 +461,6 @@ function Shortlist() {
     return () => clearTimeout(timer);
   }, []);
 
-  /* Cover, how to read, two per property, then the two annexes and the
-     notice. Every frame states it, so a detached sheet still says where it sat. */
-  const TOTAL = chosen.length * 2 + 5;
-
   /* Every contract across the districts the shortlist touches, newest first.
      The annex prints as many as fit; the count of the rest is stated. */
   const annexPool = useMemo(() => {
@@ -432,8 +475,25 @@ function Shortlist() {
     return TRANSACTIONS
       .filter((t) => districts.has(t.district) && beds.has(t.bedrooms))
       .sort((x, y) => y.month.localeCompare(x.month))
-      .slice(0, 26);
+      .slice(0, ANNEX_ROWS_PER_PAGE * ANNEX_MAX_PAGES);
   }, [chosen]);
+
+  /* One sheet per twenty contracts. The annex exists so a reader can check the
+     figures, so it runs to the length the evidence needs rather than stopping
+     at whatever fitted on one page. */
+  const annexPages = useMemo(() => {
+    const out: Transaction[][] = [];
+    for (let i = 0; i < annexRows.length; i += ANNEX_ROWS_PER_PAGE) {
+      out.push(annexRows.slice(i, i + ANNEX_ROWS_PER_PAGE));
+    }
+    return out.length ? out : [[]];
+  }, [annexRows]);
+
+  /* Cover, how to read, two per property, then the annexes and the notice.
+     Every frame states the total, so a detached sheet still says where it sat. */
+  const TOTAL = chosen.length * 2 + 4 + annexPages.length;
+
+
 
   if (chosen.length === 0) {
     return (
@@ -574,9 +634,9 @@ function Shortlist() {
 
           {/* ══════════════════════════════════════ how to read this report */}
           <PageFrame page={2} total={TOTAL} title="How to read this report" right={printedOn} footLeft={footer} provenance={provenance}>
-            <SectionHead n="1" title="How to read this report" />
+            <SectionHead n="1" title="How to read this report" first />
 
-            <p className="max-w-[86ch] text-[12.5px] leading-[1.7]">
+            <p className="max-w-[86ch] text-[12.5px] leading-[1.75]">
               This document describes {chosen.length} propert{chosen.length === 1 ? 'y' : 'ies'}
               {forClient ? <> selected for <strong>{forClient}</strong></> : null} by {agentName} of {p.agency}.
               Each property is given two pages: what the unit is, and where it sits — both in Singapore and against
@@ -584,7 +644,7 @@ function Shortlist() {
               rest on, so nothing in here has to be taken on trust.
             </p>
 
-            <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+            <div className="mt-6 grid gap-x-10 gap-y-7 sm:grid-cols-2">
               {[
                 ['What is in each property section',
                  'Photographs as supplied by the agent, the facts a tenant filters on — bedrooms, size, furnishing, lease terms — the description in full, and the address on a map.'],
@@ -789,9 +849,10 @@ function Shortlist() {
                   n={`${i + 1}`}
                   title={`${l.project} ${l.unitNo}`}
                   note={`${l.address}, Singapore ${l.postalCode}`}
+                  first
                 />
 
-                <div className="vr-split vr-split-268 grid gap-5">
+                <div className="vr-split vr-split-268 grid gap-7">
                   <div className="min-w-0">
                     <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>
                       What is within a kilometre
@@ -815,7 +876,7 @@ function Shortlist() {
                         <img
                           src={`/api/phase1/map?lat=${l.lat}&lng=${l.lng}&w=512&h=512`}
                           alt={`Map showing ${l.project}`}
-                          className="h-[196px] w-full object-cover"
+                          className="h-[248px] w-full object-cover"
                         />
                         <figcaption className="px-2.5 py-1.5 text-[9.5px]" style={{ color: MUTED, borderTop: `1px solid ${RULE}`, background: WASH }}>
                           OneMap · Singapore Land Authority
@@ -834,53 +895,76 @@ function Shortlist() {
                   </div>
                 </div>
 
-                {market && <MarketSection market={market} />}
+                <div className="mt-6">{market && <MarketSection market={market} />}</div>
 
-                <section className="vr-block mt-4">
-                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>
-                    The contracts behind that figure
-                  </h3>
-                  <div className="vr-wide"><EvidenceTable rows={evidence} /></div>
-                </section>
+                {market && (
+                  <section className="vr-block mt-5">
+                    <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.09em]" style={{ color: MUTED }}>
+                      What comparable units have been letting for
+                    </h3>
+                    <p className="mb-2 text-[10.5px]" style={{ color: MUTED }}>
+                      Median monthly rent, {market.basisLabel.toLowerCase()}, over the last twelve months.
+                    </p>
+                    <TrendChart market={market} />
+                  </section>
+                )}
+
+                <p className="mt-5 text-[11px] leading-[1.6]" style={{ color: MUTED }}>
+                  The {evidence.length} contracts this comparison rests on are listed in Annex A, together with every
+                  other contract used in this document.
+                </p>
               </PageFrame>
               </Fragment>
             );
           })}
 
           {/* ══════════════════════════════════ annex A — the full evidence */}
-          <PageFrame
-            page={chosen.length * 2 + 3}
-            total={TOTAL}
-            title={`Annex A — lease evidence${forClient ? ` · ${forClient}` : ''}`}
-            right={printedOn}
-            footLeft={footer}
-            provenance={provenance}
-          >
-            <SectionHead n="A" title="Lease evidence" note="Lodged with the Urban Redevelopment Authority" />
-            <p className="mb-3 max-w-[86ch] text-[11.5px] leading-[1.65]" style={{ color: MUTED }}>
-              Every contract used to position the properties in this document, in one place. These are lodged
-              tenancies, not asking prices: in Singapore a private residential tenancy must be lodged with the URA,
-              which is what makes them evidence rather than opinion. Listed newest first, across the districts the
-              shortlist covers.
-            </p>
-            <div className="vr-wide"><EvidenceTable rows={annexRows} /></div>
-            <p className="mt-3 text-[10px] leading-[1.5]" style={{ color: MUTED }}>
-              Showing {annexRows.length} of {annexPool} matching contracts. The remainder are available on request.
-            </p>
-          </PageFrame>
+          {annexPages.map((rows, k) => (
+            <PageFrame
+              key={`annex-${k}`}
+              page={chosen.length * 2 + 3 + k}
+              total={TOTAL}
+              title={`Annex A — lease evidence${annexPages.length > 1 ? ` (${k + 1} of ${annexPages.length})` : ''}${forClient ? ` · ${forClient}` : ''}`}
+              right={printedOn}
+              footLeft={footer}
+              provenance={provenance}
+            >
+              <SectionHead
+                n="A"
+                title={k === 0 ? 'Lease evidence' : `Lease evidence, continued`}
+                note="Lodged with the Urban Redevelopment Authority"
+                first
+              />
+              {k === 0 && (
+                <p className="mb-6 max-w-[84ch] text-[12px] leading-[1.7]" style={{ color: MUTED }}>
+                  Every contract used to position the properties in this document, in one place. These are lodged
+                  tenancies, not asking prices: in Singapore a private residential tenancy must be lodged with the URA,
+                  which is what makes them evidence rather than opinion. Listed newest first, across the districts the
+                  shortlist covers.
+                </p>
+              )}
+              <div className="vr-wide"><EvidenceTable rows={rows} /></div>
+              {k === annexPages.length - 1 && (
+                <p className="mt-4 text-[10.5px] leading-[1.55]" style={{ color: MUTED }}>
+                  {annexRows.length} of {annexPool} matching contracts.
+                  {annexPool > annexRows.length ? ' The remainder are available on request.' : ' That is all of them.'}
+                </p>
+              )}
+            </PageFrame>
+          ))}
 
           {/* ══════════════════════════════════ annex B — how it is derived */}
           <PageFrame
-            page={chosen.length * 2 + 4}
+            page={chosen.length * 2 + 2 + annexPages.length + 1}
             total={TOTAL}
             title={`Annex B — method${forClient ? ` · ${forClient}` : ''}`}
             right={printedOn}
             footLeft={footer}
             provenance={provenance}
           >
-            <SectionHead n="B" title="How the figures are derived" />
+            <SectionHead n="B" title="How the figures are derived" first />
 
-            <dl className="grid gap-3.5">
+            <dl className="grid gap-5">
               {[
                 ['Median rent',
                  'The middle figure of the matched contracts, not the average. One unusually high or low lease moves an average and leaves a median where it was, which is why the middle is the honest number to quote.'],
