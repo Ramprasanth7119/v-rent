@@ -10,7 +10,7 @@
 
 import type { PublicAccount } from '../auth/store';
 import { KeyedMutex } from '../payments/concurrency';
-import { AgentProfile, DEFAULT_NOTIFICATIONS, seedWorkspace, WorkspaceState } from './workspace';
+import { AgentProfile, DEFAULT_NOTIFICATIONS, reconcileProfile, seedWorkspace, WorkspaceState } from './workspace';
 import { EMPTY_TOOLS } from './tools';
 import { verificationPolicy } from './verification-policy';
 import type { DemoListing } from './data';
@@ -78,7 +78,16 @@ export async function loadWorkspace(user: PublicAccount): Promise<WorkspaceState
   const policy = await verificationPolicy();
   return lock.run(user.id, async () => {
     const existing = await workspaces.get(user.id);
-    if (existing) return strip(existing);
+    if (existing) {
+      // The register's half of the profile follows the account, so an account
+      // that gained or changed its CEA registration after the workspace was
+      // created is corrected here rather than staying wrong for good.
+      const corrected = reconcileProfile(existing.profile, user);
+      if (!corrected) return strip(existing);
+      const next: StoredWorkspace = { ...existing, profile: corrected, updatedAt: new Date().toISOString() };
+      await workspaces.put(next);
+      return strip(next);
+    }
 
     const seeded = seedWorkspace(user, { autoApprove: policy.autoApprove, demo: isDemoAccount(user.email) });
     await workspaces.put({ ...seeded, id: user.id, updatedAt: new Date().toISOString() });

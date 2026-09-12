@@ -169,6 +169,39 @@ function registrationIsCurrent(endDate?: string): boolean {
  * agents there are (see `verification-policy`) and passed in; the mobile number
  * was never confirmed, so it is not.
  */
+/**
+ * Bring the register-owned half of the stored profile back in line with the
+ * account.
+ *
+ * The profile screen shows two kinds of field. The registered name, number,
+ * agency and licence belong to the CEA register and are read-only; the mobile
+ * number, biography and years of experience belong to the agent. Only the
+ * first kind is reconciled here — an agent's own words are never overwritten.
+ *
+ * It exists because the copy was taken once, when the workspace was first
+ * created, and never looked at again. Two things went wrong with that. An
+ * account whose registration was attached a moment after the workspace was
+ * seeded kept an empty profile for good, showing "no CEA registration" beside
+ * a sidebar that had the agency name. And the screen tells agents that moving
+ * agency is picked up automatically, which was not true of this copy.
+ *
+ * Returns null when nothing needed changing, so the common case does no write.
+ */
+export function reconcileProfile(profile: AgentProfile, user: PublicAccount): AgentProfile | null {
+  const fromRegister: Partial<AgentProfile> = {
+    email: user.email,
+    fullName: displayName(user.cea?.name ?? user.fullName),
+    ceaNumber: user.cea?.registrationNo ?? '',
+    agency: user.cea ? displayAgency(user.cea.agencyName) : '',
+    agencyLicence: user.cea?.agencyLicenceNo ?? '',
+  };
+
+  const changed = (Object.keys(fromRegister) as (keyof AgentProfile)[])
+    .some((k) => profile[k] !== fromRegister[k]);
+
+  return changed ? { ...profile, ...fromRegister } : null;
+}
+
 export function seedWorkspace(
   user: PublicAccount,
   opts: { autoApprove: boolean; demo?: boolean } = { autoApprove: false },
