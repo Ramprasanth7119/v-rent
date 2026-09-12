@@ -11,8 +11,8 @@
 import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  Button, LinkButton, IconButton, Card, PageHeader, MetricStrip, Metric, Callout, SearchInput, FilterChips, FilterBar,
-  SortButton, InlineSelect, usePagination, Pagination, DataTable, Column, EmptyState, Menu, SkeletonPage, cx } from '../../../components/phase1/kit';
+  Button, Callout, Card, Column, DataTable, EmptyState, FilterBar, FilterChips, InlineSelect, LinkButton, Menu, Metric, MetricStrip, PageHeader, Pagination, SearchInput, Segmented, SkeletonPage, SortButton, cx, usePagination,
+} from '../../../components/phase1/kit';
 import { StatusBadge } from '../../../components/phase1/status';
 import { useListingActions, ListingActionDialogs } from '../../../components/phase1/listing/actions';
 import { ListingCard, PropertyCell, fmtDate, daysUntil } from '../../../components/phase1/listing/ListingCard';
@@ -213,16 +213,21 @@ function ListingsBody() {
             <LinkButton
               href={exportHref}
               variant="outline"
-              size="sm"
               leftIcon={<FileDown size={15} />}
-              className={cx(rows.length === 0 && 'pointer-events-none opacity-50')}
+              className={cx('h-10', rows.length === 0 && 'pointer-events-none opacity-50')}
             >
               Export shortlist
             </LinkButton>
-            <div className="flex overflow-hidden rounded-lg border border-p1-border-strong" role="group" aria-label="View">
-              <IconButton label="Grid view" aria-pressed={view === 'grid'} onClick={() => setView('grid')} className={cx('rounded-none', view === 'grid' && 'bg-p1-primary text-p1-primary-on hover:bg-p1-primary hover:text-p1-primary-on')}><LayoutGrid size={18} /></IconButton>
-              <IconButton label="Table view" aria-pressed={view === 'list'} onClick={() => setView('list')} className={cx('rounded-none', view === 'list' && 'bg-p1-primary text-p1-primary-on hover:bg-p1-primary hover:text-p1-primary-on')}><Rows3 size={18} /></IconButton>
-            </div>
+            <Segmented<'grid' | 'list'>
+              label="View"
+              value={view}
+              onChange={setView}
+              className="h-10 items-center"
+              options={[
+                { key: 'grid', label: <span className="sr-only">Grid view</span>, icon: <LayoutGrid size={17} /> },
+                { key: 'list', label: <span className="sr-only">Table view</span>, icon: <Rows3 size={17} /> },
+              ]}
+            />
           </div>
         </div>
 

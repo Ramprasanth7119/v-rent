@@ -19,7 +19,7 @@ const DISPLAY = new Set([
 ]);
 
 /**
- * Join class names, last one winning where two set the same display.
+ * Join class names, last one winning where two set the same thing.
  *
  * Every component here writes its own classes first and the caller's
  * `className` last, on the reasonable assumption that later wins. For most
@@ -34,6 +34,21 @@ const DISPLAY = new Set([
  * So resolve it here, where the intent is unambiguous: the caller wrote theirs
  * last and meant it.
  */
+/**
+ * Which family a class belongs to, for the families where two values cannot
+ * both apply and the winner must be the one written last.
+ *
+ * Only unprefixed classes are grouped: `md:h-10` and `h-11` are not in conflict,
+ * they are different breakpoints, and collapsing them would break every
+ * responsive override in the kit.
+ */
+const family = (token: string): string | null => {
+  if (token.includes(':')) return null;
+  if (DISPLAY.has(token)) return 'display';
+  const m = /^(h|w)-/.exec(token);
+  return m ? m[1] : null;
+};
+
 export const cx = (...a: unknown[]) => {
   const tokens = a
     .filter((x): x is string => typeof x === 'string' && x !== '')
@@ -41,16 +56,22 @@ export const cx = (...a: unknown[]) => {
     .split(/\s+/)
     .filter(Boolean);
 
-  let seen = 0;
-  for (const t of tokens) if (DISPLAY.has(t)) seen += 1;
-  if (seen < 2) return tokens.join(' ');
+  /* Count each family first, so the pass below can keep only the last of any
+     family that appears more than once and leave everything else alone. */
+  const counts = new Map<string, number>();
+  for (const t of tokens) {
+    const f = family(t);
+    if (f) counts.set(f, (counts.get(f) ?? 0) + 1);
+  }
+  if (![...counts.values()].some((n) => n > 1)) return tokens.join(' ');
 
-  let remaining = seen;
   return tokens
     .filter((t) => {
-      if (!DISPLAY.has(t)) return true;
-      remaining -= 1;
-      return remaining === 0;
+      const f = family(t);
+      if (!f) return true;
+      const left = (counts.get(f) ?? 1) - 1;
+      counts.set(f, left);
+      return left === 0;
     })
     .join(' ');
 };
