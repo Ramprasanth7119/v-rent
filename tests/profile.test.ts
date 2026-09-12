@@ -14,8 +14,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { reconcileProfile } from '../lib/phase1/workspace';
-import type { AgentProfile } from '../lib/phase1/workspace';
+import { reconcileProfile, reconcileWithAccount } from '../lib/phase1/workspace';
+import type { AgentProfile, WorkspaceState } from '../lib/phase1/workspace';
 import type { PublicAccount } from '../lib/auth/store';
 
 const account = (over: Partial<PublicAccount> = {}): PublicAccount => ({
@@ -111,5 +111,77 @@ describe('reconciling a profile against the register', () => {
     const fixed = reconcileProfile(profile(), account({ email: 'peggy.soh@agent.sg' }));
 
     expect(fixed!.email).toBe('peggy.soh@agent.sg');
+  });
+});
+
+describe('reconciling the workspace against the account', () => {
+  const workspace = (over: Partial<WorkspaceState> = {}): WorkspaceState => ({
+    emailVerified: false,
+    mobileVerified: false,
+    profileSubmitted: true,
+    approval: 'approved',
+    ceaValid: true,
+    ceaValidUntil: '2026-12-31',
+    planCode: 'starter',
+    subscription: 'active',
+    paymentMethod: 'PayNow',
+    profile: profile(),
+    listings: [],
+    notifications: {},
+    enquiries: [],
+    alerts: [],
+    tools: {} as WorkspaceState['tools'],
+    ...over,
+  });
+
+  it('submits a registered agent whose application was never opened', () => {
+    // Chan's fault: the account carried a registration, but the workspace had
+    // been seeded before it was attached, so it described someone with no
+    // registration at all. Approving that account changed nothing the agent
+    // could see, because the complaint was never about the approval.
+    const stranded = workspace({
+      profileSubmitted: false,
+      approval: 'not_submitted',
+      ceaValid: false,
+      ceaValidUntil: '',
+      profile: profile({ ceaNumber: '', agency: '', agencyLicence: '' }),
+    });
+
+    const fix = reconcileWithAccount(stranded, account(), { autoApprove: false });
+
+    expect(fix).not.toBeNull();
+    expect(fix!.profileSubmitted).toBe(true);
+    expect(fix!.approval).toBe('under_review');
+    expect(fix!.ceaValid).toBe(true);
+    expect(fix!.ceaValidUntil).toBe('2026-12-31');
+    expect(fix!.profile!.ceaNumber).toBe('R000564B');
+  });
+
+  it('never overturns a decision an officer actually made', () => {
+    const rejected = workspace({ approval: 'rejected', ceaValid: false, ceaValidUntil: '' });
+
+    const fix = reconcileWithAccount(rejected, account(), { autoApprove: false });
+
+    // The registration is put right, because that is the register's to say.
+    expect(fix!.ceaValid).toBe(true);
+    // The decision is not.
+    expect(fix!.approval).toBeUndefined();
+  });
+
+  it('withdraws the registration when the account no longer has one', () => {
+    const fix = reconcileWithAccount(workspace(), account({ cea: undefined }), { autoApprove: false });
+
+    expect(fix!.ceaValid).toBe(false);
+    expect(fix!.ceaValidUntil).toBe('');
+  });
+
+  it('mirrors a confirmed email address from the account', () => {
+    const fix = reconcileWithAccount(workspace(), account({ emailVerifiedAt: '2026-09-02T00:00:00.000Z' }), { autoApprove: false });
+
+    expect(fix!.emailVerified).toBe(true);
+  });
+
+  it('reports no change when the workspace already agrees', () => {
+    expect(reconcileWithAccount(workspace(), account(), { autoApprove: false })).toBeNull();
   });
 });

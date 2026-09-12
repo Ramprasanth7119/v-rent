@@ -202,6 +202,55 @@ export function reconcileProfile(profile: AgentProfile, user: PublicAccount): Ag
   return changed ? { ...profile, ...fromRegister } : null;
 }
 
+/**
+ * Everything in the workspace that is really the account's to say, brought back
+ * into line with the account.
+ *
+ * The workspace is seeded once, from the account as it stood at that moment.
+ * An account that gained its CEA registration a moment later — or had it
+ * changed since — kept a workspace describing an agent with no registration:
+ * a blank compliance line, `ceaValid` false, and an application that was never
+ * submitted because at seeding time there was nothing to submit. None of that
+ * can be cleared by anything the agent or an officer can click, and approving
+ * such an account does not help, because what the screen complains about is
+ * the registration, not the approval.
+ *
+ * What is deliberately not touched: an approval or a rejection an officer has
+ * actually made. Only an application that was never submitted is re-derived,
+ * because a registered agent's workspace is never seeded that way.
+ *
+ * Returns null when nothing needed changing, so the ordinary load writes
+ * nothing.
+ */
+export function reconcileWithAccount(
+  w: WorkspaceState,
+  user: PublicAccount,
+  opts: { autoApprove: boolean },
+): Partial<WorkspaceState> | null {
+  const changes: Partial<WorkspaceState> = {};
+
+  const profile = reconcileProfile(w.profile, user);
+  if (profile) changes.profile = profile;
+
+  // The account owns whether the address is confirmed; this only mirrors it.
+  const emailVerified = Boolean(user.emailVerifiedAt);
+  if (w.emailVerified !== emailVerified) changes.emailVerified = emailVerified;
+
+  const ceaValid = user.cea ? registrationIsCurrent(user.cea.registrationEnd) : false;
+  const ceaValidUntil = user.cea?.registrationEnd ?? '';
+  if (w.ceaValid !== ceaValid) changes.ceaValid = ceaValid;
+  if (w.ceaValidUntil !== ceaValidUntil) changes.ceaValidUntil = ceaValidUntil;
+
+  // A registered agent whose application was never submitted was seeded before
+  // the registration was attached. Put them where signing up would have.
+  if (user.cea && !w.profileSubmitted && w.approval === 'not_submitted') {
+    changes.profileSubmitted = true;
+    changes.approval = opts.autoApprove ? 'approved' : 'under_review';
+  }
+
+  return Object.keys(changes).length > 0 ? changes : null;
+}
+
 export function seedWorkspace(
   user: PublicAccount,
   opts: { autoApprove: boolean; demo?: boolean } = { autoApprove: false },

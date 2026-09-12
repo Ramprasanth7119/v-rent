@@ -226,10 +226,16 @@ export function Callout({
 /* --------------------------------------------------------------- read-only */
 
 export function Field({ label, value, mono = false, className = '' }: { label: string; value: React.ReactNode; mono?: boolean; className?: string }) {
+  // An empty value used to render an empty <dd>, which collapses and leaves the
+  // label floating over nothing. A dash says "we have no value for this", which
+  // is the truth and keeps the row the height it should be.
+  const empty = value === null || value === undefined || value === '';
   return (
     <div className={className}>
       <dt className="text-[12.5px] font-medium text-p1-text-3">{label}</dt>
-      <dd className={cx('mt-0.5 break-words text-[14.5px] text-p1-text', mono && 'font-mono text-[13.5px]')}>{value}</dd>
+      <dd className={cx('mt-0.5 break-words text-[14.5px]', empty ? 'text-p1-text-3' : 'text-p1-text', mono && 'font-mono text-[13.5px]')}>
+        {empty ? '—' : value}
+      </dd>
     </div>
   );
 }

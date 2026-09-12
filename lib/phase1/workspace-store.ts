@@ -10,7 +10,7 @@
 
 import type { PublicAccount } from '../auth/store';
 import { KeyedMutex } from '../payments/concurrency';
-import { AgentProfile, DEFAULT_NOTIFICATIONS, reconcileProfile, seedWorkspace, WorkspaceState } from './workspace';
+import { AgentProfile, DEFAULT_NOTIFICATIONS, reconcileWithAccount, seedWorkspace, WorkspaceState } from './workspace';
 import { EMPTY_TOOLS } from './tools';
 import { verificationPolicy } from './verification-policy';
 import type { DemoListing } from './data';
@@ -79,12 +79,13 @@ export async function loadWorkspace(user: PublicAccount): Promise<WorkspaceState
   return lock.run(user.id, async () => {
     const existing = await workspaces.get(user.id);
     if (existing) {
-      // The register's half of the profile follows the account, so an account
-      // that gained or changed its CEA registration after the workspace was
-      // created is corrected here rather than staying wrong for good.
-      const corrected = reconcileProfile(existing.profile, user);
-      if (!corrected) return strip(existing);
-      const next: StoredWorkspace = { ...existing, profile: corrected, updatedAt: new Date().toISOString() };
+      // Whatever the account owns — the register half of the profile, whether
+      // the registration is current, whether the address is confirmed — is
+      // brought back into line here, so a workspace seeded before the account
+      // was complete is corrected rather than staying wrong for good.
+      const corrections = reconcileWithAccount(strip(existing), user, { autoApprove: policy.autoApprove });
+      if (!corrections) return strip(existing);
+      const next: StoredWorkspace = { ...existing, ...corrections, updatedAt: new Date().toISOString() };
       await workspaces.put(next);
       return strip(next);
     }

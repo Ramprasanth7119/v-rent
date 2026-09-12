@@ -15,7 +15,7 @@
  * they typed is still in front of them.
  */
 
-import React, { createContext, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { DemoListing, ListingStatus, PLANS, PlanOption } from './data';
 import {
   Alert, AgentProfile, ApprovalStatus, DEFAULT_NOTIFICATIONS, Enquiry, EnquiryStatus, NotificationPrefs,
@@ -217,6 +217,46 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
       .catch(() => setSaveError('The workspace could not be reset. Try again in a moment.'))
       .finally(() => setSaving(false));
   };
+
+  /**
+   * Pull the workspace again when the tab comes back to the front.
+   *
+   * Some of what this holds is not the agent's to change: a verification
+   * officer approves an application, a registration lapses at the register.
+   * Until now the provider only ever wrote — the state was read once, when the
+   * page was rendered on the server — so a decision made while the agent had
+   * the tab open never arrived and they had to know to reload.
+   *
+   * A pending save wins: the agent's own unsaved edit must not be replaced by
+   * an older copy from the server.
+   */
+  useEffect(() => {
+    if (!persists) return;
+
+    const resync = async () => {
+      if (document.visibilityState !== 'visible' || timer.current) return;
+      try {
+        const res = await fetch('/api/phase1/workspace', { cache: 'no-store' });
+        if (!res.ok) return;
+        const body = (await res.json()) as { workspace: WorkspaceState };
+        const fresh = fromWorkspace(body.workspace);
+        // Still nothing of the agent's in flight, now that we have waited on
+        // the network.
+        if (timer.current) return;
+        latest.current = fresh;
+        setState(fresh);
+      } catch {
+        /* offline or mid-deploy: keep what is on screen */
+      }
+    };
+
+    window.addEventListener('focus', resync);
+    document.addEventListener('visibilitychange', resync);
+    return () => {
+      window.removeEventListener('focus', resync);
+      document.removeEventListener('visibilitychange', resync);
+    };
+  }, [persists]);
 
   const skipToActive = () =>
     apply((s) => ({
