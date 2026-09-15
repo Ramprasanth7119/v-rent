@@ -533,28 +533,74 @@ later agency move does not alter a published advertisement.
     covering note.
 25. **Export as PDF**.
 
-The document is built as follows:
+The toolbar offers two editions. Each page answers one client question and
+appears only when there is data to answer it: at a glance, photographs, property
+history, price position, comparable properties, market trend, development
+insights, location and connectivity, competing listings, and a client decision
+summary, then sources. **Client report** is the default; a single rental with
+full data comes to about twelve pages, one without photographs, history or
+competing listings to eight, and a sale to about five. A shortlist keeps each
+property to at a glance, price position, location and the decision summary.
+**Detailed report** gives every page for every property and adds contents,
+neighbourhood detail, the contracts annex and "How we calculate"; about fifteen
+pages for a rental. `PROPERTY_REPORT_CONTENTS.md` describes every page.
 
-- **Cover** — the shortlist, the client's name, the agent's details, and a
-  contents table.
-- **How to read this report** — where each figure comes from and what the
-  document is not, then basic information for every property.
-- **Two pages per property** — the unit: photographs (the ones uploaded at step
-  18), the facts a tenant filters on, the description and amenities. Then where
-  it is: the OneMap site map, what is within a kilometre with the walk from the
-  door, how the asking rent sits against comparable units, and the lease
-  contracts that comparison rests on.
-- **Annex A** — every lease contract behind the figures.
-- **Annex B** — how each figure is derived, and the sources.
-- **Closing page** — what happens next, and the compliance block.
+**Checks before anything is laid out.** Every property is validated first. The
+report is not generated, and the agent sees what to fix with an *Edit listing*
+link, when:
 
-Every sheet carries who prepared it, when, for whom, and the CEA line.
+- a listing's type and price disagree (a sale that still carries a monthly rent,
+  or a rental that carries a sale price), or a price is implausible for its type;
+- the district does not match the postal code, or the floor area, bedrooms,
+  bathrooms, furnishing or availability are missing or impossible;
+- any market or development-history figure fails to reconcile with the
+  contracts it came from.
+
+Competing listings are secondary evidence: a set that fails its own checks is
+left out of the report rather than blocking it.
+
+Saving a listing clears the price that does not belong to its type, so a
+blocked listing is fixed by opening it and saving it again.
+
+A progress panel then lists each neighbourhood source (photographs and maps,
+stations from the Land Transport Authority, schools from the Ministry of
+Education, hospitals and polyclinics from the Ministry of Health, places to
+visit, hawker centres and parks, competing listings live on V-RENT, and the
+lease contracts) and ticks each off as
+it answers. **Save as PDF** becomes available once everything has answered, or
+after fifteen seconds with whatever did.
+
+**How missing data is shown.** "None within 1 km" is printed only when a dataset
+answered with no match. "Data unavailable" means the dataset failed, timed out
+or refused the request (an expired OneMap token does this). "Unable to verify"
+means the address has no map position or a list came back incomplete. A failure
+is never printed as zero facilities.
+
+**Market comparison.** Comparable contracts have the same bedroom count, a floor
+area within 20% (rounded to 50 sq ft) and the same kind of home. The narrowest
+area with at least ten contracts is used: same development, same street, same
+district, neighbouring districts, then Singapore-wide. The basis is printed with
+every figure ("Same district · 3 bed · 850–1,250 sqft · 42 contracts"), and a
+fallback beyond the district is labelled *local sample insufficient*. HDB flats
+and landed homes are not compared with condominium contracts; their market
+section says comparable evidence is not held. Medians are true medians, and the
+three-month trend is labelled *indicative* and drawn apart from the actual line.
+
+The contracts are an illustrative dataset in URA's format until the URA feed is
+connected, and the report's sources page says so.
+
+Every sheet has a running header and a footer with the preparation date, the
+agent's CEA line, "Confidential · For intended recipient" and the page number
+("05 / 08"). The print margins are zero, so the browser cannot add the page
+address or its own header to the PDF.
 
 26. Save as PDF and open it.
 
-**What to point out:** the photographs in the document came out of MongoDB, and
-the amenity distances were measured live from SLA datasets while the document
-was being built.
+**What to point out:** the photographs came out of MongoDB, and everything on the
+Location, Transport, Schools, Healthcare and Daily needs sheets was read from
+public datasets while the document was being built. Station exits and the
+school directory come from data.gov.sg; hospitals, attractions, hawker centres
+and parks come from OneMap. The agent types in none of it.
 
 ### 7. Check the deployment
 

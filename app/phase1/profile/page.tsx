@@ -1,148 +1,187 @@
 "use client";
 
 /**
- * The agent's profile.
+ * Profile & CEA.
  *
- * Two kinds of fact live here and they are not treated alike. Name, registration
- * number, agency and licence come from the CEA register and are shown read-only:
- * they are what appears on every advertisement, and letting an agent type over
- * them would put a claim on a listing that the register does not support.
- * Everything else — how tenants reach you, what you write about yourself — is
- * the agent's own and is editable, saved as it is typed.
- *
- * This screen used to be step three of an eight-step application, with an
- * agency dropdown of four hard-coded firms. An account now arrives already
- * verified against the register, so the application is over before this screen
- * is reached.
+ * Two kinds of fact, treated differently. The registration comes from the CEA
+ * register and is read-only: it is what appears on every advertisement, and
+ * letting an agent type over it would put a claim on a listing the register
+ * does not support. How tenants reach the agent and what they write about
+ * themselves is theirs, and saves as it is typed.
  */
 
-import {
-  Avatar, Callout, Card, Field, FieldGrid, PageHeader, ProgressBar, SectionCard, Spinner, TextArea, TextInput,
-} from '../../../components/phase1/kit';
-import { StatusBadge } from '../../../components/phase1/status';
-import { useDemo, preferredName } from '../../../lib/phase1/DemoContext';
-import { BadgeCheck, Briefcase, Check, ShieldCheck, User } from 'lucide-react';
 import Link from 'next/link';
+import { ArrowUpRight, Check, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Avatar, Callout, Card, LinkButton, Spinner, TextArea, TextInput, cx } from '../../../components/phase1/kit';
+import { CopyText } from '../../../components/phase1/market/CopyText';
+import { useDemo, preferredName } from '../../../lib/phase1/DemoContext';
+import { useSession } from '../../../lib/phase1/SessionContext';
+import { sgDate } from '../../../lib/phase1/format';
 
 export default function ProfilePage() {
   const { state, setProfile, saving } = useDemo();
+  const { user } = useSession();
   const p = state.profile;
 
   const registered = Boolean(p.ceaNumber);
+  const verified = state.approval === 'approved' && state.ceaValid;
   const name = preferredName(p.fullName) || 'Your name';
 
-  // Completeness covers only what the agent controls; the register fields are
-  // always present and counting them would flatter the number.
-  const own = [p.mobile, p.bio, p.experienceYears];
-  const completeness = Math.round((own.filter((v) => v.trim().length > 0).length / own.length) * 100);
+  // Completeness counts only what the agent controls; the register fields are always there.
+  const own = [
+    { done: p.mobile.trim().length > 0, label: 'Mobile number' },
+    { done: p.experienceYears.trim().length > 0, label: 'Years of experience' },
+    { done: p.bio.trim().length > 0, label: 'Biography' },
+  ];
+  const completeness = Math.round((own.filter((o) => o.done).length / own.length) * 100);
+  const missing = own.filter((o) => !o.done);
 
-  const agentStatus = state.profileSubmitted ? state.approval : 'not_submitted';
+  const register: [string, React.ReactNode][] = [
+    ['Registered name', p.fullName],
+    ['Registration no.', <CopyText key="cea" value={p.ceaNumber} label="CEA registration number" />],
+    ['Agency', p.agency],
+    ['Agency licence', p.agencyLicence],
+    ['Registered until', state.ceaValidUntil ? sgDate(state.ceaValidUntil) : '—'],
+    ...(user?.cea?.verifiedAt ? [['Verified on', sgDate(user.cea.verifiedAt)] as [string, React.ReactNode]] : []),
+  ];
 
   return (
     <>
-      <PageHeader
-        eyebrow="Account"
-        title="Your profile"
-        description="What tenants see beside your listings, and what the law requires on every advertisement."
-        actions={<StatusBadge kind="agent" value={agentStatus} size="lg" />}
-      />
+      <header className="vr-rise mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[24px] font-semibold tracking-[-0.02em] text-p1-text sm:text-[28px]">Profile & CEA</h1>
+        {user && (
+          <LinkButton href={`/phase1/homes/agent/${user.id}`} variant="outline" rightIcon={<ArrowUpRight size={15} />}>
+            View public profile
+          </LinkButton>
+        )}
+      </header>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5">
-          <SectionCard
-            title="From the CEA register"
-            description="Matched against the public register on data.gov.sg when your account was verified."
-            icon={<BadgeCheck size={18} />}
-            actions={<Link href="/phase1/status" className="text-[13px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">Verification</Link>}
-          >
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0 space-y-5">
+          {/* ------------------------------------------------ the register */}
+          <Card padding="none" as="section" aria-labelledby="cea-h">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <h2 id="cea-h" className="text-[15px] font-semibold text-p1-text">CEA registration</h2>
+              {registered && (verified ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-p1-success-soft px-2 py-1 text-[12.5px] font-semibold text-p1-success">
+                  <ShieldCheck size={14} aria-hidden /> CEA verified
+                </span>
+              ) : !state.ceaValid ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-p1-danger-soft px-2 py-1 text-[12.5px] font-semibold text-p1-danger">
+                  <ShieldAlert size={14} aria-hidden /> Registration lapsed
+                </span>
+              ) : (
+                <Link href="/phase1/status" className="inline-flex items-center gap-1.5 rounded-md bg-p1-warning-soft px-2 py-1 text-[12.5px] font-semibold text-p1-warning">
+                  Verification in progress
+                </Link>
+              ))}
+            </div>
+
             {registered ? (
               <>
-                <FieldGrid cols={2}>
-                  <Field label="Registered name" value={p.fullName} />
-                  <Field label="Registration number" value={p.ceaNumber} mono />
-                  <Field label="Agency" value={p.agency} />
-                  <Field label="Agency licence" value={p.agencyLicence} mono />
-                </FieldGrid>
-                <Callout tone="neutral" title="Appears on every advertisement" className="mt-5">
-                  <span className="font-medium text-p1-text">{p.fullName} · {p.ceaNumber} · {p.agency} ({p.agencyLicence})</span>
-                  <span className="mt-1 block">
-                    Singapore advertising rules require the salesperson name, registration number and agency licence
-                    number on every listing. These follow the register — move agency and V-RENT picks it up at the next
-                    daily check, rather than asking you to retype it.
-                  </span>
-                </Callout>
+                <dl className="grid border-t border-p1-border sm:grid-cols-2">
+                  {register.map(([k, v], i) => (
+                    <div key={k} className={cx('px-5 py-3.5', i >= 2 && 'border-t border-p1-border', i % 2 === 1 && 'sm:border-l sm:border-p1-border', i === 1 && 'border-t border-p1-border sm:border-t-0')}>
+                      <dt className="text-[12.5px] text-p1-text-3">{k}</dt>
+                      <dd className="mt-1 break-words text-[14.5px] font-medium text-p1-text">{v || '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="rounded-b-xl border-t border-p1-border bg-p1-subtle/60 px-5 py-3.5">
+                  <div className="text-[12px] font-medium text-p1-text-3">On every advertisement</div>
+                  <p className="mt-0.5 text-[13.5px] text-p1-text">{p.fullName} · {p.ceaNumber} · {p.agency}{p.agencyLicence && ` (${p.agencyLicence})`}</p>
+                </div>
               </>
             ) : (
-              <Callout tone="warning" title="No CEA registration on this account">
-                Agent accounts are created against a registration number. This account has none, so no listing can be
-                published from it.
-              </Callout>
+              <div className="border-t border-p1-border p-5">
+                <Callout tone="warning" title="No CEA registration on this account">
+                  Listings cannot be published without one.
+                </Callout>
+              </div>
             )}
-          </SectionCard>
+          </Card>
 
-          <SectionCard title="How tenants reach you" icon={<User size={18} />}>
-            <div className="grid gap-5 sm:grid-cols-2">
+          {/* ------------------------------------------------ the agent's own */}
+          <Card padding="none" as="section" aria-labelledby="about-h">
+            <div className="flex items-center justify-between gap-3 px-5 py-4">
+              <h2 id="about-h" className="text-[15px] font-semibold text-p1-text">About you</h2>
+              <span className="inline-flex items-center gap-1.5 text-[12.5px] text-p1-text-3" aria-live="polite">
+                {saving ? <><Spinner size={12} /> Saving</> : <><Check size={13} className="text-p1-success" aria-hidden /> Saved</>}
+              </span>
+            </div>
+            <div className="grid gap-5 border-t border-p1-border p-5 sm:grid-cols-2">
               <TextInput
                 label="Mobile number"
                 inputMode="tel"
                 value={p.mobile}
                 onChange={(e) => setProfile({ mobile: e.target.value })}
-                hint="Shown to tenants who ask to call. Changing it asks for a new confirmation code."
+                hint="Shown to tenants who ask to call."
               />
               <div>
-                <Field label="Email address" value={p.email} />
-                <p className="mt-1.5 text-[12.5px] leading-5 text-p1-text-3">
-                  How you sign in. Change it in{' '}
-                  <Link href="/phase1/settings" className="font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">Settings</Link>.
+                <div className="mb-1.5 text-[13.5px] font-medium text-p1-text">Email address</div>
+                <div className="flex h-11 items-center rounded-lg border border-p1-border bg-p1-subtle px-3.5 text-[14px] text-p1-text-2">
+                  <span className="truncate">{p.email}</span>
+                </div>
+                <p className="mt-1.5 text-[12.5px] text-p1-text-3">
+                  Change it in <Link href="/phase1/settings" className="font-medium text-p1-primary hover:underline underline-offset-4">Settings</Link>.
                 </p>
               </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Professional information" icon={<Briefcase size={18} />}>
-            <div className="grid gap-5">
               <TextInput
                 label="Years of experience"
                 inputMode="numeric"
                 value={p.experienceYears}
                 onChange={(e) => setProfile({ experienceYears: e.target.value.replace(/\D/g, '').slice(0, 2) })}
-                hint="Helps tenants choose an agent they trust."
-                containerClassName="sm:max-w-xs"
+                optional
               />
+              <div className="hidden sm:block" aria-hidden />
               <TextArea
-                label="Professional biography"
+                label="Biography"
                 rows={4}
                 value={p.bio}
                 onChange={(e) => setProfile({ bio: e.target.value })}
-                hint="Two or three sentences about the areas and property types you focus on. Yours to write — V-RENT will not invent one for you."
+                containerClassName="sm:col-span-2"
+                counter={`${p.bio.length} / 600`}
+                maxLength={600}
+                hint="The areas and property types you focus on. V-RENT will not write one for you."
               />
             </div>
-          </SectionCard>
-
-          <div className="flex items-center justify-end gap-2 text-[13px] text-p1-text-3">
-            {saving
-              ? <><Spinner size={13} /> Saving…</>
-              : <><Check size={14} className="text-p1-success" aria-hidden /> Saved automatically</>}
-          </div>
-        </div>
-
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <Card>
-            <div className="flex flex-col items-center text-center">
-              <Avatar name={name} size="xl" />
-              <div className="mt-3 text-[17px] font-semibold text-p1-text">{name}</div>
-              <div className="text-[14px] text-p1-text-2">{p.agency || 'No agency on file'}</div>
-              {registered && (
-                <div className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-p1-text-3">
-                  <ShieldCheck size={14} className="text-p1-success" aria-hidden /> {p.ceaNumber}
-                </div>
-              )}
-            </div>
-            <ProgressBar value={completeness} label="Profile completeness" className="mt-5" tone={completeness === 100 ? 'success' : 'accent'} />
           </Card>
         </div>
-      </div>
 
+        {/* ------------------------------------------------------- summary */}
+        <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <Card>
+            <div className="flex items-center gap-3">
+              <Avatar name={name} size="lg" />
+              <div className="min-w-0">
+                <div className="truncate text-[16px] font-semibold text-p1-text">{name}</div>
+                <div className="truncate text-[13px] text-p1-text-3">{p.agency || 'No agency on file'}</div>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-p1-border pt-4">
+              <div className="flex items-baseline justify-between text-[13px]">
+                <span className="text-p1-text-2">Profile complete</span>
+                <span className="font-semibold tabular-nums text-p1-text">{completeness}%</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-p1-subtle" role="progressbar" aria-valuenow={completeness} aria-valuemin={0} aria-valuemax={100} aria-label="Profile completeness">
+                <div className={cx('h-full rounded-full transition-[width] duration-500', completeness === 100 ? 'bg-p1-success' : 'bg-p1-primary')} style={{ width: `${completeness}%` }} />
+              </div>
+              {missing.length > 0 ? (
+                <ul className="mt-3 space-y-1.5 text-[13px] text-p1-text-3">
+                  {missing.map((m) => <li key={m.label} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-p1-border-strong" aria-hidden />Add {m.label.toLowerCase()}</li>)}
+                </ul>
+              ) : (
+                <p className="mt-3 text-[13px] text-p1-text-3">Tenants see everything they need.</p>
+              )}
+            </div>
+
+            <Link href="/phase1/status" className="mt-4 flex items-center justify-between border-t border-p1-border pt-4 text-[13.5px] font-medium text-p1-text hover:text-p1-primary">
+              Verification status <ArrowUpRight size={14} className="text-p1-text-3" aria-hidden />
+            </Link>
+          </Card>
+        </aside>
+      </div>
     </>
   );
 }

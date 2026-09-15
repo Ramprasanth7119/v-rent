@@ -48,7 +48,7 @@ function Skyline() {
       viewBox="0 0 1200 200"
       preserveAspectRatio="xMidYMax slice"
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-0 h-[16vh] w-full text-p1-primary opacity-[0.09] dark:opacity-[0.16]"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[16vh] w-full text-p1-text-3 opacity-[0.06] dark:opacity-[0.12]"
     >
       <path
         fill="currentColor"
@@ -82,7 +82,7 @@ export function AuthLayout({
   pitch?: boolean;
 }) {
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-gradient-to-b from-[#E1EFF4] to-p1-bg px-4 py-6 sm:px-6 sm:py-10 dark:from-[#0C2630]">
+    <div className="relative isolate min-h-screen overflow-hidden bg-p1-bg px-4 py-6 sm:px-6 sm:py-10">
       <Skyline />
 
       <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1120px] flex-col sm:min-h-[calc(100vh-5rem)]">
@@ -90,7 +90,7 @@ export function AuthLayout({
           {/* The mark, outside the card, so the page is identifiable before the
               form is read and there is something to click back to. */}
           <Link href="/phase1" className="mb-5 inline-flex items-center gap-2.5 lg:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-primary font-p1display text-[19px] font-bold text-white">V</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-p1-primary text-[17px] font-bold text-p1-primary-on">V</span>
             <span className="font-p1display text-[16px] font-bold tracking-[-0.02em] text-p1-text">V-RENT</span>
           </Link>
 
@@ -106,27 +106,27 @@ export function AuthLayout({
                 aria-hidden
                 style={{
                   backgroundImage:
-                    'radial-gradient(circle at 15% 8%, rgba(255,255,255,.45) 0, transparent 45%), radial-gradient(circle at 92% 82%, rgba(242,179,34,.5) 0, transparent 48%)',
+                    'radial-gradient(circle at 12% 0%, rgba(96,165,250,.35) 0, transparent 50%)',
                 }}
               />
 
               <Link href="/phase1" className="relative flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-p1-accent font-p1display text-[19px] font-bold text-[#0E2124]">V</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-[17px] font-bold text-[#0B1220]">V</span>
                 <span>
                   <span className="block font-p1display text-[15.5px] font-bold leading-5 tracking-[-0.02em]">V-RENT</span>
-                  <span className="block text-[11.5px] text-p1-accent">Singapore rental platform for agents</span>
+                  <span className="block text-[11.5px] text-white/55">For CEA-registered agents</span>
                 </span>
               </Link>
 
               <div className="relative mt-10 xl:mt-12">
-                <h2 className="font-p1display text-[27px] font-bold leading-[1.16] tracking-[-0.022em] text-white text-balance xl:text-[30px]">
+                <h2 className="text-[26px] font-semibold leading-[1.18] tracking-[-0.022em] text-white text-balance xl:text-[28px]">
                   Every listing you publish carries proof that you are registered to sell it.
                 </h2>
                 {pitch && (
                   <ul className="mt-8 space-y-5">
                     {POINTS.map((p) => (
                       <li key={p.title} className="flex gap-3.5">
-                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-p1-accent" aria-hidden>
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white" aria-hidden>
                           <p.icon size={16} />
                         </span>
                         <span className="min-w-0">
@@ -148,7 +148,7 @@ export function AuthLayout({
             {/* ------------------------------------------------------ the form */}
             <main className="flex flex-col justify-center px-5 py-8 sm:px-9 sm:py-11 lg:px-11">
               <div className={`mx-auto w-full ${wide ? 'max-w-[560px]' : 'max-w-[400px]'}`}>
-                <h1 className="font-p1display text-[27px] font-bold leading-[1.12] tracking-[-0.024em] text-p1-text text-balance sm:text-[31px]">
+                <h1 className="text-[26px] font-semibold leading-[1.15] tracking-[-0.022em] text-p1-text text-balance sm:text-[28px]">
                   {title}
                 </h1>
                 {subtitle && <p className="mt-2.5 text-[14.5px] leading-6 text-p1-text-2">{subtitle}</p>}

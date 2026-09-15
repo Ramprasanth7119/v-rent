@@ -116,7 +116,7 @@ export function LocationPicker({
         className: '',
         html:
           '<span style="display:block;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);' +
-          'background:#0A5C73;border:3px solid #fff;box-shadow:0 4px 10px rgba(8,36,48,.45)"></span>',
+          'background:#2563EB;border:3px solid #fff;box-shadow:0 4px 10px rgba(16,24,40,.35)"></span>',
         iconSize: [28, 28],
         iconAnchor: [14, 28],
       });
@@ -258,14 +258,14 @@ export function LocationPicker({
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), void confirmPostal())}
               placeholder="018987"
               aria-label="Postal code"
-              className="h-11 w-[140px] rounded-full border border-p1-border-strong bg-p1-surface px-4 text-[14px] tabular-nums text-p1-text outline-none focus:border-p1-primary focus:ring-2 focus:ring-p1-ring"
+              className="h-10 w-[140px] rounded-lg border border-p1-border-strong bg-p1-surface px-4 text-[14px] tabular-nums text-p1-text outline-none focus:border-p1-primary focus:ring-2 focus:ring-p1-ring"
             />
             <button
               type="button"
               onClick={() => void confirmPostal()}
               disabled={!/^\d{6}$/.test(postal) || checking}
               className={cx(
-                'inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-[14px] font-semibold text-white transition-colors',
+                'inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg px-4 text-[14px] font-medium text-p1-primary-on transition-colors',
                 /^\d{6}$/.test(postal) && !checking ? 'bg-p1-primary hover:bg-p1-primary-hover' : 'cursor-not-allowed bg-p1-primary/40',
               )}
             >

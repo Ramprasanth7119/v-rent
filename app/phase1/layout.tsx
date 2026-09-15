@@ -19,12 +19,12 @@ export default async function Phase1Layout({ children }: { children: React.React
 
   return (
     <>
-      {/* Interface text is Inter; titles are Manrope, which keeps one sans voice across the product. */}
+      {/* Interface text is Inter; titles are Manrope, which keeps one sans voice across the product. Printed reports set their headings in Source Serif 4. */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap"
       />
       <SessionProvider user={user}>
         <DemoProvider initial={workspace}>

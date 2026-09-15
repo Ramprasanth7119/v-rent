@@ -1,129 +1,147 @@
 "use client";
 
+/**
+ * Application status.
+ *
+ * Where the application stands, as a timeline rather than a paragraph: what is
+ * done and when, what is happening now and what to expect, and — if something
+ * failed — why. Times are the ones the platform recorded; a step with no
+ * recorded time says what to expect instead of showing a date nobody wrote.
+ */
+
 import { useRouter } from 'next/navigation';
-import { Button, Callout, Card, Field, FieldGrid, PageHeader, SectionCard, Stepper, cx } from '../../../components/phase1/kit';
-import { Pill, StatusBadge } from '../../../components/phase1/status';
-import { JOURNEY_STEPS, journeyCompleted } from '../../../components/phase1/journey';
+import { ArrowRight, ChevronDown, FlaskConical } from 'lucide-react';
+import { Button, Card, Timeline, type TimelineItem, type TimelineState } from '../../../components/phase1/kit';
+import { StatusBadge } from '../../../components/phase1/status';
 import { useDemo } from '../../../lib/phase1/DemoContext';
-import { Check, Clock, X, ShieldCheck, RefreshCw, ArrowRight, CalendarCheck, UserCheck, CreditCard } from 'lucide-react';
+import { useSession } from '../../../lib/phase1/SessionContext';
+import { sgDate, sgDateTime } from '../../../lib/phase1/format';
 
 export default function StatusPage() {
   const router = useRouter();
   const { state, set } = useDemo();
+  const { user } = useSession();
   const a = state.approval;
 
-  const timeline = [
-    { label: 'Account created', done: true, at: '28 Aug 2026, 09:02' },
-    { label: 'Email and mobile confirmed', done: state.emailVerified && state.mobileVerified, at: '28 Aug 2026, 09:07' },
-    { label: 'Professional details submitted', done: state.profileSubmitted, at: '28 Aug 2026, 09:14' },
-    { label: 'CEA registration verified', done: state.profileSubmitted, at: state.profileSubmitted ? 'Matched against the CEA register of 28 Aug 2026' : 'Runs automatically after you submit' },
+  // The officer's decision is recorded as a notice on the account; its time is the decision's time.
+  const decision = state.alerts.find((n) => n.kind === 'cea' && (n.tone === 'success' || n.tone === 'danger'));
+  const contactDone = state.emailVerified && state.mobileVerified;
+  const ceaMatched = Boolean(user?.cea?.verifiedAt) || state.profileSubmitted;
+
+  const raw: { key: string; label: string; done: boolean; failed?: boolean; at?: string; detail?: string; expect?: string; action?: React.ReactNode }[] = [
+    { key: 'account', label: 'Account created', done: true, at: user?.createdAt ? sgDateTime(user.createdAt) : undefined },
     {
-      label: a === 'approved' ? 'Approved by a verification officer' : a === 'rejected' ? 'Application declined' : 'Officer decision',
-      done: a === 'approved',
-      failed: a === 'rejected',
-      at: a === 'approved' ? 'Approved by the verification team' : 'Usually within one business day',
+      key: 'contact', label: 'Contact verified', done: contactDone,
+      at: contactDone && user?.emailVerifiedAt ? sgDateTime(user.emailVerifiedAt) : undefined,
+      expect: 'Confirm your email address and mobile number',
+      action: <Button size="sm" variant="outline" onClick={() => router.push('/phase1/verify')}>Verify contact</Button>,
+    },
+    {
+      key: 'profile', label: 'Profile submitted', done: state.profileSubmitted,
+      expect: 'Complete your professional details',
+      action: <Button size="sm" variant="outline" onClick={() => router.push('/phase1/profile')}>Complete profile</Button>,
+    },
+    {
+      key: 'cea', label: 'CEA register matched', done: ceaMatched && state.ceaValid, failed: ceaMatched && !state.ceaValid,
+      at: user?.cea?.verifiedAt ? sgDateTime(user.cea.verifiedAt) : undefined,
+      detail: !state.ceaValid && ceaMatched ? 'The registration has lapsed on the register. Publishing is paused until it is renewed.' : undefined,
+      expect: 'Checked automatically when you submit',
+    },
+    {
+      key: 'review', label: 'Officer review', done: a === 'approved', failed: a === 'rejected' || a === 'suspended',
+      detail: a === 'rejected'
+        ? (decision?.tone === 'danger' ? decision.body : 'The details could not be matched to the register. Correct them to be reviewed again.')
+        : a === 'suspended' ? 'Publication rights were withdrawn by an administrator.' : undefined,
+      expect: 'A verification officer confirms it is you · usually within one business day',
+      action: a === 'rejected' ? <Button size="sm" onClick={() => router.push('/phase1/profile')}>Update your details</Button> : undefined,
+    },
+    {
+      key: 'approved', label: 'Approved', done: a === 'approved',
+      at: a === 'approved' && decision?.tone === 'success' ? sgDateTime(decision.at) : undefined,
     },
   ];
 
-  const banner = {
-    approved: { tone: 'success' as const, title: 'You are verified', body: `Your CEA registration is valid until ${state.ceaValidUntil}. Choose a plan to start listing.` },
-    under_review: { tone: 'warning' as const, title: 'Your application is being reviewed', body: 'A verification officer is checking your CEA details. We will email you as soon as there is a decision — usually within one business day.' },
-    suspended: { tone: 'danger' as const, title: 'Your account is suspended', body: 'You can still sign in, but you cannot publish listings. Contact support if you think this is a mistake.' },
-    rejected: { tone: 'danger' as const, title: 'Your application was declined', body: 'The details submitted could not be matched to the CEA register. You can correct them and resubmit.' },
-    not_submitted: { tone: 'neutral' as const, title: 'Nothing submitted yet', body: 'Complete your professional details to begin verification.' },
+  let currentAssigned = false;
+  const items: TimelineItem[] = raw.map((s, i) => {
+    // A step left undone while later ones completed (contact details not yet
+    // confirmed on an approved account) is outstanding, not "in progress".
+    const laterDone = raw.slice(i + 1).some((x) => x.done);
+    let st: TimelineState;
+    if (s.failed) { st = 'failed'; currentAssigned = true; }
+    else if (s.done) st = 'done';
+    else if (!currentAssigned && !laterDone) { st = 'current'; currentAssigned = true; }
+    else st = 'upcoming';
+    const outstanding = st === 'upcoming' && laterDone;
+    return {
+      key: s.key,
+      label: s.label,
+      state: st,
+      at: s.at,
+      detail: st === 'failed' ? s.detail : st === 'current' ? s.expect : outstanding ? `Still to do · ${s.expect ?? ''}` : undefined,
+      action: st === 'current' || st === 'failed' || outstanding ? s.action : undefined,
+    };
+  });
+
+  const standing = a === 'approved' && !state.ceaValid ? 'verification_expired' : state.profileSubmitted ? a : 'not_submitted';
+  const headline = {
+    approved: state.ceaValid ? 'You are verified' : 'Your CEA registration has lapsed',
+    under_review: 'A verification officer is reviewing your application',
+    rejected: 'Your application needs changes',
+    suspended: 'Your account is suspended',
+    not_submitted: 'Finish your application',
+  }[a];
+  const sub = {
+    approved: state.ceaValid ? `Registration valid until ${sgDate(state.ceaValidUntil)}.` : 'You keep your account; publishing resumes once it is renewed.',
+    under_review: 'We will notify you as soon as there is a decision.',
+    rejected: 'See the reason below, correct it, and it will be reviewed again.',
+    suspended: 'You can still sign in, but cannot publish. Contact support if this is a mistake.',
+    not_submitted: 'Complete your professional details to begin verification.',
   }[a];
 
-  return (
-    <>
-      <PageHeader
-        eyebrow={a === 'approved' ? 'Step 5 of 8' : 'Step 4 of 8'}
-        title="Application status"
-        description="One place to see exactly where your application is, so you never have to ask."
-      />
-      <Stepper steps={JOURNEY_STEPS} current={a === 'approved' ? 4 : 3} completed={journeyCompleted(state)} />
+  const next = a === 'approved' && state.ceaValid
+    ? (state.plan
+      ? <Button onClick={() => router.push('/phase1/listings/new')} rightIcon={<ArrowRight size={16} />}>Create a listing</Button>
+      : <Button onClick={() => router.push('/phase1/plans')} rightIcon={<ArrowRight size={16} />}>Choose a plan</Button>)
+    : a === 'not_submitted' || a === 'rejected'
+      ? <Button onClick={() => router.push('/phase1/profile')} rightIcon={<ArrowRight size={16} />}>{a === 'rejected' ? 'Update your details' : 'Complete your profile'}</Button>
+      : null;
 
-      <Card className={cx('mb-5', {
-        success: 'border-p1-success-border bg-p1-success-soft',
-        warning: 'border-p1-warning-border bg-p1-warning-soft',
-        danger: 'border-p1-danger-border bg-p1-danger-soft',
-        neutral: '',
-      }[banner.tone])}>
+  return (
+    <div className="mx-auto max-w-3xl">
+      <h1 className="vr-rise mb-5 text-[24px] font-semibold tracking-[-0.02em] text-p1-text sm:text-[28px]">Verification</h1>
+
+      <Card className="vr-rise mb-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-4">
-            <StatusBadge kind="agent" value={a} size="lg" />
-            <div className="min-w-0">
-              <div className="text-[18px] font-semibold text-p1-text">{banner.title}</div>
-              <p className="mt-1 text-[15px] leading-6 text-p1-text-2">{banner.body}</p>
-            </div>
+          <div className="min-w-0">
+            <StatusBadge kind="agent" value={standing} />
+            <div className="mt-2.5 text-[18px] font-semibold tracking-[-0.01em] text-p1-text">{headline}</div>
+            <p className="mt-0.5 text-[14px] text-p1-text-3">{sub}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {a === 'under_review' && (
-              <>
-                <Button variant="outline" onClick={() => set({ approval: 'approved' })}>Simulate officer approval</Button>
-                <Pill tone="accent">Prototype</Pill>
-              </>
-            )}
-            {a === 'approved' && (
-              <Button variant="primary" size="lg" onClick={() => router.push('/phase1/plans')} rightIcon={<ArrowRight size={17} />}>Choose a plan</Button>
-            )}
-            {a === 'not_submitted' && (
-              <Button variant="primary" onClick={() => router.push('/phase1/profile')} rightIcon={<ArrowRight size={17} />}>Complete your profile</Button>
-            )}
-          </div>
+          {next}
         </div>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <SectionCard title="Progress" description="Each step is recorded with the time it happened.">
-          <ol className="relative space-y-0">
-            {timeline.map((t, i) => (
-              <li key={t.label} className="relative flex gap-4 pb-6 last:pb-0">
-                {i < timeline.length - 1 && <span className={cx('absolute left-[15px] top-8 h-[calc(100%-1.25rem)] w-0.5', t.done ? 'bg-p1-success' : 'bg-p1-border')} aria-hidden />}
-                <span className={cx('relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2',
-                  t.done ? 'border-p1-success bg-p1-success text-white' : t.failed ? 'border-p1-danger bg-p1-danger text-white' : 'border-p1-border-strong bg-p1-surface text-p1-text-3')} aria-hidden>
-                  {t.done ? <Check size={15} strokeWidth={3} /> : t.failed ? <X size={15} strokeWidth={3} /> : <Clock size={15} />}
-                </span>
-                <div className="min-w-0 pt-1">
-                  <div className={cx('text-[15px] font-medium', t.done ? 'text-p1-text' : 'text-p1-text-2')}>
-                    {t.label}
-                    <span className="sr-only">{t.done ? ' — completed' : t.failed ? ' — failed' : ' — pending'}</span>
-                  </div>
-                  <div className="mt-0.5 text-[13px] text-p1-text-3">{t.at}</div>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </SectionCard>
+      <Card as="section" aria-labelledby="timeline-h">
+        <h2 id="timeline-h" className="mb-5 text-[15px] font-semibold text-p1-text">Progress</h2>
+        <Timeline items={items} />
+      </Card>
 
-        <div className="space-y-5">
-          <SectionCard title="Submitted details">
-            <FieldGrid cols={2}>
-              <Field label="Name" value={state.profile.fullName} />
-              <Field label="CEA registration number" value={state.profile.ceaNumber} mono />
-              <Field label="Agency" value={state.profile.agency} />
-              <Field label="Agency licence number" value={state.profile.agencyLicence} mono />
-            </FieldGrid>
-          </SectionCard>
-
-          <SectionCard title="What happens next">
-            <ul className="space-y-3 text-[14px] leading-5 text-p1-text-2">
-              <li className="flex gap-3"><UserCheck size={18} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden /><span><span className="font-medium text-p1-text">A person makes the decision.</span> The register confirms your registration exists; an officer confirms it is you.</span></li>
-              <li className="flex gap-3"><CreditCard size={18} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden /><span><span className="font-medium text-p1-text">Then you choose a plan.</span> Payment is only asked for after approval.</span></li>
-              <li className="flex gap-3"><CalendarCheck size={18} className="mt-0.5 shrink-0 text-p1-primary dark:text-p1-info" aria-hidden /><span><span className="font-medium text-p1-text">Verification stays current.</span> Your registration is re-checked daily. If it lapses, publishing pauses until it is renewed — you keep your account.</span></li>
-            </ul>
-          </SectionCard>
-
-          <Callout tone="accent" icon={<ShieldCheck size={18} />} title={state.ceaValid ? `CEA registration valid until ${state.ceaValidUntil}` : 'CEA registration has lapsed'}>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <Button size="sm" variant="outline" leftIcon={<RefreshCw size={14} />} onClick={() => set({ ceaValid: !state.ceaValid })}>
-                {state.ceaValid ? 'Simulate registration lapsing' : 'Restore valid registration'}
-              </Button>
-              <Pill tone="accent">Prototype</Pill>
-            </div>
-          </Callout>
-        </div>
-      </div>
-
-    </>
+      {(a === 'under_review' || a === 'approved') && (
+        <details className="group mt-8 border-t border-dashed border-p1-border pt-3">
+          <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md py-1 text-[12.5px] font-medium text-p1-text-3 hover:text-p1-text">
+            <FlaskConical size={13} aria-hidden /> Prototype controls
+            <ChevronDown size={13} className="transition-transform duration-200 group-open:rotate-180" aria-hidden />
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {a === 'under_review' && (
+              <Button size="sm" variant="outline" onClick={() => set({ approval: 'approved' })}>Simulate officer approval</Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => set({ ceaValid: !state.ceaValid })}>
+              {state.ceaValid ? 'Simulate registration lapsing' : 'Restore valid registration'}
+            </Button>
+          </div>
+        </details>
+      )}
+    </div>
   );
 }

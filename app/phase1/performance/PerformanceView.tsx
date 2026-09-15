@@ -22,7 +22,8 @@ import {
   listingStats, totals, ENQUIRY_STATUS, Enquiry, EnquiryStatus, weeklyInsight, districtName } from '../../../lib/phase1/performance';
 import {
   Eye, MessageSquare, Bookmark, Percent, Lightbulb, TrendingUp, MessageCircle, Building2, ArrowRight, Phone, Inbox } from 'lucide-react';
-import { sgDateShort } from '../../../lib/phase1/format';
+import { sgDateShort, sgDateTime, sgRelative } from '../../../lib/phase1/format';
+import { TODAY } from '../../../lib/phase1/workspace';
 
 type Period = '7d' | '30d';
 type Tab = 'overview' | 'enquiries';
@@ -119,7 +120,7 @@ export default function PerformanceView({ initialTab = 'overview' }: { initialTa
     },
     {
       key: 'received', header: 'Received', align: 'right', nowrap: true, sortValue: (e) => e.at,
-      render: (e) => <span className="text-[12.5px] tabular-nums text-p1-text-3">{e.at.replace(' ', ' · ')}</span>,
+      render: (e) => <span className="text-[12.5px] tabular-nums text-p1-text-3" title={sgDateTime(e.at)}>{sgRelative(e.at, TODAY)}</span>,
     },
     {
       key: 'status', header: 'Status', align: 'right', nowrap: true,

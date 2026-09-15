@@ -1,322 +1,360 @@
 "use client";
 
 /**
- * Agent command centre.
+ * The agent's dashboard.
  *
- * Reads top to bottom as the working day does: what is my position, what needs
- * me, what is my inventory earning, what did I touch last. Every number is a
- * link into the workflow that changes it — nothing here is decoration.
+ * Built to answer two questions in the first three seconds: what do I need to
+ * know, and what should I do next. So the order is four numbers, then the
+ * things waiting on the agent — grouped, one line each, with the action beside
+ * them — then one chart, then the listings that are working and the people who
+ * asked. Account standing appears only when it blocks something; otherwise it
+ * is a single quiet card.
  */
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
-  LinkButton, Card, SectionCard, PageHeader, MetricStrip, Metric, EmptyState, Menu,
-  MiniBars, HBars, cx } from '../../../components/phase1/kit';
-import { StatusBadge, Pill } from '../../../components/phase1/status';
-import { useListingActions, ListingActionDialogs } from '../../../components/phase1/listing/actions';
-import { PropertyCell, daysUntil } from '../../../components/phase1/listing/ListingCard';
-import { HealthRing } from '../../../components/phase1/listing/health';
-import { StatsInline, Pulse } from '../../../components/phase1/listing/pulse';
+  LinkButton, Card, KPI, EmptyState, AreaChart, Segmented, Callout, Avatar, Tooltip, cx,
+} from '../../../components/phase1/kit';
+import { daysUntil } from '../../../components/phase1/listing/ListingCard';
+import { PropertyImage } from '../../../components/phase1/PropertyImage';
+import { coverPhoto } from '../../../lib/phase1/photos';
+import { useSession } from '../../../lib/phase1/SessionContext';
 import { useDemo, TODAY, preferredName } from '../../../lib/phase1/DemoContext';
-import { DemoListing, sgd } from '../../../lib/phase1/data';
 import { priceLabel } from '../../../lib/phase1/pricing';
-import { listingStats, totals, weeklyInsight, districtName } from '../../../lib/phase1/performance';
-import { listingHealth } from '../../../lib/phase1/health';
-import { sgDateShort, sgDayFull } from '../../../lib/phase1/format';
+import { listingStats, totals, weeklyInsight } from '../../../lib/phase1/performance';
+import { districtLabel } from '../../../lib/phase1/districts';
+import { sgDate, sgRelative } from '../../../lib/phase1/format';
+import { usualName } from '../../../lib/phase1/display-name';
 import {
-  Plus, Upload, Check, X, ChevronRight, Lightbulb, Building2, CircleDashed, CreditCard,
-  Eye, MessageSquare, CalendarClock, ArrowRight, Camera, ShieldAlert, Gavel, TrendingUp, Percent } from 'lucide-react';
+  Plus, ArrowRight, Building2, Eye, MessageSquare, CalendarClock, Camera, ShieldAlert, CreditCard, Gavel, CalendarX,
+  Clock, Check, Lightbulb, ChevronRight, Info, Sparkles,
+} from 'lucide-react';
 
 type Tone = 'danger' | 'warning' | 'info';
 
-interface ActionRow {
+interface Attention {
   key: string;
-  listing?: DemoListing;
   title: string;
   why: string;
   tone: Tone;
   href: string;
   cta: string;
-  icon: React.ReactNode;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
-const DOT: Record<Tone, string> = { danger: 'bg-p1-danger', warning: 'bg-p1-warning', info: 'bg-p1-info' };
+const TONE_ICON: Record<Tone, string> = {
+  danger: 'bg-p1-danger-soft text-p1-danger',
+  warning: 'bg-p1-warning-soft text-p1-warning',
+  info: 'bg-p1-subtle text-p1-text-2',
+};
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const DAY = new Intl.DateTimeFormat('en-SG', { day: 'numeric', month: 'short', timeZone: 'Asia/Singapore' });
 
 export default function DashboardPage() {
-  const { state, set, gate, canPublish, activeListings, listingLimit } = useDemo();
-  const a = useListingActions();
-  const [showControls, setShowControls] = useState(false);
+  const { state, gate, canPublish, activeListings, listingLimit, saveError } = useDemo();
+  const { user } = useSession();
+  const [metric, setMetric] = useState<'views' | 'enquiries'>('views');
 
-  // Singapore names commonly lead with the family name, so a first token is the wrong address.
-  const name = preferredName(state.profile.fullName);
-  const dateLine = sgDayFull(TODAY);
-  const hour = TODAY.getHours();
+  const first = usualName(state.profile.fullName) || preferredName(state.profile.fullName);
+  // Singapore's hour on both sides, so the server render and the browser agree.
+  const hour = Number(new Intl.DateTimeFormat('en-SG', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Asia/Singapore' }).format(new Date()));
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   const live = useMemo(() => state.listings.filter((l) => !l.archived), [state.listings]);
-  const drafts = live.filter((l) => l.status === 'draft');
-  const published = live.filter((l) => l.status === 'published');
-  const quotaPct = listingLimit ? Math.min(100, Math.round((activeListings / listingLimit) * 100)) : 0;
+  const byId = useMemo(() => new Map(live.map((l) => [l.id, l])), [live]);
+  const published = useMemo(() => live.filter((l) => l.status === 'published'), [live]);
 
   const t = useMemo(() => totals(live), [live]);
-  const conversion = t.views30d ? Math.round((t.enquiries30d / t.views30d) * 1000) / 10 : 0;
   const prev7 = t.series.slice(0, 7).reduce((n, v) => n + v, 0);
-  const last7 = t.series.slice(7).reduce((n, v) => n + v, 0);
-  const viewTrend = prev7 ? Math.round(((last7 - prev7) / prev7) * 100) : 0;
-  const newEnquiries = state.enquiries.filter((e) => e.status === 'new').length;
-  const expiringSoon = published.filter((l) => (daysUntil(l.expiresAt, TODAY) ?? 99) <= 30);
+  const viewTrend = prev7 ? Math.round(((t.views7d - prev7) / prev7) * 100) : 0;
+
+  /* Enquiries a day, from each listing's own views and enquiry rate. */
+  const enquirySeries = useMemo(() => {
+    const out = Array(14).fill(0) as number[];
+    for (const l of live) {
+      const s = listingStats(l);
+      const rate = s.views30d ? s.enquiries30d / s.views30d : 0;
+      s.series.forEach((v, i) => { out[i] += v * rate; });
+    }
+    return out.map((v) => Math.round(v * 10) / 10);
+  }, [live]);
+  const enqPrev = enquirySeries.slice(0, 7).reduce((n, v) => n + v, 0);
+  const enqLast = enquirySeries.slice(7).reduce((n, v) => n + v, 0);
+
+  const labels = useMemo(() => Array.from({ length: 14 }, (_, i) => DAY.format(new Date(TODAY.getTime() - (13 - i) * 86_400_000))), []);
+
+  const newEnquiries = state.enquiries.filter((e) => e.status === 'new');
+  const expiring = published.filter((l) => (daysUntil(l.expiresAt, TODAY) ?? 99) <= 30);
+  const soonest = expiring.reduce<number | null>((m, l) => { const d = daysUntil(l.expiresAt, TODAY) ?? 99; return m === null ? d : Math.min(m, d); }, null);
   const insight = useMemo(() => weeklyInsight(live), [live]);
 
-  /** Everything that needs the agent, ordered by consequence. */
-  const actions: ActionRow[] = [
-    ...(!state.ceaValid ? [{
-      key: 'cea', title: 'Your CEA registration has lapsed', why: 'Publication is paused until the public register shows a valid registration.',
-      tone: 'danger' as const, href: '/phase1/status', cta: 'Open verification', icon: <ShieldAlert size={15} />,
-    }] : []),
-    ...(state.subscription === 'past_due' ? [{
-      key: 'billing', title: 'Renewal payment failed', why: 'Listings stay live during the grace period. Update the payment method before it ends.',
-      tone: 'danger' as const, href: '/phase1/checkout', cta: 'Fix payment', icon: <CreditCard size={15} />,
-    }] : []),
-    ...live.filter((l) => l.status === 'rejected').map((l) => ({
-      key: `rej-${l.id}`, listing: l, title: `${l.project} ${l.unitNo} was rejected`, why: l.rejectionReason ?? 'Rejected in moderation.',
-      tone: 'danger' as const, href: `/phase1/listings/new?edit=${l.id}`, cta: 'Correct it', icon: <Gavel size={15} />,
-    })),
-    ...(newEnquiries ? [{
-      key: 'enq', title: `${newEnquiries} enquir${newEnquiries === 1 ? 'y is' : 'ies are'} waiting for a reply`, why: 'Tenants who enquired in the last two days have not heard back.',
-      tone: 'warning' as const, href: '/phase1/enquiries', cta: 'Open enquiries', icon: <MessageSquare size={15} />,
-    }] : []),
-    ...drafts.filter((l) => l.images === 0).map((l) => ({
-      key: `pho-${l.id}`, listing: l, title: `${l.project} ${l.unitNo} has no photographs`, why: 'A listing without photos cannot be published and gets almost no enquiries.',
-      tone: 'warning' as const, href: `/phase1/listings/new?edit=${l.id}&step=media`, cta: 'Add photos', icon: <Camera size={15} />,
-    })),
-    ...expiringSoon.map((l) => ({
-      key: `exp-${l.id}`, listing: l, title: `${l.project} ${l.unitNo} expires in ${daysUntil(l.expiresAt, TODAY)} days`, why: 'It comes off the tenant site on expiry and releases its quota slot.',
-      tone: (daysUntil(l.expiresAt, TODAY) ?? 99) <= 7 ? ('danger' as const) : ('warning' as const), href: `/phase1/listings/${l.id}`, cta: 'Review', icon: <CalendarClock size={15} />,
-    })),
-    ...live.filter((l) => l.status === 'pending_review').map((l) => ({
-      key: `pen-${l.id}`, listing: l, title: `${l.project} ${l.unitNo} is with a moderator`, why: 'Usually reviewed within one business day. No action needed from you.',
-      tone: 'info' as const, href: `/phase1/listings/${l.id}`, cta: 'View', icon: <Gavel size={15} />,
-    })),
-  ];
+  /**
+   * What is waiting on the agent, most consequential first. Like items are one
+   * row — "3 listings have no photographs" — rather than three rows that say
+   * the same thing.
+   */
+  const attention: Attention[] = useMemo(() => {
+    const rows: Attention[] = [];
+    if (!state.ceaValid) rows.push({ key: 'cea', title: 'CEA registration has lapsed', why: 'Publishing is paused until the register shows it valid again.', tone: 'danger', href: '/phase1/status', cta: 'Review', icon: ShieldAlert });
+    if (state.subscription === 'past_due') rows.push({ key: 'billing', title: 'Renewal payment failed', why: 'Listings stay live during the grace period.', tone: 'danger', href: '/phase1/checkout', cta: 'Fix payment', icon: CreditCard });
+    for (const l of live.filter((x) => x.status === 'rejected')) {
+      rows.push({ key: `rej-${l.id}`, title: `${l.project} ${l.unitNo} needs changes`, why: l.rejectionReason ?? 'Rejected in moderation.', tone: 'danger', href: `/phase1/listings/new?edit=${l.id}`, cta: 'Fix', icon: Gavel });
+    }
+    if (newEnquiries.length) rows.push({ key: 'enq', title: `${plural(newEnquiries.length, 'enquiry', 'enquiries')} waiting for a reply`, why: 'Tenants who have not heard back yet.', tone: 'warning', href: '/phase1/enquiries', cta: 'Reply', icon: MessageSquare });
+    if (expiring.length) rows.push({ key: 'exp', title: `${plural(expiring.length, 'listing expires', 'listings expire')} within ${soonest !== null && soonest <= 7 ? '7' : '30'} days`, why: 'Expired listings come off the tenant site and free their slot.', tone: soonest !== null && soonest <= 7 ? 'danger' : 'warning', href: '/phase1/listings?status=published', cta: 'Review', icon: CalendarClock });
+    const noPhotos = live.filter((l) => l.status === 'draft' && l.images === 0);
+    if (noPhotos.length) rows.push({ key: 'pho', title: `${plural(noPhotos.length, 'draft has', 'drafts have')} no photographs`, why: 'A listing needs at least one photograph to publish.', tone: 'warning', href: noPhotos.length === 1 ? `/phase1/listings/new?edit=${noPhotos[0].id}&step=photos` : '/phase1/listings?status=draft', cta: 'Add photos', icon: Camera });
+    const expired = live.filter((l) => l.status === 'expired');
+    if (expired.length) rows.push({ key: 'old', title: `${plural(expired.length, 'listing has', 'listings have')} expired`, why: 'Renew to relist, or archive to tidy up.', tone: 'info', href: '/phase1/listings?status=expired', cta: 'Review', icon: CalendarX });
+    const pending = live.filter((l) => l.status === 'pending_review');
+    if (pending.length) rows.push({ key: 'pen', title: `${plural(pending.length, 'listing is', 'listings are')} with a moderator`, why: 'Usually reviewed within one business day. Nothing to do.', tone: 'info', href: '/phase1/listings?status=pending_review', cta: 'View', icon: Clock });
+    return rows;
+  }, [state.ceaValid, state.subscription, live, newEnquiries.length, expiring.length, soonest]);
 
-  const ranked = useMemo(
-    () => published.map((l) => ({ l, s: listingStats(l) })).sort((x, y) => y.s.enquiries7d - x.s.enquiries7d),
+  const top = useMemo(
+    () => published.map((l) => ({ l, s: listingStats(l) })).sort((x, y) => y.s.enquiries7d - x.s.enquiries7d || y.s.views7d - x.s.views7d).slice(0, 3),
     [published],
   );
-  const weakest = useMemo(
-    () => [...live].filter((l) => l.status !== 'expired').sort((x, y) => listingHealth(x).score - listingHealth(y).score).slice(0, 3),
-    [live],
+  const latestEnquiries = useMemo(
+    () => [...state.enquiries].sort((x, y) => (x.status === 'new' ? 0 : 1) - (y.status === 'new' ? 0 : 1) || y.at.localeCompare(x.at)).slice(0, 5),
+    [state.enquiries],
   );
-  const recent = useMemo(
-    () => [...live].sort((x, y) => (y.updatedAt ?? y.createdAt).localeCompare(x.updatedAt ?? x.createdAt)).slice(0, 5),
-    [live],
-  );
+
+  const failing = gate.filter((g) => !g.pass);
+  const quotaPct = listingLimit ? Math.min(100, Math.round((activeListings / listingLimit) * 100)) : 0;
+  const urgent = attention.filter((a) => a.tone === 'danger').length;
 
   return (
     <>
-      <PageHeader
-        eyebrow={dateLine}
-        title={`${greeting}, ${name}`}
-        description={actions.length
-          ? `${actions.length} item${actions.length === 1 ? '' : 's'} need${actions.length === 1 ? 's' : ''} you today. The rest of your portfolio is running.`
-          : 'Nothing needs you today. Your listings are live and your account is in order.'}
-        actions={
-          <>
-            <LinkButton href="/phase1/listings/import" variant="outline" leftIcon={<Upload size={16} />}>Import listings</LinkButton>
-            <LinkButton href="/phase1/listings/new" variant="primary" leftIcon={<Plus size={16} />}>Create listing</LinkButton>
-          </>
-        }
-      />
+      {/* ----------------------------------------------------------- header */}
+      <header className="vr-rise mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 suppressHydrationWarning className="text-[24px] font-semibold tracking-[-0.02em] text-p1-text sm:text-[28px]">{greeting}, {first}</h1>
+          <p className="mt-1 text-[14px] text-p1-text-3">
+            {attention.length === 0
+              ? 'Everything is in order. Your portfolio at a glance.'
+              : <>{plural(attention.length, 'thing needs', 'things need')} you today{urgent ? <>, <span className="font-medium text-p1-danger">{urgent} urgent</span></> : ''}.</>}
+          </p>
+        </div>
+        <LinkButton href="/phase1/listings/new" leftIcon={<Plus size={16} />}>New listing</LinkButton>
+      </header>
 
-      <MetricStrip cols={6} className="mb-5">
-        <Metric label="Active" value={listingLimit ? `${activeListings}/${listingLimit}` : '—'} icon={<Building2 size={15} />}
-          tone={listingLimit && activeListings >= listingLimit ? 'danger' : 'default'}
-          hint={listingLimit ? `${listingLimit - activeListings} slots left` : 'No plan yet'} href="/phase1/listings?status=published" />
-        <Metric label="Drafts" value={drafts.length} icon={<CircleDashed size={15} />} hint="Not submitted" href="/phase1/listings?status=draft" />
-        <Metric label="Expiring" value={expiringSoon.length} icon={<CalendarClock size={15} />}
-          tone={expiringSoon.length ? 'warning' : 'default'} hint="Within 30 days" href="/phase1/listings?status=published" />
-        <Metric label="Enquiries" value={newEnquiries} icon={<MessageSquare size={15} />}
-          tone={newEnquiries ? 'info' : 'default'} hint="Awaiting reply" href="/phase1/enquiries" />
-        <Metric label="Views, 7 days" value={t.views7d.toLocaleString()} icon={<Eye size={15} />}
-          delta={{ value: `${viewTrend > 0 ? '+' : ''}${viewTrend}%`, good: viewTrend >= 0, label: 'week on week' }}
-          hint="All live listings" href="/phase1/performance" />
-        <Metric label="Enquiry rate" value={`${conversion}%`} icon={<Percent size={15} />}
-          tone={conversion >= 5 ? 'success' : conversion >= 3 ? 'default' : 'warning'} hint="Per 100 views" href="/phase1/performance" />
-      </MetricStrip>
+      {saveError && <Callout tone="danger" compact className="mb-5">{saveError}</Callout>}
+
+      {!canPublish && (
+        <Callout
+          tone="warning"
+          compact
+          className="mb-5"
+          title={`Publishing is blocked — ${failing[0]?.label.toLowerCase() ?? 'a check is failing'}`}
+          action={failing[0]?.fixHref ? <LinkButton href={failing[0].fixHref} size="sm" variant="outline">{failing[0].fixLabel ?? 'Fix'}</LinkButton> : undefined}
+        >
+          {failing.length > 1 ? `${failing.length - 1} more ${failing.length - 1 === 1 ? 'check' : 'checks'} also need attention.` : failing[0]?.detail}
+        </Callout>
+      )}
+
+      {/* ------------------------------------------------------------- KPIs */}
+      <section aria-label="Portfolio at a glance" className="vr-stagger mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KPI label="Active listings" value={activeListings} of={listingLimit || undefined} icon={<Building2 size={16} />} href="/phase1/listings?status=published" tone={listingLimit && activeListings >= listingLimit ? 'danger' : 'default'} />
+        <KPI label="Views, 7 days" value={t.views7d} compact icon={<Eye size={16} />} delta={{ pct: viewTrend, label: 'against the previous 7 days' }} href="/phase1/performance" />
+        <KPI label="New enquiries" value={newEnquiries.length} icon={<MessageSquare size={16} />} href="/phase1/enquiries" />
+        <KPI label="Expiring soon" value={expiring.length} icon={<CalendarClock size={16} />} tone={expiring.length ? 'warning' : 'default'} href="/phase1/listings?status=published" />
+      </section>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
-          <SectionCard
-            title="Needs you"
-            description={actions.length ? `${actions.length} item${actions.length === 1 ? '' : 's'}, most consequential first` : undefined}
-            padding="none"
-          >
-            {actions.length === 0 ? (
-              <EmptyState compact icon={<Check size={20} />} title="Nothing outstanding" description="Every listing is healthy and your account is in order." />
+          {/* ---------------------------------------------- needs attention */}
+          <Card padding="none" as="section" aria-labelledby="attention-h">
+            <div className="flex items-center justify-between gap-3 px-5 py-4">
+              <h2 id="attention-h" className="text-[15px] font-semibold text-p1-text">Needs attention</h2>
+              {attention.length > 0 && <span className="rounded-full bg-p1-subtle px-2 py-0.5 text-[12px] font-semibold tabular-nums text-p1-text-2">{attention.length}</span>}
+            </div>
+            {attention.length === 0 ? (
+              <div className="flex items-center gap-3 border-t border-p1-border px-5 py-5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden><Check size={17} /></span>
+                <div>
+                  <div className="text-[14px] font-medium text-p1-text">You&apos;re all caught up</div>
+                  <div className="text-[13px] text-p1-text-3">New items appear here the moment something needs you.</div>
+                </div>
+              </div>
             ) : (
-              <ul className="divide-y divide-p1-border">
-                {actions.map((r) => (
-                  <li key={r.key} className="flex flex-wrap items-start gap-x-3 gap-y-2 px-5 py-3.5 sm:flex-nowrap sm:items-center sm:px-6">
-                    <span className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full sm:mt-0', DOT[r.tone])} aria-hidden />
-                    <span className="shrink-0 text-p1-text-3" aria-hidden>{r.icon}</span>
-                    <div className="min-w-0 flex-1 basis-[16rem]">
-                      <div className="text-[14px] font-medium text-p1-text">{r.title}</div>
-                      <div className="mt-0.5 text-[13px] leading-5 text-p1-text-2">{r.why}</div>
-                    </div>
-                    <LinkButton href={r.href} size="sm" variant={r.tone === 'danger' ? 'primary' : 'outline'} className="shrink-0 max-sm:ml-8">
-                      {r.cta}
-                    </LinkButton>
+              <ul className="divide-y divide-p1-border border-t border-p1-border">
+                {attention.map((r) => (
+                  <li key={r.key}>
+                    <Link href={r.href} className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-p1-subtle/60">
+                      <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', TONE_ICON[r.tone])} aria-hidden><r.icon size={15} /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block line-clamp-2 text-[14px] font-medium text-p1-text sm:truncate">{r.title}</span>
+                        <span className="hidden truncate text-[12.5px] text-p1-text-3 sm:block">{r.why}</span>
+                      </span>
+                      <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-p1-primary">
+                        {r.cta}<ArrowRight size={14} className="transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden />
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
             )}
-          </SectionCard>
+          </Card>
 
-          <SectionCard
-            title="Ready to publish?"
-            description="Every listing must pass these five checks before it goes live."
-            actions={
-              <span className={cx('inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold', canPublish ? 'border-p1-success-border bg-p1-success-soft text-p1-success' : 'border-p1-danger-border bg-p1-danger-soft text-p1-danger')}>
-                {canPublish ? <Check size={14} strokeWidth={3} aria-hidden /> : <X size={14} strokeWidth={3} aria-hidden />}
-                {canPublish ? 'All checks passed' : 'Action needed'}
-              </span>
-            }
-            padding="none"
-          >
-            <ul className="divide-y divide-p1-border">
-              {gate.map((g) => (
-                <li key={g.id} className="flex flex-wrap items-start gap-x-3 gap-y-2 px-5 py-3.5 sm:flex-nowrap sm:px-6">
-                  <span className={cx('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', g.pass ? 'bg-p1-success-soft text-p1-success' : 'bg-p1-danger-soft text-p1-danger')} aria-hidden>
-                    {g.pass ? <Check size={13} strokeWidth={3} /> : <X size={13} strokeWidth={3} />}
-                  </span>
-                  <div className="min-w-0 flex-1 basis-[14rem]">
-                    <div className="text-[14px] font-medium text-p1-text">{g.label}<span className="sr-only">{g.pass ? ' — passed' : ' — failed'}</span></div>
-                    <div className="mt-0.5 text-[13px] text-p1-text-2">{g.detail}</div>
-                  </div>
-                  {!g.pass && g.fixHref && <LinkButton href={g.fixHref} variant="link" className="shrink-0 text-[13px] font-semibold max-sm:ml-9">{g.fixLabel ?? 'Fix'}</LinkButton>}
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-
-          {published.length > 0 && (
-            <SectionCard
-              title="Listing performance"
-              description="Last 7 days across everything live"
-              actions={<LinkButton href="/phase1/performance" variant="link" className="text-[13px]">Full report <ArrowRight size={13} aria-hidden /></LinkButton>}
-            >
-              <div className="grid gap-5 sm:grid-cols-[200px_minmax(0,1fr)]">
-                <div>
-                  <div className="text-[12.5px] font-medium text-p1-text-3">Views, 14 days</div>
-                  <MiniBars data={t.series} height={72} className="mt-2" label="Daily views across all live listings over the last 14 days" />
-                  <dl className="mt-3 space-y-1.5 text-[13px]">
-                    <div className="flex justify-between gap-2"><dt className="text-p1-text-2">Enquiries</dt><dd className="font-semibold tabular-nums text-p1-text">{t.enquiries7d}</dd></div>
-                    <div className="flex justify-between gap-2"><dt className="text-p1-text-2">Saves</dt><dd className="font-semibold tabular-nums text-p1-text">{t.saves}</dd></div>
-                  </dl>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[12.5px] font-medium text-p1-text-3">Enquiries by listing</div>
-                  <HBars className="mt-2.5" rows={ranked.slice(0, 4).map(({ l, s }) => ({ label: `${l.project} ${l.unitNo}`, hint: districtName(l.district), value: s.enquiries7d }))} />
-                </div>
+          {/* -------------------------------------------------- performance */}
+          <Card padding="none" as="section" aria-labelledby="perf-h">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
+              <div className="flex items-center gap-2">
+                <h2 id="perf-h" className="text-[15px] font-semibold text-p1-text">Listing performance</h2>
+                <Tooltip content="Views and enquiries are modelled from each listing until the tenant site has recorded two weeks of traffic.">
+                  <span tabIndex={0} className="inline-flex items-center gap-1 rounded-md bg-p1-subtle px-1.5 py-0.5 text-[11.5px] font-medium text-p1-text-3"><Info size={11} aria-hidden /> Modelled</span>
+                </Tooltip>
               </div>
-            </SectionCard>
-          )}
+              <Segmented<'views' | 'enquiries'>
+                label="Metric"
+                size="sm"
+                value={metric}
+                onChange={setMetric}
+                options={[{ key: 'views', label: 'Views' }, { key: 'enquiries', label: 'Enquiries' }]}
+              />
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 px-5 pt-2">
+              <span className="text-[13px] text-p1-text-3">Last 14 days</span>
+              <span className="text-[13px] text-p1-text-2"><span className="font-semibold tabular-nums text-p1-text">{(metric === 'views' ? t.views7d + prev7 : Math.round(enqPrev + enqLast)).toLocaleString('en-SG')}</span> {metric}</span>
+              <span className="text-[13px] text-p1-text-2"><span className="font-semibold tabular-nums text-p1-text">{t.saves.toLocaleString('en-SG')}</span> saves, 30 days</span>
+            </div>
+            <div className="px-3 pb-3 pt-1">
+              {published.length === 0 ? (
+                <EmptyState compact title="No live listings yet" description="Performance appears once a listing is published." />
+              ) : (
+                <AreaChart
+                  key={metric}
+                  height={220}
+                  labels={labels}
+                  series={[metric === 'views'
+                    ? { label: 'Views', points: t.series, tone: 'primary' }
+                    : { label: 'Enquiries', points: enquirySeries, tone: 'success' }]}
+                  valueLabel={(n) => (metric === 'views' ? Math.round(n).toLocaleString('en-SG') : String(Math.round(n * 10) / 10))}
+                />
+              )}
+            </div>
+          </Card>
 
-          <SectionCard
-            title="Recently updated"
-            padding="none"
-            actions={<LinkButton href="/phase1/listings" variant="link" className="text-[13px]">All listings <ArrowRight size={13} aria-hidden /></LinkButton>}
-          >
-            <ul className="divide-y divide-p1-border">
-              {recent.map((l) => (
-                <li key={l.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                  <Link href={`/phase1/listings/${l.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <PropertyCell l={l} sub={`${l.unitNo} · ${priceLabel(l).amount}${priceLabel(l).suffix} · ${districtName(l.district)}`} />
-                  </Link>
-                  {l.status === 'published' || l.status === 'paused' || l.status === 'expired'
-                    ? <StatsInline listing={l} className="hidden shrink-0 lg:inline-flex" />
-                    : <span className="hidden shrink-0 text-[12.5px] text-p1-text-3 lg:inline">Updated {sgDateShort(l.updatedAt ?? l.createdAt)}</span>}
-                  <HealthRing listing={l} size={30} className="hidden shrink-0 sm:inline-flex" />
-                  <StatusBadge kind="listing" value={l.status} size="sm" className="shrink-0" />
-                  <Menu items={a.menuFor(l, { includeView: true })} label={`Actions for ${l.project}`} />
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
+          {/* ---------------------------------------------- top performing */}
+          {top.length > 0 && (
+            <section aria-labelledby="top-h">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 id="top-h" className="text-[15px] font-semibold text-p1-text">Top performing</h2>
+                <Link href="/phase1/performance" className="inline-flex items-center gap-1 text-[13px] font-medium text-p1-primary hover:underline underline-offset-4">Performance <ArrowRight size={13} aria-hidden /></Link>
+              </div>
+              <ul className="vr-stagger grid gap-4 sm:grid-cols-3">
+                {top.map(({ l, s }, i) => {
+                  const p = priceLabel(l);
+                  return (
+                    <li key={l.id}>
+                      <Link href={`/phase1/listings/${l.id}`} className="group block overflow-hidden rounded-xl border border-p1-border bg-p1-surface transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-p1-border-strong hover:shadow-p1-md">
+                        <div className="relative">
+                          <PropertyImage seed={l.reference + l.project} src={coverPhoto(user?.id, l)} alt="" rounded="rounded-none" className="aspect-[16/10] w-full" />
+                          {i === 0 && <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md bg-p1-surface/95 px-1.5 py-0.5 text-[11.5px] font-semibold text-p1-text shadow-p1-sm"><Sparkles size={11} className="text-p1-accent-text" aria-hidden /> Best this week</span>}
+                        </div>
+                        <div className="p-3.5">
+                          <div className="truncate text-[14px] font-semibold text-p1-text">{l.project}</div>
+                          <div className="truncate text-[12.5px] text-p1-text-3">{p.amount}{p.suffix} · {districtLabel(l.district)}</div>
+                          <div className="mt-2.5 flex items-center gap-4 border-t border-p1-border pt-2.5 text-[12.5px] text-p1-text-2">
+                            <span className="inline-flex items-center gap-1.5"><Eye size={13} className="text-p1-text-3" aria-hidden /><span className="font-semibold tabular-nums text-p1-text">{s.views7d}</span></span>
+                            <span className="inline-flex items-center gap-1.5"><MessageSquare size={13} className="text-p1-text-3" aria-hidden /><span className="font-semibold tabular-nums text-p1-text">{s.enquiries7d}</span></span>
+                            <span className="ml-auto tabular-nums text-p1-text-3">{s.conversion}%</span>
+                          </div>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </div>
 
-        <div className="space-y-4">
+        {/* ---------------------------------------------------------- rail */}
+        <div className="min-w-0 space-y-5">
+          <Card padding="none" as="section" aria-labelledby="enq-h">
+            <div className="flex items-center justify-between gap-3 px-5 py-4">
+              <h2 id="enq-h" className="text-[15px] font-semibold text-p1-text">Recent enquiries</h2>
+              <Link href="/phase1/enquiries" className="text-[13px] font-medium text-p1-primary hover:underline underline-offset-4">View all</Link>
+            </div>
+            {latestEnquiries.length === 0 ? (
+              <div className="border-t border-p1-border px-5 py-6 text-center">
+                <div className="text-[14px] font-medium text-p1-text">No enquiries yet</div>
+                <div className="mt-0.5 text-[13px] text-p1-text-3">Your listing activity will appear here.</div>
+              </div>
+            ) : (
+              <ul className="divide-y divide-p1-border border-t border-p1-border">
+                {latestEnquiries.map((e) => {
+                  const l = byId.get(e.listingId);
+                  const fresh = e.status === 'new';
+                  return (
+                    <li key={e.id}>
+                      <Link href="/phase1/enquiries" className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-p1-subtle/60">
+                        <span className="relative">
+                          <Avatar name={e.name} size="sm" tone={fresh ? 'primary' : 'neutral'} />
+                          {fresh && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-p1-primary ring-2 ring-p1-surface" aria-hidden />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-baseline justify-between gap-2">
+                            <span className={cx('truncate text-[13.5px] text-p1-text', fresh ? 'font-semibold' : 'font-medium')}>{e.name}{fresh && <span className="sr-only"> (new)</span>}</span>
+                            <span className="shrink-0 text-[12px] tabular-nums text-p1-text-3">{sgRelative(e.at, TODAY)}</span>
+                          </span>
+                          <span className="block truncate text-[12.5px] text-p1-text-3">{l ? l.project : 'Listing removed'} · {e.channel}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+
+          <Card padding="sm" as="section" aria-labelledby="plan-h">
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="plan-h" className="text-[13px] font-medium text-p1-text-3">{state.plan ? `${state.plan.name} plan` : 'No plan'}</h2>
+              <Link href={state.plan ? '/phase1/checkout' : '/phase1/plans'} className="text-[13px] font-medium text-p1-primary hover:underline underline-offset-4">{state.plan ? 'Manage' : 'Choose a plan'}</Link>
+            </div>
+            {listingLimit > 0 ? (
+              <>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="text-[22px] font-semibold tabular-nums tracking-[-0.02em] text-p1-text">{Math.max(0, listingLimit - activeListings)}</span>
+                  <span className="text-[13px] text-p1-text-3">of {listingLimit} listing slots free</span>
+                </div>
+                <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-p1-subtle" role="progressbar" aria-valuenow={quotaPct} aria-valuemin={0} aria-valuemax={100} aria-label="Listing slots used">
+                  <div className={cx('vr-grow h-full rounded-full', quotaPct >= 100 ? 'bg-p1-danger' : quotaPct >= 80 ? 'bg-p1-warning' : 'bg-p1-primary')} style={{ width: `${quotaPct}%` }} />
+                </div>
+              </>
+            ) : (
+              <p className="mt-1.5 text-[13px] leading-5 text-p1-text-2">Choose a plan to start publishing.</p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-2 border-t border-p1-border pt-3 text-[12.5px]">
+              <span className="text-p1-text-3">CEA registration</span>
+              {state.ceaValid
+                ? <span className="font-medium text-p1-text-2">Valid to {sgDate(state.ceaValidUntil)}</span>
+                : <Link href="/phase1/status" className="font-medium text-p1-danger">Lapsed</Link>}
+            </div>
+          </Card>
+
           {insight && (
-            <Card className="border-p1-accent/40 bg-p1-accent-soft/40">
+            <Card padding="sm" as="section">
               <div className="flex items-start gap-3">
-                <Lightbulb size={18} className="mt-0.5 shrink-0 text-p1-accent-text" aria-hidden />
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-p1-accent-soft text-p1-accent-text" aria-hidden><Lightbulb size={15} /></span>
                 <div className="min-w-0">
-                  <div className="text-[12px] font-semibold text-p1-accent-text">This week</div>
-                  <div className="mt-1 text-[14.5px] font-semibold leading-6 text-p1-text">{insight.headline}</div>
-                  <p className="mt-1.5 text-[13px] leading-5 text-p1-text-2">{insight.detail}</p>
+                  <p className="text-[13.5px] font-medium leading-5 text-p1-text">{insight.headline}</p>
                   {insight.href && (
-                    <LinkButton href={insight.href} size="sm" variant="outline" className="mt-3">Act on this</LinkButton>
+                    <Link href={insight.href} className="mt-1.5 inline-flex items-center gap-0.5 text-[13px] font-medium text-p1-primary hover:underline underline-offset-4">
+                      Take a look <ChevronRight size={13} aria-hidden />
+                    </Link>
                   )}
                 </div>
               </div>
             </Card>
           )}
-
-          <SectionCard title="Weakest listings" description="Lowest Listing Health" padding="none">
-            <ul className="divide-y divide-p1-border">
-              {weakest.map((l) => {
-                const h = listingHealth(l);
-                return (
-                  <li key={l.id}>
-                    <Link href={`/phase1/listings/${l.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-p1-subtle/60">
-                      <HealthRing listing={l} size={34} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13.5px] font-medium text-p1-text">{l.project}</span>
-                        <span className="block truncate text-[12.5px] text-p1-text-2">{h.missing[0]?.fix ?? 'Nothing missing'}</span>
-                      </span>
-                      <ChevronRight size={16} className="shrink-0 text-p1-text-3" aria-hidden />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </SectionCard>
-
-          {ranked[0] && (
-            <SectionCard title="Best performer" description="Most enquiries this week" padding="sm">
-              <Link href={`/phase1/listings/${ranked[0].l.id}`} className="block rounded-lg hover:bg-p1-subtle/60">
-                <PropertyCell l={ranked[0].l} sub={`${ranked[0].l.unitNo} · ${districtName(ranked[0].l.district)}`} />
-              </Link>
-              <div className="mt-3 flex items-center justify-between border-t border-p1-border pt-3 text-[13px]">
-                <span className="text-p1-text-2"><span className="font-semibold tabular-nums text-p1-text">{ranked[0].s.enquiries7d}</span> enquiries · <span className="font-semibold tabular-nums text-p1-text">{ranked[0].s.views7d}</span> views</span>
-                <Pulse listing={ranked[0].l} showSpark={false} />
-              </div>
-            </SectionCard>
-          )}
-
-          <Card padding="sm">
-            <div className="flex items-center gap-2 text-[13.5px] font-semibold text-p1-text"><TrendingUp size={15} className="text-p1-text-3" aria-hidden /> Quota</div>
-            <div className="mt-2 flex items-baseline justify-between">
-              <span className="font-p1display text-[24px] font-medium tabular-nums text-p1-text">{activeListings}<span className="text-[14px] text-p1-text-3"> / {listingLimit || '—'}</span></span>
-              <Pill tone={quotaPct >= 100 ? 'danger' : quotaPct >= 80 ? 'warning' : 'neutral'}>{state.plan?.name ?? 'No plan'}</Pill>
-            </div>
-            {listingLimit > 0 ? (
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-p1-subtle" aria-hidden>
-                <div className={cx('h-full rounded-full', quotaPct >= 100 ? 'bg-p1-danger' : quotaPct >= 80 ? 'bg-p1-warning' : 'bg-p1-primary dark:bg-p1-info')} style={{ width: `${quotaPct}%` }} />
-              </div>
-            ) : (
-              <p className="mt-2 text-[12.5px] leading-5 text-p1-text-3">No plan is active, so no quota is allocated. These listings cannot be published yet.</p>
-            )}
-            <LinkButton href="/phase1/plans" variant="link" size="sm" className="mt-2 text-[13px]">Change plan</LinkButton>
-          </Card>
-
-
         </div>
       </div>
-
-      <ListingActionDialogs a={a} />
-
     </>
   );
 }

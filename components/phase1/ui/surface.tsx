@@ -36,25 +36,27 @@ export function Card({
 
 /** Card with a titled header row. Header is compact so the content dominates. */
 export function SectionCard({
-  title, description, actions, children, footer, className = '', padding = 'md', icon, id,
+  title, description, actions, children, footer, className = '', padding = 'md', icon, id, divided = true,
 }: {
   title: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode;
   footer?: React.ReactNode; className?: string; padding?: 'none' | 'sm' | 'md' | 'lg'; icon?: React.ReactNode; id?: string;
+  /** A hairline under the header. Off for a card whose content starts with its own rows. */
+  divided?: boolean;
 }) {
   return (
     <Card padding="none" className={className} as="section" id={id}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-p1-border px-5 py-3.5">
+      <div className={cx('flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5', divided && 'border-b border-p1-border')}>
         <div className="flex min-w-0 items-center gap-2.5">
-          {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden>{icon}</span>}
+          {icon && <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-p1-subtle text-p1-text-2" aria-hidden>{icon}</span>}
           <div className="min-w-0">
-            <h2 className="font-p1display text-[16.5px] font-bold leading-5 tracking-[-0.01em] text-p1-text">{title}</h2>
-            {description && <p className="mt-0.5 text-[13px] leading-5 text-p1-text-3">{description}</p>}
+            <h2 className="text-[15px] font-semibold leading-5 tracking-[-0.01em] text-p1-text">{title}</h2>
+            {description && <p className="mt-0.5 text-[12.5px] leading-5 text-p1-text-3">{description}</p>}
           </div>
         </div>
         {actions && <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div>}
       </div>
       <div className={{ none: '', sm: 'p-4', md: 'p-5', lg: 'p-6 sm:p-7' }[padding]}>{children}</div>
-      {footer && <div className="rounded-b-xl border-t border-p1-border bg-p1-subtle/50 px-5 py-3.5">{footer}</div>}
+      {footer && <div className="rounded-b-xl border-t border-p1-border bg-p1-subtle/50 px-5 py-3">{footer}</div>}
     </Card>
   );
 }
@@ -83,23 +85,34 @@ export function Breadcrumbs({ items, className = '' }: { items: Crumb[]; classNa
  * Page header. Level 1 of the hierarchy: what page am I on.
  * `size="lg"` for landing-style pages; the default suits working screens.
  */
+/**
+ * Eyebrows that only repeat the sidebar group the page already sits under.
+ * The sidebar says where you are; the title says what this is. Saying it a
+ * third time above the title is the repetition this product is shedding.
+ */
+const GENERIC_EYEBROWS = new Set([
+  'Workspace', 'Administration', 'Account', 'Business', 'Clients', 'Reach', 'Market data', 'Help',
+  'Subscription', 'Operations', 'Insight', 'Directory', 'Billing', 'Queues',
+]);
+
 export function PageHeader({
   eyebrow, title, description, actions, crumbs, meta, className = '', size = 'md', avatar,
 }: {
   eyebrow?: React.ReactNode; title: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode;
   crumbs?: Crumb[]; meta?: React.ReactNode; className?: string; size?: 'md' | 'lg'; avatar?: React.ReactNode;
 }) {
+  const showEyebrow = eyebrow && !(typeof eyebrow === 'string' && GENERIC_EYEBROWS.has(eyebrow));
   return (
-    <header className={cx('vr-rise mb-5 sm:mb-6', className)}>
+    <header className={cx('vr-rise mb-6', className)}>
       {crumbs && <Breadcrumbs items={crumbs} />}
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 max-w-3xl items-start gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+        <div className="flex min-w-0 max-w-3xl items-center gap-4">
           {avatar}
           <div className="min-w-0">
-            {eyebrow && <div className="mb-1.5 text-[12.5px] font-semibold text-p1-text-3">{eyebrow}</div>}
-            <h1 className={cx('font-p1display font-bold leading-[1.1] tracking-[-0.022em] text-p1-text text-balance', size === 'lg' ? 'text-[34px] sm:text-[44px]' : 'text-[28px] sm:text-[34px]')}>{title}</h1>
-            {description && <p className="mt-1.5 max-w-2xl text-[14px] leading-6 text-p1-text-2">{description}</p>}
-            {meta && <div className="mt-2.5 flex flex-wrap items-center gap-2">{meta}</div>}
+            {showEyebrow && <div className="mb-1 text-[13px] font-medium text-p1-text-3">{eyebrow}</div>}
+            <h1 className={cx('font-semibold leading-[1.15] tracking-[-0.02em] text-p1-text text-balance', size === 'lg' ? 'text-[30px] sm:text-[36px]' : 'text-[24px] sm:text-[28px]')}>{title}</h1>
+            {description && <p className="mt-1 max-w-2xl text-[14px] leading-6 text-p1-text-3">{description}</p>}
+            {meta && <div className="mt-2 flex flex-wrap items-center gap-2">{meta}</div>}
           </div>
         </div>
         {actions && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{actions}</div>}
@@ -112,7 +125,7 @@ export function SectionTitle({ children, hint, actions, className = '', as: Tag 
   return (
     <div className={cx('mb-3 flex flex-wrap items-end justify-between gap-2', className)}>
       <div>
-        <Tag className="font-p1display text-[19px] font-bold tracking-[-0.015em] text-p1-text">{children}</Tag>
+        <Tag className="text-[17px] font-semibold tracking-[-0.015em] text-p1-text">{children}</Tag>
         {hint && <p className="mt-0.5 text-[13px] text-p1-text-3">{hint}</p>}
       </div>
       {actions}
@@ -153,7 +166,7 @@ export function Metric({
         {icon && <span className="shrink-0 text-p1-text-3" aria-hidden>{icon}</span>}
       </div>
       <div className="mt-1.5 flex items-baseline gap-2">
-        <span className={cx('font-p1display text-[28px] font-bold leading-none tracking-[-0.02em] tabular-nums', emphasis ? 'text-[32px]' : '', VALUE_TONE[tone])}>{value}</span>
+        <span className={cx('text-[24px] font-semibold leading-none tracking-[-0.02em] tabular-nums', emphasis ? 'text-[28px]' : '', VALUE_TONE[tone])}>{value}</span>
         {delta && (
           <span className={cx('text-[12px] font-semibold tabular-nums', delta.good === false ? 'text-p1-danger' : delta.good ? 'text-p1-success' : 'text-p1-text-3')} title={delta.label}>{delta.value}</span>
         )}
@@ -178,7 +191,7 @@ export function StatCard({
         <span className="text-[12.5px] font-medium text-p1-text-3">{label}</span>
         {icon && <span className="text-p1-text-3" aria-hidden>{icon}</span>}
       </div>
-      <div className={cx('mt-2 font-p1display text-[28px] font-bold leading-none tracking-[-0.02em] tabular-nums', VALUE_TONE[tone])}>{value}</div>
+      <div className={cx('mt-2 text-[24px] font-semibold leading-none tracking-[-0.02em] tabular-nums', VALUE_TONE[tone])}>{value}</div>
       {(hint || delta) && (
         <div className="mt-2 flex items-center gap-2 text-[12.5px] text-p1-text-3">
           {delta && <span className={cx('font-semibold', delta.good === false ? 'text-p1-danger' : delta.good ? 'text-p1-success' : '')}>{delta.value}</span>}

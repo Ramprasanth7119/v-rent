@@ -139,7 +139,7 @@ body {
    ============================================================ */
 
 @keyframes vr-rise {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes vr-fade {
@@ -164,23 +164,20 @@ body {
   to   { stroke-dashoffset: var(--vr-ring-off); }
 }
 
-.vr-rise  { animation: vr-rise .45s cubic-bezier(.16,1,.3,1) both; }
-.vr-fade  { animation: vr-fade .5s ease both; }
+.vr-rise  { animation: vr-rise .32s cubic-bezier(.2,.8,.2,1) both; }
+.vr-fade  { animation: vr-fade .24s ease both; }
 .vr-pop   { animation: vr-pop .4s cubic-bezier(.16,1,.3,1) both; }
 .vr-grow  { transform-origin: left center; animation: vr-grow-x .8s cubic-bezier(.22,1,.36,1) both; }
 .vr-ring  { animation: vr-ring 1.1s cubic-bezier(.22,1,.36,1) both; }
 
 /* Stagger helpers — applied to children of a revealed group. */
-.vr-stagger > *          { animation: vr-rise .45s cubic-bezier(.16,1,.3,1) both; }
-.vr-stagger > *:nth-child(1)  { animation-delay: .02s }
-.vr-stagger > *:nth-child(2)  { animation-delay: .06s }
-.vr-stagger > *:nth-child(3)  { animation-delay: .10s }
-.vr-stagger > *:nth-child(4)  { animation-delay: .14s }
-.vr-stagger > *:nth-child(5)  { animation-delay: .18s }
-.vr-stagger > *:nth-child(6)  { animation-delay: .22s }
-.vr-stagger > *:nth-child(7)  { animation-delay: .26s }
-.vr-stagger > *:nth-child(8)  { animation-delay: .30s }
-.vr-stagger > *:nth-child(n+9){ animation-delay: .34s }
+.vr-stagger > *          { animation: vr-rise .32s cubic-bezier(.2,.8,.2,1) both; }
+.vr-stagger > *:nth-child(1)  { animation-delay: 0s }
+.vr-stagger > *:nth-child(2)  { animation-delay: .04s }
+.vr-stagger > *:nth-child(3)  { animation-delay: .08s }
+.vr-stagger > *:nth-child(4)  { animation-delay: .12s }
+.vr-stagger > *:nth-child(5)  { animation-delay: .16s }
+.vr-stagger > *:nth-child(n+6){ animation-delay: .2s }
 
 /* Shimmer used on the funnel bars while they grow. */
 .vr-shimmer::after {
@@ -204,137 +201,141 @@ body {
 }
 
 /* ============================================================
-   V-RENT Phase 1 — design system tokens
-   Scoped to the `.p1` root so nothing here leaks into the
-   consumer application. Light values first; dark overrides
-   follow under `.dark .p1`.
+   V-RENT — design tokens
+   Scoped to the `.p1` root so nothing here leaks into the older
+   consumer application in this repository. Light values first;
+   dark overrides follow under `.dark .p1`.
+
+   The whole system in one sentence: slate neutrals, one blue for
+   action, status colours only where they carry meaning, Inter for
+   everything, borders before shadows. See docs/design/DESIGN-SYSTEM.md.
    ============================================================ */
 
 .p1 {
-  /* --------------------------------------------------------------- surfaces
-     A page is white with a faint cool cast, not grey. Grey backgrounds read as
-     administrative; the tint is what makes a card feel placed rather than
-     drawn. */
-  --p1-bg: #F4F7F9;
+  /* surfaces */
+  --p1-bg: #F7F8FA;
   --p1-surface: #FFFFFF;
   --p1-elevated: #FFFFFF;
-  --p1-subtle: #E8F0F4;
-  --p1-border: #DBE6EC;
-  --p1-border-strong: #B9CDD7;
+  --p1-subtle: #F2F4F7;
+  --p1-border: #E5E7EB;
+  --p1-border-strong: #D0D5DD;
 
-  /* ------------------------------------------------------------------- ink
-     Headings are a deep petrol slate rather than near-black, so the type sits
-     in the same family as the action colour instead of fighting it. */
-  --p1-text: #0B2430;
-  --p1-text-2: #44606E;
-  --p1-text-3: #74909D;
+  /* ink */
+  --p1-text: #111827;
+  --p1-text-2: #475467;
+  --p1-text-3: #667085;
 
-  /* ---------------------------------------------------------------- action
-     Deep petrol: a blue-green dark enough to carry white text at any size, and
-     far enough from the default framework blue that the product looks like a
-     brand rather than a starter template. It sits nowhere near the success
-     green or the danger red, so a coloured control never reads as a verdict. */
-  --p1-primary: #0A5C73;
-  --p1-primary-hover: #07485A;
-  --p1-primary-soft: #E0EEF3;
+  /* action */
+  --p1-primary: #2563EB;
+  --p1-primary-hover: #1D4ED8;
+  --p1-primary-soft: #EFF4FF;
   --p1-primary-on: #FFFFFF;
 
-  /* ----------------------------------------------------------------- accent
-     Gold is the brand mark. It earns its place by appearing only where petrol
-     cannot: on the dark hero and the dark sidebar. Two competing call-to-action
-     colours on one light screen is what makes an interface look generic. */
-  --p1-accent: #F2B322;
-  --p1-accent-hover: #DFA211;
-  --p1-accent-text: #8A6410;
-  --p1-accent-soft: #FEF6E0;
-  --p1-accent-on: #0B2430;
+  /* accent — amber, reserved for "featured" and the cover photograph */
+  --p1-accent: #F5A524;
+  --p1-accent-hover: #E08E0B;
+  --p1-accent-text: #B45309;
+  --p1-accent-soft: #FFF7E6;
+  --p1-accent-on: #111827;
 
-  /* A badge colour, for the one label per screen that should catch the eye. */
   --p1-highlight: #C2385F;
   --p1-highlight-soft: #FDEDF1;
   --p1-highlight-border: #F6C9D5;
 
-  --p1-success: #12734A;
-  --p1-success-soft: #EAF7F0;
-  --p1-success-border: #A9E2C5;
-  --p1-warning: #B15A08;
-  --p1-warning-soft: #FFF7EA;
-  --p1-warning-border: #FBDCA8;
-  --p1-danger: #B42318;
-  --p1-danger-soft: #FEF3F2;
-  --p1-danger-border: #FECDCA;
-  --p1-info: #2563A8;
-  --p1-info-soft: #E9F1FA;
-  --p1-info-border: #C2D8F0;
+  /* status */
+  --p1-success: #059669;
+  --p1-success-soft: #ECFDF5;
+  --p1-success-border: #A7F3D0;
+  --p1-warning: #D97706;
+  --p1-warning-soft: #FFFBEB;
+  --p1-warning-border: #FDE68A;
+  --p1-danger: #DC2626;
+  --p1-danger-soft: #FEF2F2;
+  --p1-danger-border: #FECACA;
+  --p1-info: #0284C7;
+  --p1-info-soft: #F0F9FF;
+  --p1-info-border: #BAE6FD;
 
-  /* The dark chrome is a charcoal with a teal cast rather than a navy. Navy
-     beside a blue-green action colour reads as two attempts at the same idea;
-     a near-black lets both the petrol and the gold carry at full strength, and
-     is what a console someone stares at all day should be. */
-  --p1-sidebar: #0E2124;
-  --p1-sidebar-2: #081416;
-  --p1-sidebar-line: #1E3337;
+  /* deep feature panel (promotional cards, sign-in art). Never navigation
+     chrome: the sidebar and header follow the theme's surface tokens. */
+  --p1-sidebar: #0B1220;
+  --p1-sidebar-2: #0B1220;
+  --p1-sidebar-line: #1E293B;
 
-  /* Shadows carry a little of the page's petrol, so a raised card reads as lit
-     rather than smudged. Cards lean on these instead of a hairline border. */
-  --p1-shadow-sm: 0 1px 2px rgba(8, 36, 48, 0.06);
-  --p1-shadow-md: 0 4px 16px -4px rgba(8, 36, 48, 0.11), 0 1px 3px rgba(8, 36, 48, 0.05);
-  --p1-shadow-lg: 0 20px 44px -16px rgba(8, 36, 48, 0.26), 0 4px 10px rgba(8, 36, 48, 0.08);
-  --p1-ring: rgba(10, 92, 115, 0.30);
+  /* elevation — hairline first, shadow second */
+  --p1-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --p1-shadow-md: 0 1px 3px rgba(16, 24, 40, 0.06), 0 6px 16px -4px rgba(16, 24, 40, 0.08);
+  --p1-shadow-lg: 0 16px 40px -12px rgba(16, 24, 40, 0.22), 0 2px 6px rgba(16, 24, 40, 0.06);
+  --p1-ring: rgba(37, 99, 235, 0.32);
+
+  /* motion */
+  --p1-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --p1-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --p1-fast: 140ms;
+  --p1-normal: 200ms;
+  --p1-slow: 360ms;
+
+  /* z-index */
+  --p1-z-sticky: 20;
+  --p1-z-header: 40;
+  --p1-z-overlay: 100;
+  --p1-z-toast: 120;
 
   --font-p1-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-p1-display: 'Manrope', 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-p1-display: var(--font-p1-sans);
 
   font-family: var(--font-p1-sans);
-  font-feature-settings: 'cv11', 'ss03', 'cv05';
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
   letter-spacing: -0.006em;
   background-color: var(--p1-bg);
   color: var(--p1-text);
   -webkit-font-smoothing: antialiased;
+  color-scheme: light;
 }
 
 
 .dark .p1 {
-  --p1-bg: #061116;
-  --p1-surface: #0D1B22;
-  --p1-elevated: #13252E;
-  --p1-subtle: #14262F;
-  --p1-border: #21373F;
-  --p1-border-strong: #34515C;
-  --p1-text: #E9F1F4;
-  --p1-text-2: #A9BFC8;
-  --p1-text-3: #7D97A2;
-  --p1-primary: #45A9C4;
-  --p1-primary-hover: #62BDD5;
-  --p1-primary-soft: #0F2F3B;
-  --p1-primary-on: #04202C;
-  --p1-accent: #F2B322;
-  --p1-accent-hover: #FFC340;
-  --p1-accent-text: #F2B322;
-  --p1-accent-soft: #2C2410;
-  --p1-accent-on: #04202C;
+  --p1-bg: #0B1220;
+  --p1-surface: #111827;
+  --p1-elevated: #172033;
+  --p1-subtle: #1A2436;
+  --p1-border: #263247;
+  --p1-border-strong: #364459;
+  --p1-text: #F8FAFC;
+  --p1-text-2: #CBD5E1;
+  --p1-text-3: #94A3B8;
+  --p1-primary: #60A5FA;
+  --p1-primary-hover: #93C5FD;
+  --p1-primary-soft: #16233D;
+  --p1-primary-on: #0B1220;
+  --p1-accent: #FBBF24;
+  --p1-accent-hover: #FCD34D;
+  --p1-accent-text: #FBBF24;
+  --p1-accent-soft: #2A2110;
+  --p1-accent-on: #0B1220;
   --p1-highlight: #F2799C;
   --p1-highlight-soft: #33161F;
   --p1-highlight-border: #6B2438;
-  --p1-success: #4ADE80;
-  --p1-success-soft: #0D2A1C;
-  --p1-success-border: #1E5A3A;
+  --p1-success: #34D399;
+  --p1-success-soft: #0C2621;
+  --p1-success-border: #1D5B48;
   --p1-warning: #FBBF24;
-  --p1-warning-soft: #2A2109;
+  --p1-warning-soft: #2A2110;
   --p1-warning-border: #6B4E0B;
   --p1-danger: #F87171;
-  --p1-danger-soft: #2C1414;
-  --p1-danger-border: #7A2626;
-  --p1-info: #6FA8E8;
-  --p1-info-soft: #132638;
-  --p1-info-border: #29486B;
-  --p1-sidebar: #0A181A;
-  --p1-sidebar-2: #060E10;
-  --p1-sidebar-line: #1B2C2F;
-  --p1-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --p1-shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.5);
-  --p1-shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.7);
-  --p1-ring: rgba(69, 169, 196, 0.45);
+  --p1-danger-soft: #2B1519;
+  --p1-danger-border: #7F2A2A;
+  --p1-info: #38BDF8;
+  --p1-info-soft: #0C2233;
+  --p1-info-border: #14506F;
+  --p1-sidebar: #0A101C;
+  --p1-sidebar-2: #0A101C;
+  --p1-sidebar-line: #1E293B;
+  --p1-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --p1-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 20px -6px rgba(0, 0, 0, 0.45);
+  --p1-shadow-lg: 0 20px 48px -12px rgba(0, 0, 0, 0.65);
+  --p1-ring: rgba(96, 165, 250, 0.4);
+  color-scheme: dark;
 }
 
 
@@ -384,9 +385,8 @@ body {
 
 /* Focus ring — one rule, every interactive element. */
 .p1 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--p1-accent);
+  outline: 2px solid var(--p1-primary);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 .p1 input:focus-visible, .p1 select:focus-visible, .p1 textarea:focus-visible {
   outline-offset: 0;
@@ -395,7 +395,7 @@ body {
 
 /* Scrollbar inside the prototype — a little wider for older hands. */
 .p1 * { scrollbar-color: var(--p1-border-strong) transparent; }
-.p1 ::-webkit-scrollbar { width: 10px; height: 10px; }
+.p1 ::-webkit-scrollbar { width: 8px; height: 8px; }
 .p1 ::-webkit-scrollbar-thumb { background: var(--p1-border-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 
 /* Skeleton shimmer */
@@ -409,17 +409,20 @@ body {
 
 /* Overlay and panel motion */
 @keyframes p1-overlay { from { opacity: 0 } to { opacity: 1 } }
-@keyframes p1-panel-in { from { opacity: 0; transform: translateY(8px) scale(.985) } to { opacity: 1; transform: none } }
-@keyframes p1-drawer-in { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
-@keyframes p1-drawer-in-left { from { transform: translateX(-24px); opacity: 0 } to { transform: none; opacity: 1 } }
-.p1-overlay { animation: p1-overlay .18s ease both; }
-.p1-panel { animation: p1-panel-in .22s cubic-bezier(.16,1,.3,1) both; }
-.p1-drawer { animation: p1-drawer-in .24s cubic-bezier(.16,1,.3,1) both; }
-.p1-drawer-left { animation: p1-drawer-in-left .24s cubic-bezier(.16,1,.3,1) both; }
+@keyframes p1-panel-in { from { opacity: 0; transform: translateY(6px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes p1-drawer-in { from { transform: translateX(100%) } to { transform: none } }
+@keyframes p1-drawer-in-left { from { transform: translateX(-100%) } to { transform: none } }
+@keyframes p1-sheet-in { from { transform: translateY(100%) } to { transform: none } }
+.p1-overlay { animation: p1-overlay var(--p1-normal) ease both; }
+.p1-panel { animation: p1-panel-in var(--p1-normal) var(--p1-ease) both; transform-origin: top center; }
+.p1-drawer { animation: p1-drawer-in var(--p1-slow) var(--p1-ease) both; }
+.p1-drawer-left { animation: p1-drawer-in-left var(--p1-slow) var(--p1-ease) both; }
+.p1-sheet { animation: p1-sheet-in var(--p1-slow) var(--p1-ease) both; }
+@media (min-width: 640px) { .p1-sheet { animation: p1-panel-in var(--p1-normal) var(--p1-ease) both; } }
 
 @media (prefers-reduced-motion: reduce) {
   .p1-skeleton { animation: none; }
-  .p1-overlay, .p1-panel, .p1-drawer, .p1-drawer-left { animation: none !important; }
+  .p1-overlay, .p1-panel, .p1-drawer, .p1-drawer-left, .p1-sheet { animation: none !important; }
   .p1 * { transition-duration: .01ms !important; }
 }
 
@@ -471,19 +474,18 @@ body {
    Scoped to `.p1` so the consumer application is untouched.
    ============================================================ */
 
-/* Rounder than an enterprise dashboard, because this is a consumer-facing
-   product that agents use all day. The Singapore portals sit around 16px on a
-   card and full pills on anything small. */
+/* The radius scale: 6 · 10 · 14 · 20. Cards are soft, controls are not pills,
+   and a table stays square enough to read as a table. */
 .p1 .rounded-2xl { border-radius: 20px; }
-.p1 .rounded-xl  { border-radius: 16px; }
-.p1 .rounded-lg  { border-radius: 12px; }
-.p1 .rounded-md  { border-radius: 9px; }
+.p1 .rounded-xl  { border-radius: 14px; }
+.p1 .rounded-lg  { border-radius: 10px; }
+.p1 .rounded-md  { border-radius: 6px; }
 
 /* Display face carries weight, not a different family. */
 .p1 .font-p1display {
   font-family: var(--font-p1-display);
-  font-weight: 700;
-  letter-spacing: -0.022em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 /* Prices, areas, counts and dates are read in columns — line them up. */
@@ -546,7 +548,7 @@ body {
 }
 .p1-viz-draw.is-in {
   opacity: 1;
-  animation: p1-viz-draw 1100ms cubic-bezier(.22,.61,.36,1) both;
+  animation: p1-viz-draw 800ms cubic-bezier(.22,.61,.36,1) both;
 }
 .p1-viz-fade { opacity: 0; }
 .p1-viz-fade.is-in { animation: p1-viz-fade 700ms ease both; }
@@ -557,9 +559,10 @@ body {
 @keyframes p1-lift { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .p1-lift { animation: p1-lift 520ms cubic-bezier(.16,1,.3,1) both; }
 
-/* A quiet pulse for anything live. */
-@keyframes p1-live { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
-.p1-live { animation: p1-live 2.2s ease-in-out infinite; }
+/* A live indicator: a ring that settles once, then stays still. Nothing in
+   the interface loops. */
+@keyframes p1-live { from { box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 30%, transparent); } to { box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent); } }
+.p1-live { animation: p1-live 900ms var(--p1-ease) both; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent); }
 
 /* The sheen that crosses a hero once on load. */
 @keyframes p1-sheen { from { transform: translateX(-120%) skewX(-18deg); } to { transform: translateX(320%) skewX(-18deg); } }
@@ -591,3 +594,196 @@ body {
    at zero so any explicit `min-w-*` utility still wins.
    ============================================================ */
 .p1 :where(.grid) > * { min-width: 0; }
+
+/* ============================================================
+   Client shortlist document (/phase1/listings/export).
+
+   Here rather than in the page's styled-jsx block, which only
+   arrives with the page's JavaScript: before that the tables
+   had no scroll container, a phone's layout widened to 616px,
+   and the progress panel sat off-centre until hydration.
+
+   `print-color-adjust` stops the browser's ink-saving default
+   from dropping the dark cover, the price tints and the
+   category colours.
+   ============================================================ */
+/* Screen only: the document is A4, the reader's phone is not. The
+   print block below puts every grid back to the fixed layout. */
+.vr-split { grid-template-columns: minmax(0, 1fr); }
+.vr-grid2, .vr-grid3 { grid-template-columns: minmax(0, 1fr); }
+.vr-facts, .vr-cards4, .vr-grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.vr-wide { overflow-x: auto; }
+@media (min-width: 720px) {
+  .vr-split-236 { grid-template-columns: minmax(0, 1fr) 236px; }
+  .vr-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vr-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vr-facts, .vr-cards4, .vr-grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media print {
+  /* Zero page margins. The sheet draws its own margins, header and footer;
+     any margin left here is where the browser prints the page address, the
+     document title and its own page count, which a client must never see. */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  .vr-split-236 { grid-template-columns: minmax(0, 1fr) 236px; }
+  .vr-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vr-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .vr-facts, .vr-cards4, .vr-grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .vr-wide { overflow-x: visible; }
+  .vr-wide table { min-width: 0 !important; }
+  .no-print { display: none !important; }
+  html, body { background: #fff !important; margin: 0 !important; }
+
+  .vr-doc {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    box-shadow: none !important;
+  }
+
+  /* Each section is exactly one sheet, so page numbers and the contents
+     page are guarantees rather than estimates. Anything that would spill is
+     caught by the report's own overflow check before release. */
+  .vr-page {
+    width: 210mm;
+    height: 297mm;
+    padding: 11mm 15mm 9mm !important;
+    overflow: hidden;
+  }
+  .vr-page.vr-cover { padding: 0 !important; }
+  .vr-break { break-before: page; page-break-before: always; }
+  .vr-doc > .vr-page:first-child { break-before: auto; page-break-before: auto; }
+  .vr-block { break-inside: avoid; page-break-inside: avoid; }
+  img { break-inside: avoid; }
+}
+
+
+/* ============================================================
+   Interaction layer
+   Small, named behaviours reused across screens. Each answers a
+   question: what can I touch, what changed, where did it come from.
+   ============================================================ */
+
+/* A `.p1` root rendered into document.body (dialogs, drawers, tooltips) needs
+   the tokens but must not paint the page background over everything. */
+.p1.p1-portal { background-color: transparent; }
+
+/* Press feedback on anything clickable that is not a text link. */
+.p1-press { transition: transform var(--p1-fast) var(--p1-ease), background-color var(--p1-fast) ease, border-color var(--p1-fast) ease, box-shadow var(--p1-normal) ease, color var(--p1-fast) ease; }
+.p1-press:active { transform: scale(.98); }
+
+/* Content that replaces a skeleton fades in rather than snapping. */
+@keyframes p1-in { from { opacity: 0; } to { opacity: 1; } }
+.p1-in { animation: p1-in var(--p1-normal) ease both; }
+
+/* Property photograph: a slow, small zoom on hover of its card. */
+.p1-zoom { transition: transform 600ms var(--p1-ease); }
+.group:hover .p1-zoom { transform: scale(1.035); }
+
+/* Card lift: a hairline becomes a shadow. */
+.p1-lift-hover { transition: box-shadow var(--p1-normal) ease, transform var(--p1-normal) var(--p1-ease), border-color var(--p1-normal) ease; }
+.p1-lift-hover:hover { box-shadow: var(--p1-shadow-md); transform: translateY(-2px); }
+
+/* Saved: the heart fills with a single pop. */
+@keyframes p1-heart { 0% { transform: scale(1); } 35% { transform: scale(1.28); } 70% { transform: scale(.94); } 100% { transform: scale(1); } }
+.p1-heart-pop { animation: p1-heart 420ms var(--p1-ease) both; }
+
+/* A value that changed flashes its background once. */
+@keyframes p1-flash { from { background-color: var(--p1-primary-soft); } to { background-color: transparent; } }
+.p1-flash { animation: p1-flash 900ms ease both; }
+
+/* A completed check draws itself. */
+@keyframes p1-check { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+.p1-check path { stroke-dasharray: 24; animation: p1-check 360ms var(--p1-ease) 80ms both; }
+
+/* Step content slides in from the direction of travel. */
+@keyframes p1-step-next { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes p1-step-back { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+.p1-step-next { animation: p1-step-next var(--p1-slow) var(--p1-ease) both; }
+.p1-step-back { animation: p1-step-back var(--p1-slow) var(--p1-ease) both; }
+
+/* Gallery crossfade. */
+@keyframes p1-xfade { from { opacity: 0; transform: scale(1.01); } to { opacity: 1; transform: none; } }
+.p1-xfade { animation: p1-xfade var(--p1-slow) var(--p1-ease) both; }
+
+/* Tooltip bubble. Positioned by the component. */
+.p1-tip { animation: p1-in var(--p1-fast) ease both; }
+
+/* Map pins drawn in CSS so they read the theme. */
+.p1-pin {
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  transform: translate(-50%, -100%);
+  padding: 4px 8px; border-radius: 999px;
+  font: 600 12px/1 var(--font-p1-sans); font-variant-numeric: tabular-nums;
+  color: var(--p1-text); background: var(--p1-surface);
+  border: 1px solid var(--p1-border-strong); box-shadow: var(--p1-shadow-md);
+  transition: transform var(--p1-fast) var(--p1-ease), background-color var(--p1-fast) ease, color var(--p1-fast) ease;
+  cursor: pointer;
+}
+.p1-pin::after {
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px;
+  background: inherit; border-right: 1px solid var(--p1-border-strong); border-bottom: 1px solid var(--p1-border-strong);
+  transform: translateX(-50%) rotate(45deg);
+}
+.p1-pin { position: relative; }
+.p1-pin:hover, .p1-pin.is-active { background: var(--p1-primary); color: var(--p1-primary-on); border-color: var(--p1-primary); transform: translate(-50%, -100%) scale(1.08); z-index: 1000; }
+.p1-pin:hover::after, .p1-pin.is-active::after { border-color: var(--p1-primary); }
+.p1-cluster {
+  display: flex; align-items: center; justify-content: center; transform: translate(-50%, -50%);
+  width: 40px; height: 40px; border-radius: 999px;
+  font: 700 13px/1 var(--font-p1-sans); color: var(--p1-primary-on); background: var(--p1-primary);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--p1-primary) 22%, transparent);
+  cursor: pointer; transition: transform var(--p1-fast) var(--p1-ease);
+}
+.p1-cluster:hover { transform: translate(-50%, -50%) scale(1.08); }
+.p1 .leaflet-container { font-family: var(--font-p1-sans); background: var(--p1-subtle); }
+.p1 .leaflet-div-icon { background: transparent; border: 0; }
+.dark .p1 .leaflet-tile-pane { filter: brightness(.72) contrast(1.08) saturate(.7); }
+.p1 .leaflet-control-zoom a { color: var(--p1-text); background: var(--p1-surface); border-color: var(--p1-border); }
+.p1 .leaflet-control-attribution { background: color-mix(in srgb, var(--p1-surface) 85%, transparent); color: var(--p1-text-3); }
+.p1 .leaflet-control-attribution a { color: var(--p1-text-2); }
+
+/* Photographs sit a touch darker in the dark theme so they do not glare. */
+.dark .p1 .p1-photo { filter: brightness(.92); }
+
+/* Hide a scrollbar on horizontal chip rows without losing scroll. */
+.p1-noscrollbar { scrollbar-width: none; }
+.p1-noscrollbar::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .p1-press:active, .group:hover .p1-zoom, .p1-lift-hover:hover { transform: none; }
+  .p1-in, .p1-heart-pop, .p1-flash, .p1-step-next, .p1-step-back, .p1-xfade, .p1-tip, .p1-check path { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
+
+/* ============================================================
+   Fields and cross-browser safety
+   ============================================================ */
+
+/* A control that draws its own focus (a border and ring, or the field it
+   sits in) opts out of the generic outline, so focus is shown once. */
+.p1 .p1-field:focus-visible,
+.p1 .p1-bare-input:focus-visible { outline: none; }
+
+/* iOS Safari zooms the whole page into any input under 16px when it is
+   focused, and does not zoom back out. On a phone every text control is
+   16px, whatever the component asked for. */
+@media (max-width: 640px) {
+  .p1 input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  .p1 select,
+  .p1 textarea { font-size: 16px !important; }
+}
+
+/* Keep native date and search controls consistent across engines. */
+.p1 input[type='search']::-webkit-search-decoration { -webkit-appearance: none; }
+.p1 input[type='date'] { min-height: 2.75rem; -webkit-appearance: none; appearance: none; }
+.p1 input[type='date']::-webkit-date-and-time-value { text-align: left; }
+
+/* Long words (project names, emails, CEA numbers) wrap instead of pushing a
+   phone layout sideways. */
+.p1 :where(h1, h2, h3, p, dd, li) { overflow-wrap: anywhere; }
+
+/* Tap highlight on iOS is replaced by our own pressed states. */
+.p1 :where(a, button, [role='button'], [role='option'], summary) { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }

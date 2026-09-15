@@ -41,8 +41,8 @@ export function FormField({
   );
 }
 
-export const INPUT_BASE = 'w-full rounded-lg border bg-p1-surface px-3.5 text-[14.5px] text-p1-text placeholder:text-p1-text-3 transition-colors disabled:cursor-not-allowed disabled:bg-p1-subtle disabled:opacity-70';
-const border = (error?: string) => (error ? 'border-p1-danger' : 'border-p1-border-strong hover:border-p1-text-3');
+export const INPUT_BASE = 'p1-field w-full rounded-lg border bg-p1-surface px-3.5 text-[14px] text-p1-text placeholder:text-p1-text-3 transition-[border-color,box-shadow] duration-150 focus:border-p1-primary focus:shadow-[0_0_0_3px_var(--p1-ring)] focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-p1-subtle disabled:opacity-70';
+const border = (error?: string) => (error ? 'border-p1-danger focus:border-p1-danger focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--p1-danger)_22%,transparent)]' : 'border-p1-border-strong hover:border-p1-text-3/60');
 
 type Common = { label: string; hint?: React.ReactNode; error?: string; help?: string; optional?: boolean; containerClassName?: string; counter?: React.ReactNode };
 

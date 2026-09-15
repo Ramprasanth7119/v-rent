@@ -1,74 +1,69 @@
 "use client";
 
+/**
+ * Create or edit a listing — a guided task, five steps long.
+ *
+ * Each step asks one thing: where it is, what it is, the terms, the
+ * photographs, and a last look before it goes live. The stepper stays in view,
+ * the listing takes shape in a preview beside the form, and a field that is
+ * missing says so on the field rather than greying out the button. A new
+ * listing is kept on this device as it is typed, so a closed tab is not lost
+ * work; photographs cannot be kept that way and the screen says so.
+ *
+ * Everything the old seven-step flow did is still here: OneMap address search
+ * and map picking, the unit lookup, the building template, photograph upload
+ * on save, the publish gate, and the edit and resubmit paths.
+ */
+
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Button, LinkButton, Card, SectionCard, ProgressBar, Callout, TextInput, TextArea, SelectInput,
-  Checkbox, Field, FieldGrid, EmptyState, Spinner, cx } from '../../../../components/phase1/kit';
-import { StatusBadge, Pill } from '../../../../components/phase1/status';
+  Button, LinkButton, Callout, TextInput, TextArea, SelectInput, EmptyState, Spinner, Segmented, Tooltip, cx,
+} from '../../../../components/phase1/kit';
+import { StatusBadge } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
 import { PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { LocationPicker } from '../../../../components/phase1/listing/LocationPicker';
+import { PropertyImage } from '../../../../components/phase1/PropertyImage';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
 import { DemoListing, ListingStatus, sgd } from '../../../../lib/phase1/data';
 import type { UnitFacts, UnitLookup } from '../../../../lib/phase1/unit-lookup';
-import { DealType, dealOf } from '../../../../lib/phase1/pricing';
+import { DealType, dealOf, normaliseDeal } from '../../../../lib/phase1/pricing';
 import type { AddressMatch as OneMapMatch } from '../../../../lib/phase1/onemap';
-import { districtName } from '../../../../lib/phase1/performance';
+import { districtCode, districtLabel } from '../../../../lib/phase1/districts';
+import { sgDate } from '../../../../lib/phase1/format';
 import { AMENITIES } from '../../../../lib/phase1/agents';
 import {
-  Check, X, MapPin, Search, Lock, ChevronLeft, ChevronRight, ShieldCheck, Lightbulb, Sparkles,
-  SearchX, Send, Save, KeyRound, Tag, Map as MapIcon, Type as TypeIcon, Bed, Ruler, Wand2, ArrowRight } from 'lucide-react';
+  Check, X, MapPin, Search, Lock, ChevronLeft, ArrowRight, ShieldCheck, Sparkles, SearchX, Send, Save, Map as MapIcon,
+  Type as TypeIcon, Wand2, Pencil, Undo2, CheckCircle2, CircleAlert,
+} from 'lucide-react';
 
 const STEPS = [
-  { label: 'Sale or rent', description: 'What this listing is' },
-  { label: 'Property', description: 'Find the address' },
-  { label: 'Unit', description: 'Unit and size' },
-  { label: 'Rental terms', description: 'Rent and lease' },
-  { label: 'Description', description: 'Text and amenities' },
-  { label: 'Photos', description: 'At least one' },
-  { label: 'Review', description: 'Check and publish' },
-];
-
-
-/** One piece of advice per step, in the rail, about the step actually open. */
-const STEP_TIP: { title: string; body: string }[] = [
-  { title: 'Sale or rent', body: 'This decides which fields you are asked for and how a tenant or buyer finds the listing. It cannot be changed once the listing is live.' },
-  { title: 'Two ways in', body: 'Type the postal code if you know it — it identifies one building in Singapore. If you do not, drop a pin on the map instead.' },
-  { title: 'Size sells', body: 'Floor area and bedroom count are the two filters almost every search uses. A listing missing either is invisible to most of them.' },
-  { title: 'Price against the market', body: 'Rents that sit well above the last transacted price in the same project get views but no enquiries.' },
-  { title: 'Say what photos cannot', body: 'Quiet stack, no west sun, walking time to the MRT. Your CEA details are added automatically — no need to type them here.' },
-  { title: 'Shoot in daylight', body: 'Lights on, curtains open, landscape orientation. Ten or more photographs measurably lift enquiries.' },
-  { title: 'Before you publish', body: 'Publishing uses one slot on your plan and sends the listing for moderation. A draft costs nothing.' },
-];
+  { key: 'address', label: 'Address', ask: 'Where is the property?', hint: 'Search the address or postal code, or point at it on the map.' },
+  { key: 'property', label: 'Property', ask: 'Tell tenants about the unit', hint: 'Unit number, size and layout — the filters most searches use.' },
+  { key: 'terms', label: 'Terms', ask: 'Set the price and terms', hint: 'The asking price, when it is available, and a short description.' },
+  { key: 'photos', label: 'Photos', ask: 'Add photographs', hint: 'At least one. Daylight, lights on, landscape.' },
+  { key: 'review', label: 'Review', ask: 'Check and publish', hint: 'A last look at what tenants will see.' },
+] as const;
 
 type PropertyType = DemoListing['propertyType'];
 type Furnishing = DemoListing['furnishing'];
-
-/**
- * A matched property. The create flow picks one from the OneMap search; the
- * edit flow reconstructs it from the listing, which was matched when it was
- * first created, so no coordinates are carried.
- */
 type AddressMatch = OneMapMatch;
 
 /**
- * `?step=` accepts the Listing Health section names, because that is what the
- * health panel, the dashboard action centre and the listing detail screen link
- * with. A 1-based step number is accepted too, matching "Step 3 of 6" on screen.
+ * `?step=` accepts the Listing Health section names used by the health panel,
+ * the dashboard and the listing screen, and a 1-based number.
  */
 const SECTION_STEP: Record<string, number> = {
-  deal: 0, type: 0,
-  property: 1, address: 1,
-  details: 2, unit: 2,
-  pricing: 3, terms: 3, rent: 3, price: 3,
-  description: 4, amenities: 4,
-  media: 5, photos: 5,
-  review: 6, publish: 6,
+  deal: 0, type: 0, property: 0, address: 0, location: 0,
+  details: 1, unit: 1, amenities: 1,
+  pricing: 2, terms: 2, rent: 2, price: 2, description: 2,
+  media: 3, photos: 3,
+  review: 4, publish: 4,
 };
 
 function stepFromParam(raw: string | null): number {
@@ -78,8 +73,16 @@ function stepFromParam(raw: string | null): number {
   return SECTION_STEP[raw.trim().toLowerCase()] ?? 0;
 }
 
+const DRAFT_KEY = 'vrent_listing_draft';
+
+interface LocalDraft {
+  at: string;
+  deal: DealType; addr: AddressMatch | null; query: string; unitNo: string; beds: string; baths: string; sqft: string;
+  propertyType: PropertyType; rent: string; salePrice: string; furnishing: Furnishing; lease: string; availableFrom: string;
+  desc: string; amenities: string[]; step: number;
+}
+
 export default function NewListingPage() {
-  // useSearchParams needs a boundary; the wizard reads `edit` and `step` from it.
   return (
     <Suspense fallback={null}>
       <ListingWizard />
@@ -92,11 +95,8 @@ function ListingWizard() {
   const params = useSearchParams();
   const { push } = useToast();
   const { user } = useSession();
-  const { gate, canPublish, addListing, updateListing, state } = useDemo();
+  const { gate, canPublish, addListing, updateListing, state, activeListings, listingLimit } = useDemo();
 
-  // Edit mode is decided once, from the URL. The listing is looked up in the
-  // same in-memory store the rest of the workspace reads, so a link from the
-  // dashboard, the health panel or the listing menu all land on real values.
   const editId = params.get('edit');
   const [editing] = useState<DemoListing | null>(
     () => (editId ? state.listings.find((l) => l.id === editId) ?? null : null),
@@ -104,76 +104,87 @@ function ListingWizard() {
   const missing = Boolean(editId) && !editing;
 
   const [step, setStep] = useState(() => stepFromParam(params.get('step')));
+  const [direction, setDirection] = useState<'next' | 'back'>('next');
+  const [tried, setTried] = useState<Record<number, boolean>>({});
   const [deal, setDeal] = useState<DealType>(() => dealOf(editing ?? ({} as DemoListing)));
-  const [salePrice, setSalePrice] = useState(() => String(editing?.salePriceSgd ?? 1350000));
+  const [salePrice, setSalePrice] = useState(() => (editing?.salePriceSgd ? String(editing.salePriceSgd) : ''));
   const [query, setQuery] = useState(() => editing?.address ?? '');
   const [addr, setAddr] = useState<AddressMatch | null>(() => (editing
-    ? {
-        label: editing.address,
-        street: editing.address,
-        postal: editing.postalCode,
-        project: editing.project,
-        district: editing.district,
-        lat: editing.lat,
-        lng: editing.lng,
-      }
+    ? { label: editing.address, street: editing.address, postal: editing.postalCode, project: editing.project, district: editing.district, lat: editing.lat, lng: editing.lng }
     : null));
-  /* Two ways to answer "where is it": type it, or point at it. Typing is the
-     fast path when the agent knows the building; the map is for a new launch
-     with no postal code issued, a landed road with forty house numbers, or a
-     unit they drove to and could not spell. */
   const [addrMode, setAddrMode] = useState<'search' | 'map'>('search');
   const [unitNo, setUnitNo] = useState(() => editing?.unitNo ?? '');
-  /* What the platform already knows about this unit — see the effect below. */
   const [unitKnown, setUnitKnown] = useState<UnitLookup | null>(null);
   const [unitChecking, setUnitChecking] = useState(false);
   const [unitFilled, setUnitFilled] = useState(false);
   const [beds, setBeds] = useState(() => String(editing?.bedrooms ?? 2));
   const [baths, setBaths] = useState(() => String(editing?.bathrooms ?? 2));
-  const [sqft, setSqft] = useState(() => String(editing?.sizeSqft ?? 850));
+  const [sqft, setSqft] = useState(() => (editing?.sizeSqft ? String(editing.sizeSqft) : ''));
   const [propertyType, setPropertyType] = useState<PropertyType>(() => editing?.propertyType ?? 'Condominium');
-  const [rent, setRent] = useState(() => String(editing?.monthlyRent ?? 4200));
+  const [rent, setRent] = useState(() => (editing?.monthlyRent ? String(editing.monthlyRent) : ''));
   const [furnishing, setFurnishing] = useState<Furnishing>(() => editing?.furnishing ?? 'Partially furnished');
   const [lease, setLease] = useState(() => String(editing?.minLeaseMonths ?? 12));
-  const [availableFrom, setAvailableFrom] = useState(() => editing?.availableFrom ?? '2026-10-01');
-  const [desc, setDesc] = useState(() => editing?.description
-    ?? 'Bright unit with unblocked views, five minutes to the MRT. Available for immediate viewing.');
-  const [amenities, setAmenities] = useState<string[]>(() => editing?.amenities ?? ['Air conditioning', 'Swimming pool']);
-  // Editing restores the photographs already on the server; creating starts empty.
-  const [shots, setShots] = useState<Shot[]>(
-    () => (editing?.photos ?? []).map((id) => ({ kind: 'saved', id }) as Shot),
-  );
+  const [availableFrom, setAvailableFrom] = useState(() => editing?.availableFrom ?? TODAY_ISO);
+  const [desc, setDesc] = useState(() => editing?.description ?? '');
+  const [amenities, setAmenities] = useState<string[]>(() => editing?.amenities ?? []);
+  const [shots, setShots] = useState<Shot[]>(() => (editing?.photos ?? []).map((id) => ({ kind: 'saved', id }) as Shot));
   const [uploading, setUploading] = useState(false);
   const [photoNotes, setPhotoNotes] = useState<PhotoNote[]>([]);
-  /** Building facts taken from a previous listing, or from the one being edited. */
   const [carried, setCarried] = useState<Pick<DemoListing, 'nearestMrt' | 'tenure' | 'builtYear'>>(() => ({
-    nearestMrt: editing?.nearestMrt,
-    tenure: editing?.tenure,
-    builtYear: editing?.builtYear,
+    nearestMrt: editing?.nearestMrt, tenure: editing?.tenure, builtYear: editing?.builtYear,
   }));
   const [confirmPublish, setConfirmPublish] = useState(false);
-  /* Photographs are uploaded before we leave the page. Without this the dialog
-     closed and nothing visibly happened until the upload finished, so the
-     agent was left looking at the form wondering whether it had worked. */
   const [committing, setCommitting] = useState(false);
 
-  /**
-   * Address search runs against OneMap while the agent types. Debounced, and a
-   * response is ignored once a newer query has gone out — otherwise a slow
-   * answer for "mar" lands on top of the results for "marina".
-   *
-   * Nothing is set synchronously here: what to show is derived below, so the
-   * effect only ever schedules the request.
-   */
+  /* ------------------------------------------------ on-device autosave */
+
+  const [restorable, setRestorable] = useState<LocalDraft | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const hydrated = useRef(false);
+
+  useEffect(() => {
+    if (editing) { hydrated.current = true; return; }
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      const d = raw ? (JSON.parse(raw) as LocalDraft) : null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- offered once, after mount
+      if (d && (d.addr || d.desc || d.unitNo)) setRestorable(d);
+    } catch { /* storage blocked or unreadable: start clean */ }
+    hydrated.current = true;
+  }, [editing]);
+
+  const restore = (d: LocalDraft) => {
+    setDeal(d.deal); setAddr(d.addr); setQuery(d.query); setUnitNo(d.unitNo); setBeds(d.beds); setBaths(d.baths); setSqft(d.sqft);
+    setPropertyType(d.propertyType); setRent(d.rent); setSalePrice(d.salePrice); setFurnishing(d.furnishing); setLease(d.lease);
+    setAvailableFrom(d.availableFrom); setDesc(d.desc); setAmenities(d.amenities); setStep(Math.min(d.step, 3));
+    setRestorable(null);
+    push({ tone: 'success', title: 'Draft restored', body: 'Photographs are not kept between visits — add them again.' });
+  };
+  const discard = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to remove */ } setRestorable(null); };
+
+  useEffect(() => {
+    if (editing || !hydrated.current || restorable) return;
+    if (!addr && !desc && !unitNo) return;
+    const t = setTimeout(() => {
+      const d: LocalDraft = { at: new Date().toISOString(), deal, addr, query, unitNo, beds, baths, sqft, propertyType, rent, salePrice, furnishing, lease, availableFrom, desc, amenities, step };
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); setSavedAt(d.at); } catch { /* not kept; nothing to say */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [editing, restorable, deal, addr, query, unitNo, beds, baths, sqft, propertyType, rent, salePrice, furnishing, lease, availableFrom, desc, amenities, step]);
+
+  const clearLocalDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } };
+
+  /* --------------------------------------------------- address search */
+
   const [matches, setMatches] = useState<AddressMatch[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchedTerm, setSearchedTerm] = useState('');
+  const [cursor, setCursor] = useState(-1);
   const searchSeq = useRef(0);
 
   useEffect(() => {
     const term = query.trim();
     if (addr || term.length < 3) return;
-
     const seq = ++searchSeq.current;
     const timer = setTimeout(async () => {
       setSearching(true);
@@ -182,36 +193,24 @@ function ListingWizard() {
         const body = (await res.json()) as { results?: AddressMatch[] };
         if (seq !== searchSeq.current) return;
         setMatches(body.results ?? []);
+        setCursor(-1);
       } catch {
         if (seq === searchSeq.current) setMatches([]);
       } finally {
-        if (seq === searchSeq.current) {
-          setSearchedTerm(term);
-          setSearching(false);
-        }
+        if (seq === searchSeq.current) { setSearchedTerm(term); setSearching(false); }
       }
     }, 250);
     return () => clearTimeout(timer);
   }, [query, addr]);
 
-  /**
-   * A property template: what this agent already recorded about this building.
-   *
-   * Agents list many units in the same condominium, and everything that is true
-   * of the building rather than the unit — the district, the station, the
-   * tenure, the year it was completed, most of the amenities — is the same
-   * every time. Offering it beats asking for it again, and it is offered rather
-   * than applied because the previous listing might have been wrong.
-   */
+  /** What this agent already recorded about this building. Offered, not applied. */
   const template = useMemo(() => {
     if (!addr) return null;
-    const sameBuilding = state.listings
+    return state.listings
       .filter((l) => !l.archived && l.id !== editing?.id)
       .filter((l) => l.postalCode === addr.postal || l.project.toLowerCase() === addr.project.toLowerCase())
-      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt));
-    return sameBuilding[0] ?? null;
+      .sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))[0] ?? null;
   }, [addr, state.listings, editing?.id]);
-
   const [templateUsed, setTemplateUsed] = useState(false);
 
   const applyTemplate = () => {
@@ -219,54 +218,34 @@ function ListingWizard() {
     setPropertyType(template.propertyType);
     if (template.amenities?.length) setAmenities(template.amenities);
     if (template.nearestMrt || template.tenure || template.builtYear) {
-      // Carried onto the saved record through `fields()` below.
-      setCarried({
-        nearestMrt: template.nearestMrt,
-        tenure: template.tenure,
-        builtYear: template.builtYear,
-      });
+      setCarried({ nearestMrt: template.nearestMrt, tenure: template.tenure, builtYear: template.builtYear });
     }
     setTemplateUsed(true);
-    push({
-      tone: 'success',
-      title: 'Filled in from your last listing here',
-      body: `Taken from ${template.project} ${template.unitNo}. Change anything that differs for this unit.`,
-    });
+    push({ tone: 'success', title: 'Building details copied', body: `From ${template.project} ${template.unitNo}. Change anything that differs.` });
   };
 
   const term = query.trim();
   const showMatches = !addr && term.length >= 3 && searchedTerm === term ? matches : [];
   const noMatches = !addr && searchedTerm === term && term.length >= 3 && matches.length === 0 && !searching;
 
-  /** Unit numbers arrive in several shapes; normalise on write. */
+  const pickAddress = (m: AddressMatch) => { setAddr(m); setQuery(m.label); setMatches([]); };
+
+  /* ------------------------------------------------------ unit lookup */
+
   const normalisedUnit = unitNo ? '#' + unitNo.replace(/^#/, '').replace(/^unit\s*/i, '').trim() : '';
 
-  /**
-   * Ask what is known about this unit once the address and the number are both
-   * settled.
-   *
-   * Debounced, because it runs while the number is being typed and half a unit
-   * number matches nothing useful. The answer is advisory throughout: a unit
-   * somebody else is advertising is ordinary, and a unit the agent already has
-   * is their business to resolve, so nothing here blocks the form.
-   */
   useEffect(() => {
     let live = true;
     const unit = normalisedUnit.replace('#', '');
     const postal = addr?.postal;
-
-    /* Everything, including clearing the last answer, happens on the timer:
-       a short unit number matches nothing useful, and setting state in the
-       body of an effect makes React render again before it has finished. */
     const timer = setTimeout(async () => {
       if (!live) return;
       if (!postal || unit.length < 3) { setUnitKnown(null); setUnitChecking(false); return; }
-
       setUnitChecking(true);
       try {
-        const params = new URLSearchParams({ postalCode: postal, unit });
-        if (editing?.id) params.set('exclude', editing.id);
-        const res = await fetch(`/api/phase1/unit?${params.toString()}`, { cache: 'no-store' });
+        const q = new URLSearchParams({ postalCode: postal, unit });
+        if (editing?.id) q.set('exclude', editing.id);
+        const res = await fetch(`/api/phase1/unit?${q.toString()}`, { cache: 'no-store' });
         if (!live) return;
         setUnitKnown(res.ok ? ((await res.json()) as UnitLookup) : null);
       } catch {
@@ -275,12 +254,9 @@ function ListingWizard() {
         if (live) setUnitChecking(false);
       }
     }, 450);
-
     return () => { live = false; clearTimeout(timer); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addr?.postal, normalisedUnit, editing?.id]);
 
-  /** Carry the measurable facts across from a previous listing of this unit. */
   const fillFromUnit = (facts: UnitFacts) => {
     setSqft(String(facts.sizeSqft));
     setBeds(String(facts.bedrooms));
@@ -292,33 +268,49 @@ function ListingWizard() {
       setCarried({ nearestMrt: facts.nearestMrt, tenure: facts.tenure, builtYear: facts.builtYear });
     }
     setUnitFilled(true);
-    push({
-      tone: 'success',
-      title: `Filled in from ${facts.unitNo}`,
-      body: 'Size, layout and fittings carried across. The rent and the description are still yours to write.',
-    });
+    push({ tone: 'success', title: `Filled in from ${facts.unitNo}`, body: 'Size, layout and fittings carried across.' });
   };
 
-  const canAdvance = [
-    true,
-    !!addr,
-    !!normalisedUnit && !!sqft,
-    deal === 'sale' ? !!salePrice : !!rent,
-    desc.trim().length >= 20,
-    shots.length > 0,
-    true,
-  ][step];
-  const progress = Math.round(((step + (canAdvance ? 1 : 0)) / STEPS.length) * 100);
+  /* -------------------------------------------------------- validation */
 
-  /**
-   * Photographs for a listing that already exists go to the server as soon as
-   * they are chosen; for one still being created there is nothing to attach
-   * them to, so they are held and uploaded by `commitPhotos` after the save.
-   */
-  const onPhotos = async (next: Shot[], added: File[]) => {
-    setShots(next);
+  const priceValue = deal === 'sale' ? salePrice : rent;
+  const errors: Record<string, string | undefined>[] = [
+    { addr: addr ? undefined : 'Choose the property from the results, or pick it on the map.' },
+    {
+      unit: normalisedUnit ? undefined : 'Add the unit number, for example 12-34.',
+      sqft: Number(sqft) > 0 ? undefined : 'Add the floor area in square feet.',
+    },
+    {
+      price: Number(priceValue) > 0 ? undefined : deal === 'sale' ? 'Add the asking price.' : 'Add the monthly rent.',
+      desc: desc.trim().length >= 20 ? undefined : `Write at least 20 characters (${desc.trim().length} so far).`,
+    },
+    { photos: shots.length > 0 ? undefined : 'Add at least one photograph.' },
+    {},
+  ];
+  const stepValid = (i: number) => Object.values(errors[i]).every((e) => !e);
+  const err = (i: number, key: string) => (tried[i] ? errors[i][key] : undefined);
+  const completed = (i: number) => (editing ? stepValid(i) : i < step && stepValid(i));
 
-    if (!editing) return;                       // create flow: upload on save
+  const go = (to: number) => {
+    setDirection(to > step ? 'next' : 'back');
+    setStep(to);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const next = () => {
+    if (!stepValid(step)) {
+      setTried((t) => ({ ...t, [step]: true }));
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]')?.focus());
+      return;
+    }
+    go(step + 1);
+  };
+  const reachable = (i: number) => Boolean(editing) || i <= step || STEPS.slice(0, i).every((_, j) => stepValid(j));
+
+  /* ---------------------------------------------------------- photos */
+
+  const onPhotos = async (nextShots: Shot[], added: File[]) => {
+    setShots(nextShots);
+    if (!editing) return;
     if (added.length > 0) {
       setUploading(true);
       try {
@@ -327,41 +319,31 @@ function ListingWizard() {
         added.forEach((f) => form.append('file', f));
         const res = await fetch('/api/phase1/photos', { method: 'POST', body: form });
         if (!res.ok) throw new Error(String(res.status));
-        const body = (await res.json()) as {
-          photos: string[];
-          rejected?: { name: string; reason: string }[];
-          warnings?: PhotoNote[];
-        };
+        const body = (await res.json()) as { photos: string[]; rejected?: { name: string; reason: string }[]; warnings?: PhotoNote[] };
         setShots(body.photos.map((id) => ({ kind: 'saved', id }) as Shot));
         setPhotoNotes(body.warnings ?? []);
-        if (body.rejected?.length) {
-          push({ tone: 'warn', title: 'Some photographs were not added', body: body.rejected.map((r) => r.name).join(', ') });
-        } else {
-          push({ tone: 'success', title: added.length === 1 ? 'Photograph added' : `${added.length} photographs added` });
-        }
+        if (body.rejected?.length) push({ tone: 'warn', title: 'Some photographs were not added', body: body.rejected.map((r) => r.name).join(', ') });
+        else push({ tone: 'success', title: added.length === 1 ? 'Photograph added' : `${added.length} photographs added` });
       } catch {
-        push({ tone: 'error', title: 'Upload failed', body: 'The photographs were not saved. Try again in a moment.' });
+        push({ tone: 'error', title: 'Upload failed', body: 'The photographs were not saved. Check your connection and try again.' });
         setShots(shots);
       } finally {
         setUploading(false);
       }
       return;
     }
-
-    // A reorder or a removal: send the new ordering.
     setUploading(true);
     try {
       await fetch('/api/phase1/photos?remove=1', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ listingId: editing.id, photos: savedIds(next) }),
+        body: JSON.stringify({ listingId: editing.id, photos: savedIds(nextShots) }),
       });
     } finally {
       setUploading(false);
     }
   };
 
-  /** Send the held files once the new listing has an id. */
   const commitPhotos = async (listingId: string) => {
     const files = pendingFiles(shots);
     if (files.length === 0) return;
@@ -371,20 +353,15 @@ function ListingWizard() {
     try {
       const res = await fetch('/api/phase1/photos', { method: 'POST', body: form });
       const body = (await res.json().catch(() => null)) as { warnings?: PhotoNote[] } | null;
-      if (body?.warnings?.length) {
-        push({
-          tone: 'warn',
-          title: 'Some photographs are worth a second look',
-          body: body.warnings.map((w) => w.name).join(', '),
-        });
-      }
+      if (body?.warnings?.length) push({ tone: 'warn', title: 'Some photographs are worth a second look', body: body.warnings.map((w) => w.name).join(', ') });
     } catch {
       push({ tone: 'warn', title: 'Listing saved without photographs', body: 'The upload did not go through. Open the listing and add them again.' });
     }
   };
 
-  /** Everything the form owns, shared by the create and the edit paths. */
-  const fields = () => ({
+  /* ------------------------------------------------------------ saving */
+
+  const fields = () => normaliseDeal({
     description: desc,
     project: addr!.project,
     address: addr!.label,
@@ -430,7 +407,8 @@ function ListingWizard() {
       const listing = build('draft');
       addListing(listing);
       await commitPhotos(listing.id);
-      push({ tone: 'success', title: 'Draft saved', body: 'You can finish and publish it from My listings.' });
+      clearLocalDraft();
+      push({ tone: 'success', title: 'Draft saved', body: 'Finish and publish it from My listings.' });
       router.push('/phase1/listings');
     } catch {
       push({ tone: 'error', title: 'The draft was not saved', body: 'Your photographs did not finish uploading. Try again in a moment.' });
@@ -440,13 +418,12 @@ function ListingWizard() {
 
   const publish = async () => {
     if (!addr || committing) return;
-    // The dialog stays open with its button working until the photographs are
-    // up, so the wait is visibly the product's and not a click that missed.
     setCommitting(true);
     try {
       const listing = build(canPublish ? 'published' : 'draft');
       addListing(listing);
       await commitPhotos(listing.id);
+      clearLocalDraft();
       setConfirmPublish(false);
       push(canPublish
         ? { tone: 'success', title: 'Listing published', body: `${addr.project} is now live.` }
@@ -458,9 +435,6 @@ function ListingWizard() {
     }
   };
 
-  /* --------------------------------------------------------------- editing */
-
-  /** Save the edit without changing where the listing sits in its lifecycle. */
   const saveChanges = () => {
     if (!addr || !editing) return;
     updateListing(editing.id, fields());
@@ -468,7 +442,6 @@ function ListingWizard() {
     router.push(`/phase1/listings/${editing.id}`);
   };
 
-  /** A corrected listing goes back to the moderation queue, not straight live. */
   const resubmit = () => {
     if (!addr || !editing) return;
     updateListing(editing.id, { ...fields(), status: 'pending_review' as ListingStatus, rejectionReason: undefined });
@@ -476,575 +449,426 @@ function ListingWizard() {
     router.push(`/phase1/listings/${editing.id}`);
   };
 
-  /** Publishing a draft from the edit flow uses the same gate as a new listing. */
   const publishEdit = () => {
     setConfirmPublish(false);
     if (!addr || !editing) return;
-    updateListing(editing.id, {
-      ...fields(),
-      status: 'published' as ListingStatus,
-      publishedAt: TODAY_ISO,
-      expiresAt: '2026-11-26',
-    });
+    updateListing(editing.id, { ...fields(), status: 'published' as ListingStatus, publishedAt: TODAY_ISO, expiresAt: '2026-11-26' });
     push({ tone: 'success', title: 'Listing published', body: `${addr.project} ${normalisedUnit} is now live.` });
     router.push(`/phase1/listings/${editing.id}`);
   };
 
   const toggleAmenity = (a: string) => setAmenities((s) => (s.includes(a) ? s.filter((x) => x !== a) : [...s, a]));
 
-
   if (missing) {
     return (
-      <>
-        <EmptyState
-          icon={<SearchX size={22} />}
-          title="That listing is no longer here"
-          description="It may have been archived, or the walkthrough was reset since the link was made."
-          action={<LinkButton href="/phase1/listings">Back to listings</LinkButton>}
-        />
-      </>
+      <EmptyState
+        icon={<SearchX size={22} />}
+        title="That listing is no longer here"
+        description="It may have been archived since the link was made."
+        action={<LinkButton href="/phase1/listings">Back to listings</LinkButton>}
+      />
     );
   }
 
-  /* The listing as it stands, shown in the header so the agent can watch it
-     take shape. A wizard that only shows the current question feels like a
-     form; one that shows what is being built feels like a workspace. */
-  const summary = [
-    { icon: Tag, value: deal === 'sale' ? 'For sale' : 'For rent' },
-    { icon: MapPin, value: addr?.project || 'Property not chosen' },
-    { icon: Bed, value: beds ? `${beds} bed` : null },
-    { icon: Ruler, value: sqft ? `${Number(sqft).toLocaleString('en-SG')} sqft` : null },
-    {
-      icon: KeyRound,
-      value: deal === 'sale'
-        ? salePrice && sgd(Number(salePrice))
-        : rent && `${sgd(Number(rent))}/month`,
-    },
-  ].filter((c) => c.value);
+  const cover = shots[0] ? (shots[0].kind === 'pending' ? shots[0].url : editing ? photoUrl(user?.id ?? '', editing.id, shots[0].id) : undefined) : undefined;
+  const priceShown = Number(priceValue) > 0 ? (deal === 'sale' ? sgd(Number(salePrice)) : sgd(Number(rent))) : null;
+  const S = STEPS[step];
+  const lastStep = step === STEPS.length - 1;
+  const psfHint = Number(priceValue) > 0 && Number(sqft) > 0
+    ? deal === 'sale' ? `About S$${Math.round(Number(salePrice) / Number(sqft)).toLocaleString('en-SG')} psf` : `About S$${(Number(rent) / Number(sqft)).toFixed(2)} psf a month`
+    : undefined;
 
   return (
     <>
-      {/* ----------------------------------------------------------- header
-          Its own band rather than the standard page header: this screen is a
-          task with a start and an end, and the band carries the one thing the
-          standard header cannot — what has been filled in so far. */}
-      <section className="relative mb-5 overflow-hidden rounded-2xl bg-gradient-to-b from-[#E1EFF4] to-p1-surface px-5 py-6 ring-1 ring-p1-border sm:px-7 sm:py-7 dark:from-[#0F2F3B] dark:to-p1-surface">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <nav aria-label="Breadcrumb" className="text-[12.5px] text-p1-text-3">
-              <Link href="/phase1/listings" className="hover:text-p1-text hover:underline underline-offset-4">Listings</Link>
-              <span className="px-1.5" aria-hidden>/</span>
-              <span className="text-p1-text-2">{editing ? `Edit ${editing.reference}` : 'Create a listing'}</span>
-            </nav>
-            <h1 className="mt-1.5 font-p1display text-[28px] font-bold leading-[1.1] tracking-[-0.025em] text-p1-text sm:text-[34px]">
-              {editing ? `${editing.project} ${editing.unitNo}` : 'Create a listing'}
-            </h1>
-            <p className="mt-1.5 max-w-xl text-[14px] leading-6 text-p1-text-2">
-              {editing
-                ? editing.status === 'rejected'
-                  ? 'Correct what the moderator flagged, then send it back for review.'
-                  : 'Change any step and save. Every step is reachable from the rail beside the form.'
-                : 'Seven short steps. Your progress is saved as you go, so you can come back later.'}
-            </p>
-          </div>
-
-          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            {editing && <StatusBadge kind="listing" value={editing.status} />}
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-surface/80 px-3 py-1 text-[12.5px] font-medium text-p1-text-2 ring-1 ring-p1-border backdrop-blur">
-              <Check size={13} className="text-p1-success" aria-hidden />
-              {editing ? `Last updated ${editing.updatedAt ?? editing.createdAt}` : 'Draft saved just now'}
-            </span>
-          </div>
+      {/* ------------------------------------------------------------ title */}
+      <header className="mb-4 flex flex-wrap items-center gap-3">
+        <Link href={editing ? `/phase1/listings/${editing.id}` : '/phase1/listings'} aria-label="Back" className="flex h-9 w-9 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text">
+          <ChevronLeft size={18} aria-hidden />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[22px] font-semibold tracking-[-0.02em] text-p1-text sm:text-[24px]">
+            {editing ? `${editing.project} ${editing.unitNo}` : 'New listing'}
+          </h1>
         </div>
+        {editing && <StatusBadge kind="listing" value={editing.status} size="sm" />}
+        {!editing && savedAt && (
+          <Tooltip content="Kept in this browser as you type. Photographs are not kept.">
+            <span tabIndex={0} className="p1-in inline-flex items-center gap-1.5 text-[12.5px] text-p1-text-3"><CheckCircle2 size={14} className="text-p1-success" aria-hidden /> Saved on this device</span>
+          </Tooltip>
+        )}
+      </header>
 
-        <ul className="mt-5 flex flex-wrap gap-2">
-          {summary.map((c) => (
-            <li key={c.value} className="inline-flex items-center gap-1.5 rounded-full bg-p1-surface px-3 py-1.5 text-[13px] font-medium text-p1-text shadow-p1-sm ring-1 ring-p1-border">
-              <c.icon size={13} className="text-p1-text-3" aria-hidden />
-              {c.value}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {editing?.status === 'rejected' && editing.rejectionReason && (
-        <Callout tone="danger" title="Why this listing was rejected" className="mb-4">{editing.rejectionReason}</Callout>
+      {restorable && (
+        <Callout tone="info" className="mb-4" title="Pick up where you left off?"
+          action={<div className="flex gap-2"><Button size="sm" variant="ghost" onClick={discard}>Discard</Button><Button size="sm" leftIcon={<Undo2 size={14} />} onClick={() => restore(restorable)}>Restore</Button></div>}>
+          {restorable.addr?.project ?? 'An unfinished listing'} · started {sgDate(restorable.at)}
+        </Callout>
       )}
 
-      {/* One progress indicator, not three. The rail carries it on a desktop;
-          a phone gets the line below, because a seven-item rail on a 390px
-          screen is a scroll before the form is even reached. */}
-      <div className="mb-4 lg:hidden">
-        <div className="flex items-baseline justify-between text-[13px]">
-          <span className="font-semibold text-p1-text">Step {step + 1} of {STEPS.length} · {STEPS[step].label}</span>
-          {STEPS[step + 1] && <span className="text-p1-text-3">Next: {STEPS[step + 1].label}</span>}
-        </div>
-        <ProgressBar value={progress} size="sm" className="mt-2" />
-      </div>
+      {editing?.status === 'rejected' && editing.rejectionReason && (
+        <Callout tone="danger" compact className="mb-4" title="What the moderator flagged">{editing.rejectionReason}</Callout>
+      )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6">
-        {/* ------------------------------------------------------------ rail
-            One vertical list carrying step, state and description together.
-            The old screen had a horizontal stepper, a duplicate list in a
-            right-hand card and a progress bar — three readings of the same
-            fact, which is most of why it looked assembled from parts. */}
-        <nav aria-label="Steps" className="hidden lg:block">
-          <div className="sticky top-6">
-            <ol className="relative space-y-1">
-              {STEPS.map((s, i) => {
-                const done = editing ? i !== step : i < step;
-                const active = i === step;
-                const reachable = editing || i <= step;
-                const row = (
-                  <span className="flex items-start gap-3">
-                    <span className="relative flex flex-col items-center">
-                      <span
-                        aria-hidden
-                        className={cx(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold transition-colors',
-                          done ? 'bg-p1-success text-white'
-                            : active ? 'bg-p1-primary text-white ring-4 ring-p1-primary-soft'
-                            : 'bg-p1-subtle text-p1-text-3',
-                        )}
-                      >
-                        {done ? <Check size={13} strokeWidth={3} /> : i + 1}
-                      </span>
-                      {i < STEPS.length - 1 && (
-                        <span className={cx('mt-1 h-6 w-0.5 rounded-full', done ? 'bg-p1-success/40' : 'bg-p1-border')} aria-hidden />
-                      )}
-                    </span>
-                    <span className="min-w-0 pt-0.5">
-                      <span className={cx('block text-[14px] leading-5', active ? 'font-bold text-p1-text' : done ? 'font-medium text-p1-text-2' : 'text-p1-text-3')}>
-                        {s.label}
-                      </span>
-                      <span className="block text-[12px] leading-4 text-p1-text-3">{s.description}</span>
-                    </span>
+      {/* --------------------------------------------------------- stepper */}
+      <nav aria-label="Steps" data-print-hide className="sticky top-14 z-20 -mx-4 mb-6 border-b border-p1-border bg-p1-bg/90 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <ol className="p1-noscrollbar flex h-14 items-center gap-1 overflow-x-auto">
+          {STEPS.map((s, i) => {
+            const active = i === step;
+            const done = completed(i) && !active;
+            const canGo = reachable(i) && !active;
+            const inner = (
+              <>
+                <span className={cx('flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[11.5px] font-semibold tabular-nums transition-colors duration-200',
+                  active ? 'bg-p1-primary text-p1-primary-on' : done ? 'bg-p1-success-soft text-p1-success' : 'bg-p1-subtle text-p1-text-3')}>
+                  {done ? <Check size={12} strokeWidth={3} aria-hidden /> : String(i + 1).padStart(2, '0')}
+                </span>
+                <span className={cx('whitespace-nowrap text-[13.5px]', active ? 'font-semibold text-p1-text' : done ? 'font-medium text-p1-text-2' : 'text-p1-text-3', !active && 'hidden sm:inline')}>{s.label}</span>
+              </>
+            );
+            return (
+              <li key={s.key} className={cx('flex items-center', i < STEPS.length - 1 && 'flex-1')} aria-current={active ? 'step' : undefined}>
+                {canGo
+                  ? <button type="button" onClick={() => go(i)} className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-p1-subtle">{inner}<span className="sr-only">{done ? ' (done)' : ''}</span></button>
+                  : <span className="flex items-center gap-2 px-1.5 py-1">{inner}</span>}
+                {i < STEPS.length - 1 && (
+                  <span className="mx-1 h-px min-w-3 flex-1 overflow-hidden bg-p1-border" aria-hidden>
+                    <span className={cx('block h-full origin-left bg-p1-success transition-transform duration-300 ease-out', completed(i) ? 'scale-x-100' : 'scale-x-0')} />
                   </span>
-                );
-                return (
-                  <li key={s.label} aria-current={active ? 'step' : undefined}>
-                    {reachable && !active ? (
-                      <button type="button" onClick={() => setStep(i)} className="w-full cursor-pointer rounded-lg py-1 text-left transition-colors hover:bg-p1-subtle">
-                        {row}
-                      </button>
-                    ) : (
-                      <span className="block py-1">{row}</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
-            <div className="mt-5 rounded-xl bg-p1-subtle p-3.5 ring-1 ring-p1-border">
-              <div className="flex items-center gap-2 text-[12.5px] font-bold text-p1-text">
-                <Lightbulb size={14} className="text-p1-primary dark:text-p1-info" aria-hidden />
-                {STEP_TIP[step].title}
-              </div>
-              <p className="mt-1.5 text-[12.5px] leading-[1.5] text-p1-text-2">{STEP_TIP[step].body}</p>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
+          <div key={step} className={direction === 'next' ? 'p1-step-next' : 'p1-step-back'}>
+            <div className="mb-5">
+              <p className="text-[12.5px] font-medium tabular-nums text-p1-text-3">Step {step + 1} of {STEPS.length}</p>
+              <h2 className="mt-0.5 text-[20px] font-semibold tracking-[-0.015em] text-p1-text">{S.ask}</h2>
+              <p className="mt-0.5 text-[14px] text-p1-text-3">{S.hint}</p>
             </div>
 
-            {!canPublish && (
-              <p className="mt-4 rounded-xl border border-p1-warning-border bg-p1-warning-soft px-3.5 py-3 text-[12.5px] leading-[1.5] text-p1-text-2">
-                Publication is blocked right now. You can still save a draft and publish once the checklist passes.
-              </p>
-            )}
-          </div>
-        </nav>
+            <div className="rounded-2xl border border-p1-border bg-p1-surface p-5 sm:p-6">
+              {/* ------------------------------------------------ 1 address */}
+              {step === 0 && (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Segmented<DealType>
+                      label="Rent or sale"
+                      value={deal}
+                      onChange={setDeal}
+                      options={[{ key: 'rent', label: 'For rent' }, { key: 'sale', label: 'For sale' }]}
+                    />
+                    <Segmented<'search' | 'map'>
+                      label="How to find the property"
+                      size="sm"
+                      value={addrMode}
+                      onChange={setAddrMode}
+                      options={[{ key: 'search', label: 'Search', icon: <TypeIcon size={14} /> }, { key: 'map', label: 'Map', icon: <MapIcon size={14} /> }]}
+                    />
+                  </div>
 
-        <div className="min-w-0">
-          {step === 0 && (
-            <SectionCard
-              title="What is this listing?"
-              description="It decides what the rest of the form asks you, and how a tenant or buyer finds it."
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(['rent', 'sale'] as DealType[]).map((option) => {
-                  const chosen = deal === option;
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setDeal(option)}
-                      aria-pressed={chosen}
-                      className={cx(
-                        'flex flex-col items-start rounded-xl border-2 p-5 text-left transition-colors cursor-pointer',
-                        chosen ? 'border-p1-primary bg-p1-primary-soft/60 shadow-p1-sm' : 'border-p1-border hover:border-p1-border-strong hover:bg-p1-subtle/50',
+                  {addrMode === 'search' ? (
+                    <div>
+                      <div className="relative">
+                        <TextInput
+                          label="Address or postal code"
+                          leftIcon={<Search size={17} />}
+                          value={query}
+                          onChange={(e) => { setQuery(e.target.value); setAddr(null); }}
+                          onKeyDown={(e) => {
+                            if (!showMatches.length) return;
+                            if (e.key === 'ArrowDown') { e.preventDefault(); setCursor((c) => Math.min(showMatches.length - 1, c + 1)); }
+                            if (e.key === 'ArrowUp') { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
+                            if (e.key === 'Enter' && cursor >= 0) { e.preventDefault(); pickAddress(showMatches[cursor]); }
+                          }}
+                          placeholder="e.g. 018987 or 2 Marina Boulevard"
+                          autoComplete="off"
+                          role="combobox"
+                          aria-expanded={showMatches.length > 0}
+                          aria-controls="address-matches"
+                          rightSlot={searching ? <Spinner size={14} /> : undefined}
+                          error={err(0, 'addr')}
+                          hint={!addr ? 'Matched against OneMap, the Singapore Land Authority register.' : undefined}
+                        />
+                      </div>
+                      {showMatches.length > 0 && (
+                        <ul id="address-matches" className="p1-panel mt-2 overflow-hidden rounded-xl border border-p1-border bg-p1-elevated shadow-p1-md" role="listbox" aria-label="Address matches">
+                          {showMatches.map((m, i) => (
+                            <li key={`${m.postal}-${i}`} role="option" aria-selected={i === cursor}>
+                              <button type="button" onClick={() => pickAddress(m)} onMouseEnter={() => setCursor(i)}
+                                className={cx('flex w-full cursor-pointer items-center gap-3 border-b border-p1-border px-4 py-2.5 text-left last:border-b-0', i === cursor ? 'bg-p1-subtle' : 'hover:bg-p1-subtle')}>
+                                <MapPin size={16} className="shrink-0 text-p1-text-3" aria-hidden />
+                                <span className="min-w-0">
+                                  <span className="block truncate text-[14px] font-medium text-p1-text">{m.project || m.label}</span>
+                                  <span className="block truncate text-[12.5px] text-p1-text-3">{m.label} · {m.postal}</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
                       )}
-                    >
-                      <span className={cx('flex h-11 w-11 items-center justify-center rounded-lg', chosen ? 'bg-p1-primary text-white' : 'bg-p1-subtle text-p1-text-3')} aria-hidden>
-                        {option === 'rent' ? <KeyRound size={20} /> : <Tag size={20} />}
-                      </span>
-                      <span className="mt-3.5 text-[16px] font-semibold text-p1-text">
-                        {option === 'rent' ? 'For rent' : 'For sale'}
-                      </span>
-                      <span className="mt-1 text-[13.5px] leading-5 text-p1-text-2">
-                        {option === 'rent'
-                          ? 'A monthly rent, a minimum lease and an availability date.'
-                          : 'An asking price. No lease terms.'}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {editing && (
-                <Callout tone="warning" className="mt-5" compact>
-                  Changing this on a live listing changes where it appears in search. Anyone who saved the old link
-                  still reaches it.
-                </Callout>
+                      {noMatches && (
+                        <p className="mt-2 text-[13px] text-p1-text-3">
+                          No match in the address register. Try the postal code, or{' '}
+                          <button type="button" onClick={() => setAddrMode('map')} className="cursor-pointer font-medium text-p1-primary underline-offset-4 hover:underline">pick it on the map</button>.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <LocationPicker initial={{ lat: addr?.lat, lng: addr?.lng }} onPick={(m) => { setAddr(m); setQuery(m.label); }} />
+                  )}
+
+                  {addr && (
+                    <div className="p1-in overflow-hidden rounded-xl border border-p1-success-border">
+                      <div className="flex items-start gap-3 bg-p1-success-soft/60 px-4 py-3">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-p1-success text-white dark:text-p1-bg" aria-hidden>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="p1-check"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[14.5px] font-semibold text-p1-text">{addr.project}</div>
+                          <div className="text-[13px] text-p1-text-2">{addr.label} · {addr.postal}{addr.district ? ` · ${districtCode(addr.district)} ${districtLabel(addr.district)}` : ''}</div>
+                        </div>
+                        <button type="button" onClick={() => { setAddr(null); setQuery(''); }} className="shrink-0 cursor-pointer text-[13px] font-medium text-p1-text-2 hover:text-p1-text">Change</button>
+                      </div>
+                      {addrMode === 'search' && addr.lat !== undefined && <PropertyMap lat={addr.lat} lng={addr.lng} label={addr.label} height={180} className="rounded-none border-0 border-t" />}
+                    </div>
+                  )}
+
+                  {addr && template && !templateUsed && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-p1-primary/25 bg-p1-primary-soft px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-2.5 text-[13.5px] text-p1-text">
+                        <Sparkles size={15} className="shrink-0 text-p1-primary" aria-hidden />
+                        <span>You have listed here before — copy the building details from {template.unitNo}?</span>
+                      </div>
+                      <Button size="sm" variant="primary" onClick={applyTemplate}>Copy details</Button>
+                    </div>
+                  )}
+
+                  {editing && <p className="text-[13px] text-p1-text-3">Changing this on a live listing changes where it appears in search.</p>}
+                </div>
               )}
-            </SectionCard>
-          )}
 
-          {step === 1 && (
-            <SectionCard
-              title="Where is the property?"
-              description="Matched against OneMap, the Singapore Land Authority's official address register, so every listing sits on a real building with a real postal district."
-            >
-              {/* The choice sits above the field rather than behind a link, so
-                  an agent who cannot spell the road can see the other way in
-                  before they start fighting the search box. */}
-              <div role="tablist" aria-label="How to find the property" className="mb-5 inline-flex rounded-full bg-p1-subtle p-1 ring-1 ring-p1-border">
-                {([
-                  { key: 'search' as const, label: 'Search the address', icon: TypeIcon },
-                  { key: 'map' as const, label: 'Choose on the map', icon: MapIcon },
-                ]).map((m) => (
-                  <button
-                    key={m.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={addrMode === m.key}
-                    onClick={() => setAddrMode(m.key)}
-                    className={cx(
-                      'inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-semibold transition-colors',
-                      addrMode === m.key ? 'bg-p1-surface text-p1-text shadow-p1-sm' : 'text-p1-text-2 hover:text-p1-text',
-                    )}
-                  >
-                    <m.icon size={15} aria-hidden />
-                    {m.label}
-                  </button>
-                ))}
-              </div>
+              {/* ----------------------------------------------- 2 property */}
+              {step === 1 && (
+                <div className="space-y-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <TextInput
+                      label="Unit number"
+                      required
+                      value={unitNo}
+                      onChange={(e) => { setUnitNo(e.target.value); setUnitFilled(false); }}
+                      placeholder="12-34"
+                      rightSlot={unitChecking ? <Spinner size={14} /> : undefined}
+                      error={err(1, 'unit')}
+                      hint={normalisedUnit ? <>Shown as <span className="font-medium text-p1-text">{normalisedUnit}</span></> : undefined}
+                    />
+                    <TextInput label="Floor area" required inputMode="numeric" value={sqft} onChange={(e) => setSqft(e.target.value.replace(/\D/g, ''))} rightSlot="sqft" error={err(1, 'sqft')} placeholder="850" />
+                  </div>
 
-              {addrMode === 'search' ? (
-                <>
-                  <TextInput label="Address or postal code" leftIcon={<Search size={17} />} value={query}
-                    onChange={(e) => { setQuery(e.target.value); setAddr(null); }}
-                    placeholder="A six-digit postal code, or “2 Marina Boulevard”" autoComplete="off"
-                    hint={searching ? 'Searching OneMap…' : 'A postal code identifies one building in Singapore, so it fills in the rest.'} />
-                  {showMatches.length > 0 && (
-                    <ul className="mt-2 overflow-hidden rounded-xl ring-1 ring-p1-border" role="listbox" aria-label="Address matches">
-                      {showMatches.map((m) => (
-                        <li key={m.postal}>
-                          <button type="button" role="option" aria-selected={false} onClick={() => { setAddr(m); setQuery(m.label); }}
-                            className="flex w-full items-center gap-3 border-b border-p1-border bg-p1-surface px-4 py-3 text-left last:border-b-0 hover:bg-p1-subtle cursor-pointer">
-                            <MapPin size={17} className="shrink-0 text-p1-primary dark:text-p1-info" aria-hidden />
-                            <span className="min-w-0">
-                              <span className="block truncate text-[14px] font-medium text-p1-text">{m.label}</span>
-                              <span className="block text-[13px] text-p1-text-3">Singapore {m.postal} · {m.project}</span>
-                            </span>
+                  {unitKnown && (unitKnown.yours || unitKnown.sameStack || unitKnown.othersAdvertising > 0) && (
+                    <div className="grid gap-3">
+                      {unitKnown.yours && !unitKnown.yours.archived && unitKnown.yours.status !== 'expired' && unitKnown.yours.status !== 'rejected' ? (
+                        <Callout tone="warning" title="You already advertise this unit" action={<LinkButton size="sm" variant="outline" href={`/phase1/listings/${unitKnown.yours.listingId}`}>Open it</LinkButton>}>
+                          {unitKnown.yours.reference} · {sgd(unitKnown.yours.monthlyRent)}/month. Edit that listing unless this is a different unit.
+                        </Callout>
+                      ) : unitKnown.yours ? (
+                        <Callout tone="info" title="You have let this unit before"
+                          action={!unitFilled ? <Button size="sm" variant="outline" leftIcon={<Wand2 size={14} />} onClick={() => fillFromUnit(unitKnown.yours!)}>Fill in</Button> : undefined}>
+                          {unitKnown.yours.sizeSqft.toLocaleString('en-SG')} sqft · {unitKnown.yours.bedrooms} bed · {unitKnown.yours.bathrooms} bath · {unitKnown.yours.furnishing}
+                        </Callout>
+                      ) : unitKnown.sameStack ? (
+                        <Callout tone="neutral" title={`Same stack as ${unitKnown.sameStack.unitNo}`}
+                          action={!unitFilled ? <Button size="sm" variant="outline" leftIcon={<Wand2 size={14} />} onClick={() => fillFromUnit(unitKnown.sameStack!)}>Use its layout</Button> : undefined}>
+                          {unitKnown.sameStack.sizeSqft.toLocaleString('en-SG')} sqft · {unitKnown.sameStack.bedrooms} bed · {unitKnown.sameStack.bathrooms} bath
+                        </Callout>
+                      ) : null}
+                      {unitKnown.othersAdvertising > 0 && (
+                        <Callout tone="neutral" compact>
+                          {unitKnown.othersAdvertising === 1 ? 'Another agent advertises' : `${unitKnown.othersAdvertising} other agents advertise`} this unit. Nothing is blocked.
+                        </Callout>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-5 sm:grid-cols-3">
+                    <SelectInput label="Property type" value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)}
+                      options={['Condominium', 'HDB', 'Apartment', 'Landed', 'Executive Condominium'].map((v) => ({ value: v, label: v }))} />
+                    <SelectInput label="Bedrooms" value={beds} onChange={(e) => setBeds(e.target.value)}
+                      options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))} />
+                    <SelectInput label="Bathrooms" value={baths} onChange={(e) => setBaths(e.target.value)}
+                      options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: String(n) }))} />
+                  </div>
+
+                  <fieldset>
+                    <legend className="mb-2 flex w-full items-baseline justify-between text-[13.5px] font-medium text-p1-text">
+                      Amenities <span className="text-[12px] font-normal text-p1-text-3">{amenities.length} selected</span>
+                    </legend>
+                    <div className="flex flex-wrap gap-2">
+                      {AMENITIES.map((a) => {
+                        const on = amenities.includes(a);
+                        return (
+                          <button key={a} type="button" aria-pressed={on} onClick={() => toggleAmenity(a)}
+                            className={cx('p1-press inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium',
+                              on ? 'border-p1-primary bg-p1-primary-soft text-p1-primary' : 'border-p1-border-strong bg-p1-surface text-p1-text-2 hover:text-p1-text')}>
+                            {on && <Check size={14} strokeWidth={2.5} aria-hidden />}{a}
                           </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                </div>
+              )}
+
+              {/* -------------------------------------------------- 3 terms */}
+              {step === 2 && (
+                <div className="space-y-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    {deal === 'sale' ? (
+                      <TextInput label="Asking price" required inputMode="numeric" value={salePrice ? Number(salePrice).toLocaleString('en-SG') : ''}
+                        onChange={(e) => setSalePrice(e.target.value.replace(/\D/g, ''))} leftIcon={<span className="text-[14px] font-medium">S$</span>}
+                        placeholder="1,350,000" error={err(2, 'price')} hint={psfHint} />
+                    ) : (
+                      <TextInput label="Monthly rent" required inputMode="numeric" value={rent ? Number(rent).toLocaleString('en-SG') : ''}
+                        onChange={(e) => setRent(e.target.value.replace(/\D/g, ''))} leftIcon={<span className="text-[14px] font-medium">S$</span>}
+                        placeholder="4,200" error={err(2, 'price')} hint={psfHint} />
+                    )}
+                    <TextInput label={deal === 'sale' ? 'Viewings from' : 'Available from'} type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} />
+                    <SelectInput label="Furnishing" value={furnishing} onChange={(e) => setFurnishing(e.target.value as Furnishing)}
+                      options={['Unfurnished', 'Partially furnished', 'Fully furnished'].map((v) => ({ value: v, label: v }))} />
+                    {deal === 'rent' && (
+                      <SelectInput label="Minimum lease" value={lease} onChange={(e) => setLease(e.target.value)}
+                        options={[{ value: '6', label: '6 months' }, { value: '12', label: '12 months' }, { value: '24', label: '24 months' }]} />
+                    )}
+                  </div>
+                  <TextArea
+                    label="Description"
+                    required
+                    rows={5}
+                    value={desc}
+                    onChange={(e) => setDesc(e.target.value)}
+                    placeholder="Quiet stack, no west sun, five minutes' walk to the MRT…"
+                    counter={`${desc.trim().length}`}
+                    error={err(2, 'desc')}
+                    hint="What photographs cannot show. Leave out phone numbers — tenants enquire through V-RENT."
+                  />
+                </div>
+              )}
+
+              {/* ------------------------------------------------- 4 photos */}
+              {step === 3 && (
+                <div data-invalid={err(3, 'photos') ? 'true' : undefined} tabIndex={err(3, 'photos') ? -1 : undefined}>
+                  <PhotoUploader shots={shots} onChange={(n, added) => void onPhotos(n, added)} ownerId={user?.id ?? ''} listingId={editing?.id} busy={uploading} notes={photoNotes} />
+                  {err(3, 'photos') && <p role="alert" className="mt-3 flex items-center gap-1.5 text-[13px] text-p1-danger"><CircleAlert size={14} aria-hidden />{err(3, 'photos')}</p>}
+                  {!editing && shots.length > 0 && <p className="mt-3 text-[12.5px] text-p1-text-3">Photographs upload when you save or publish.</p>}
+                </div>
+              )}
+
+              {/* ------------------------------------------------- 5 review */}
+              {step === 4 && (
+                <div className="space-y-6">
+                  <dl className="divide-y divide-p1-border rounded-xl border border-p1-border">
+                    {[
+                      { k: 'Address', v: addr ? `${addr.project}${normalisedUnit ? `, ${normalisedUnit}` : ''} · ${addr.postal}` : '—', to: 0 },
+                      { k: 'Unit', v: `${beds} bed · ${baths} bath · ${Number(sqft || 0).toLocaleString('en-SG')} sqft · ${propertyType}`, to: 1 },
+                      { k: deal === 'sale' ? 'Price' : 'Rent', v: priceShown ? `${priceShown}${deal === 'rent' ? ` a month · ${lease}-month lease` : ''}` : '—', to: 2 },
+                      { k: 'Available', v: `${sgDate(availableFrom)} · ${furnishing}`, to: 2 },
+                      { k: 'Photographs', v: `${shots.length} ${shots.length === 1 ? 'photo' : 'photos'}`, to: 3 },
+                      { k: 'Amenities', v: amenities.length ? amenities.join(', ') : 'None listed', to: 1 },
+                    ].map((r) => (
+                      <div key={r.k} className="flex items-start gap-4 px-4 py-3">
+                        <dt className="w-24 shrink-0 text-[13px] text-p1-text-3">{r.k}</dt>
+                        <dd className="min-w-0 flex-1 text-[14px] text-p1-text">{r.v}</dd>
+                        <button type="button" onClick={() => go(r.to)} className="inline-flex shrink-0 cursor-pointer items-center gap-1 text-[13px] font-medium text-p1-primary hover:underline underline-offset-4"><Pencil size={12} aria-hidden /> Edit</button>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div>
+                    <h3 className="mb-2 text-[14px] font-semibold text-p1-text">Publishing checklist</h3>
+                    <ul className="space-y-1.5">
+                      {[...gate, { id: 'fields', label: 'Listing details complete', pass: STEPS.slice(0, 4).every((_, i) => stepValid(i)), detail: '', fixHref: undefined, fixLabel: undefined }].map((g) => (
+                        <li key={g.id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
+                          <span className={cx('flex h-6 w-6 shrink-0 items-center justify-center rounded-full', g.pass ? 'bg-p1-success-soft text-p1-success' : 'bg-p1-danger-soft text-p1-danger')} aria-hidden>
+                            {g.pass ? <Check size={13} strokeWidth={3} /> : <X size={13} strokeWidth={3} />}
+                          </span>
+                          <span className="min-w-0 flex-1 text-[14px] text-p1-text">{g.label}<span className="sr-only">{g.pass ? ' — passed' : ' — not yet'}</span></span>
+                          {!g.pass && g.fixHref && <Link href={g.fixHref} className="shrink-0 text-[13px] font-medium text-p1-primary hover:underline underline-offset-4">{g.fixLabel}</Link>}
                         </li>
                       ))}
                     </ul>
-                  )}
-                  {noMatches && (
-                    <p className="mt-2 text-[13px] text-p1-text-3">
-                      Nothing in the address register matches that. Check the spelling, try the six-digit postal code, or
-                      {' '}
-                      <button type="button" onClick={() => setAddrMode('map')} className="cursor-pointer font-semibold text-p1-primary underline-offset-4 hover:underline dark:text-p1-info">
-                        point at it on the map
-                      </button>.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <LocationPicker
-                  initial={{ lat: addr?.lat, lng: addr?.lng }}
-                  onPick={(m) => { setAddr(m); setQuery(m.label); }}
-                />
-              )}
+                  </div>
 
-              {addr && (
-                <div className="mt-5 rounded-xl border border-p1-success-border bg-p1-success-soft/60 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-p1-text"><Check size={16} className="text-p1-success" aria-hidden /> Property matched</div>
-                  <FieldGrid cols={2}>
-                    <Field label="Project" value={addr.project} />
-                    <Field label="Postal code" value={addr.postal} mono />
-                    <Field label="District" value={addr.district ? `D${String(addr.district).padStart(2, '0')} ${districtName(addr.district)}` : 'Not in a postal district'} />
-                    <Field label="Address" value={addr.label} />
-                  </FieldGrid>
-                  {addrMode === 'search' && <PropertyMap className="mt-4" lat={addr.lat} lng={addr.lng} label={addr.label} height={200} />}
-
-                  {template && !templateUsed && (
-                    <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-p1-primary/25 bg-p1-primary-soft/60 px-4 py-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 text-[13.5px] font-semibold text-p1-text">
-                          <Sparkles size={14} className="text-p1-primary dark:text-p1-info" aria-hidden />
-                          You have listed here before
-                        </div>
-                        <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">
-                          {template.project} {template.unitNo} has the property type
-                          {template.nearestMrt ? ', nearest station' : ''}
-                          {template.tenure ? ', tenure' : ''} and amenities already recorded. Copy them across and
-                          change what differs for this unit.
-                        </p>
-                      </div>
-                      <Button size="sm" variant="primary" onClick={applyTemplate}>Use those details</Button>
+                  <div className="flex items-start gap-3 rounded-xl bg-p1-subtle px-4 py-3">
+                    <ShieldCheck size={16} className="mt-0.5 shrink-0 text-p1-text-3" aria-hidden />
+                    <div className="min-w-0 text-[13px] leading-5">
+                      <div className="font-medium text-p1-text">{state.profile.fullName} · {state.profile.ceaNumber} · {state.profile.agency}{state.profile.agencyLicence && ` (${state.profile.agencyLicence})`}</div>
+                      <div className="text-p1-text-3">Printed on the advertisement, as CEA rules require.</div>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {editing && (
-                <Callout tone="warning" className="mt-5" compact>
-                  Changing this on a live listing changes where it appears in search. Anyone who saved the old link
-                  still reaches it.
-                </Callout>
-              )}
-            </SectionCard>
-          )}
-
-          {step === 2 && (
-            <SectionCard title="Unit details" description="These appear on the listing and help tenants filter by size.">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <TextInput
-                  label="Unit number"
-                  required
-                  value={unitNo}
-                  onChange={(e) => { setUnitNo(e.target.value); setUnitFilled(false); }}
-                  placeholder="12-34"
-                  rightSlot={unitChecking ? <Spinner size={14} /> : undefined}
-                  hint={normalisedUnit
-                    ? <>Will be shown as <span className="font-mono text-p1-text">{normalisedUnit}</span></>
-                    : 'Floor and unit, for example 12-34'}
-                  containerClassName="sm:col-span-2"
-                />
-
-                {unitKnown && (unitKnown.yours || unitKnown.sameStack || unitKnown.othersAdvertising > 0) && (
-                  <div className="grid gap-3 sm:col-span-2">
-                    {unitKnown.yours && !unitKnown.yours.archived
-                      && unitKnown.yours.status !== 'expired' && unitKnown.yours.status !== 'rejected' ? (
-                      <Callout tone="warning" title="You are already advertising this unit">
-                        <span className="block">
-                          {unitKnown.yours.reference} · {unitKnown.yours.project} {unitKnown.yours.unitNo} ·{' '}
-                          {sgd(unitKnown.yours.monthlyRent)}/month
-                        </span>
-                        <span className="mt-1 block">
-                          Publishing a second listing for the same unit puts two of your own advertisements in front of
-                          the same tenant. Edit the one you have unless this is genuinely a different unit.
-                        </span>
-                        <Link
-                          href={`/phase1/listings/${unitKnown.yours.listingId}`}
-                          className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-p1-primary underline-offset-4 hover:underline dark:text-p1-info"
-                        >
-                          Open that listing <ArrowRight size={13} aria-hidden />
-                        </Link>
-                      </Callout>
-                    ) : unitKnown.yours ? (
-                      <Callout tone="info" title="You have let this unit before">
-                        <span className="block">
-                          {unitKnown.yours.reference} · {unitKnown.yours.sizeSqft.toLocaleString('en-SG')} sqft ·{' '}
-                          {unitKnown.yours.bedrooms} bed · {unitKnown.yours.bathrooms} bath · {unitKnown.yours.furnishing}
-                        </span>
-                        {!unitFilled && (
-                          <Button size="sm" variant="outline" className="mt-2.5" leftIcon={<Wand2 size={14} />}
-                            onClick={() => fillFromUnit(unitKnown.yours!)}>
-                            Fill in from that listing
-                          </Button>
-                        )}
-                      </Callout>
-                    ) : unitKnown.sameStack ? (
-                      <Callout tone="neutral" title={`Same stack as ${unitKnown.sameStack.unitNo}`}>
-                        <span className="block">
-                          You listed {unitKnown.sameStack.unitNo} in this block —{' '}
-                          {unitKnown.sameStack.sizeSqft.toLocaleString('en-SG')} sqft ·{' '}
-                          {unitKnown.sameStack.bedrooms} bed · {unitKnown.sameStack.bathrooms} bath. Units in the same
-                          stack usually share a footprint and a layout.
-                        </span>
-                        {!unitFilled && (
-                          <Button size="sm" variant="outline" className="mt-2.5" leftIcon={<Wand2 size={14} />}
-                            onClick={() => fillFromUnit(unitKnown.sameStack!)}>
-                            Start from those figures
-                          </Button>
-                        )}
-                      </Callout>
-                    ) : null}
-
-                    {unitKnown.othersAdvertising > 0 && (
-                      <Callout tone="neutral" title={
-                        unitKnown.othersAdvertising === 1
-                          ? 'Another agent is advertising this unit'
-                          : `${unitKnown.othersAdvertising} other agents are advertising this unit`
-                      }>
-                        An open mandate to more than one agency is ordinary and nothing here is blocked. It is worth
-                        knowing before you price it, and a moderator will see the same thing when you publish.
-                      </Callout>
-                    )}
                   </div>
-                )}
-                <TextInput label="Floor area (sqft)" required inputMode="numeric" value={sqft} onChange={(e) => setSqft(e.target.value.replace(/\D/g, ''))} hint="Strata area as shown on the lease" />
-                <SelectInput label="Property type" value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)}
-                  options={['Condominium', 'HDB', 'Apartment', 'Landed', 'Executive Condominium'].map((v) => ({ value: v, label: v }))} />
-                <SelectInput label="Bedrooms" value={beds} onChange={(e) => setBeds(e.target.value)}
-                  options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} bedroom${n > 1 ? 's' : ''}` }))} />
-                <SelectInput label="Bathrooms" value={baths} onChange={(e) => setBaths(e.target.value)}
-                  options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: `${n} bathroom${n > 1 ? 's' : ''}` }))} />
-              </div>
-            </SectionCard>
-          )}
-
-          {step === 3 && (
-            <SectionCard
-              title={deal === 'sale' ? 'Price' : 'Rental terms'}
-              description={deal === 'sale' ? 'What the seller is asking.' : 'Set the asking rent and the terms you will accept.'}
-            >
-              <div className="grid gap-5 sm:grid-cols-2">
-                {deal === 'sale' ? (
-                  <TextInput label="Asking price" required inputMode="numeric" value={salePrice}
-                    onChange={(e) => setSalePrice(e.target.value.replace(/\D/g, ''))}
-                    leftIcon={<span className="text-[14px] font-semibold">S$</span>}
-                    hint={salePrice && sqft ? `About S$${Math.round(Number(salePrice) / Number(sqft)).toLocaleString('en-SG')} per sqft` : undefined} />
-                ) : (
-                  <TextInput label="Monthly rent" required inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value.replace(/\D/g, ''))}
-                    leftIcon={<span className="text-[14px] font-semibold">S$</span>} hint={rent && sqft ? `About S$${(Number(rent) / Number(sqft)).toFixed(2)} per sqft` : undefined} />
-                )}
-                {deal === 'rent' && (
-                  <SelectInput label="Minimum lease" value={lease} onChange={(e) => setLease(e.target.value)}
-                    options={[{ value: '6', label: '6 months' }, { value: '12', label: '12 months' }, { value: '24', label: '24 months' }]} />
-                )}
-                <SelectInput label="Furnishing" value={furnishing} onChange={(e) => setFurnishing(e.target.value as Furnishing)}
-                  options={['Unfurnished', 'Partially furnished', 'Fully furnished'].map((v) => ({ value: v, label: v }))} />
-                <TextInput label={deal === 'sale' ? 'Available to view from' : 'Available from'} type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} />
-              </div>
-            </SectionCard>
-          )}
-
-          {step === 4 && (
-            <SectionCard title="Description and amenities" description="A clear description and the right amenities are what tenants search for.">
-              <TextArea label="Description" required rows={5} value={desc} onChange={(e) => setDesc(e.target.value)}
-                hint={<span className={cx(desc.trim().length < 20 && 'text-p1-warning')}>{desc.length} characters · at least 20. Do not include phone numbers or email addresses — tenants enquire through V-RENT.</span>} />
-              <fieldset className="mt-6">
-                <legend className="mb-2 text-[14px] font-medium text-p1-text">Amenities</legend>
-                <div className="grid gap-x-6 sm:grid-cols-2">
-                  {AMENITIES.map((a) => <Checkbox key={a} label={a} checked={amenities.includes(a)} onChange={() => toggleAmenity(a)} />)}
-                </div>
-              </fieldset>
-            </SectionCard>
-          )}
-
-          {step === 5 && (
-            <SectionCard
-              title="Photographs"
-              description={`Up to ${6} per listing, ${5} MB each. Listings with a full set get noticeably more enquiries.`}
-            >
-              <PhotoUploader
-                shots={shots}
-                onChange={(next, added) => void onPhotos(next, added)}
-                ownerId={user?.id ?? ''}
-                listingId={editing?.id}
-                busy={uploading}
-                notes={photoNotes}
-              />
-              {!editing && shots.length > 0 && (
-                <p className="mt-3 text-[13px] leading-5 text-p1-text-3">
-                  These upload when you save the listing.
-                </p>
-              )}
-            </SectionCard>
-          )}
-
-          {step === 6 && (
-            <SectionCard title="Review and publish" description="Check the details below. You can go back to any step.">
-              <FieldGrid cols={2}>
-                <Field label="Property" value={addr ? `${addr.project}, ${normalisedUnit}` : '—'} />
-                <Field label="Address" value={addr ? `${addr.label}, Singapore ${addr.postal}` : '—'} />
-                <Field label={deal === 'sale' ? 'Asking price' : 'Rent'} value={deal === 'sale' ? sgd(Number(salePrice || 0)) : `${sgd(Number(rent || 0))} per month`} />
-                <Field label="Configuration" value={`${beds} bed · ${baths} bath · ${Number(sqft).toLocaleString()} sqft · ${propertyType}`} />
-                <Field label={deal === 'sale' ? 'Available' : 'Lease'} value={deal === 'sale' ? `From ${availableFrom}` : `Minimum ${lease} months · from ${availableFrom}`} />
-                <Field label="Furnishing" value={furnishing} />
-              </FieldGrid>
-              <div className="mt-5">
-                <div className="mb-2 text-[13px] font-medium text-p1-text-3">Amenities</div>
-                <div className="flex flex-wrap gap-2">{amenities.length ? amenities.map((a) => <Pill key={a}>{a}</Pill>) : <span className="text-[13px] text-p1-text-3">None selected</span>}</div>
-              </div>
-              <div className="mt-5">
-                <div className="mb-2 text-[13px] font-medium text-p1-text-3">Photographs ({shots.length})</div>
-                {shots.length === 0 ? (
-                  <p className="text-[13px] text-p1-text-3">None yet. A listing cannot be published without at least one.</p>
-                ) : (
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {shots.map((sh, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={sh.kind === 'saved' ? sh.id : sh.url}
-                        src={sh.kind === 'pending' ? sh.url : editing ? photoUrl(user?.id ?? '', editing.id, sh.id) : ''}
-                        alt={`Photograph ${i + 1}`}
-                        className="h-16 w-24 shrink-0 rounded-md object-cover"
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="mt-6 rounded-xl border border-p1-border bg-p1-subtle/50 p-4">
-                <div className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-p1-text"><ShieldCheck size={16} className="text-p1-primary dark:text-p1-info" aria-hidden /> Your details on this advertisement</div>
-                <p className="text-[15px] text-p1-text">{state.profile.fullName} · {state.profile.ceaNumber} · {state.profile.agency} ({state.profile.agencyLicence})</p>
-                <p className="mt-2 text-[13px] leading-5 text-p1-text-2">Required on every advertisement by CEA rules. They are frozen onto the listing when it goes live, so a later change of agency does not alter this advertisement.</p>
-              </div>
-              <div className="mt-6 rounded-xl border border-p1-border p-4">
-                <div className="mb-2 text-[14px] font-semibold text-p1-text">{canPublish ? 'Ready to publish' : 'Publication is blocked'}</div>
-                <ul className="divide-y divide-p1-border">
-                  {gate.map((g) => (
-                    <li key={g.id} className="flex items-start gap-3 py-2.5">
-                      <span className={cx('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full', g.pass ? 'bg-p1-success-soft text-p1-success' : 'bg-p1-danger-soft text-p1-danger')} aria-hidden>{g.pass ? <Check size={12} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}</span>
-                      <span className="min-w-0 flex-1 text-[14px] text-p1-text">{g.label}<span className="sr-only">{g.pass ? ' — passed' : ' — failed'}</span>
-                        {!g.pass && g.fixHref && <Link href={g.fixHref} className="ml-2 text-[13px] font-semibold text-p1-primary underline-offset-4 hover:underline dark:text-p1-info">{g.fixLabel} →</Link>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Action bar */}
-          <Card padding="sm" className="sticky bottom-20 mt-4 lg:bottom-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Button variant="ghost" leftIcon={<ChevronLeft size={16} />} disabled={step === 0} onClick={() => setStep((s) => s - 1)}>Back</Button>
-              <div className="order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:px-4">
-                <div className="mb-1 text-[13px] text-p1-text-3">Step {step + 1} of {STEPS.length}</div>
-                <ProgressBar value={progress} size="sm" />
-              </div>
-              {editing ? (
-                /* Saving is available from every step: a deep link that lands on
-                   photographs should not force a walk through the other five. */
-                <div className="flex flex-wrap gap-2">
-                  {step < STEPS.length - 1 && (
-                    <Button variant="ghost" rightIcon={<ChevronRight size={16} />} onClick={() => setStep((s) => s + 1)}>Continue</Button>
-                  )}
-                  <Button variant="outline" leftIcon={<Save size={16} />} disabled={!addr} onClick={saveChanges}>Save changes</Button>
-                  {editing.status === 'rejected' && (
-                    <Button variant="primary" leftIcon={<Send size={16} />} disabled={!addr} onClick={resubmit}>Resubmit for review</Button>
-                  )}
-                  {editing.status === 'draft' && (
-                    <Button variant="primary" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish || !addr} onClick={() => setConfirmPublish(true)}>
-                      {canPublish ? 'Publish listing' : 'Publication blocked'}
-                    </Button>
-                  )}
-                </div>
-              ) : step < STEPS.length - 1 ? (
-                <Button variant="primary" rightIcon={<ChevronRight size={16} />} disabled={!canAdvance} onClick={() => setStep((s) => s + 1)}>Continue</Button>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" loading={committing} onClick={() => void saveDraft()}>Save as draft</Button>
-                  <Button variant="primary" size="md" leftIcon={!canPublish ? <Lock size={16} /> : <Check size={16} />} disabled={!canPublish || committing} onClick={() => setConfirmPublish(true)}>
-                    {canPublish ? 'Publish listing' : 'Publication blocked'}
-                  </Button>
                 </div>
               )}
             </div>
-          </Card>
+          </div>
+
+          {/* ------------------------------------------------------ actions */}
+          <div data-print-hide className="sticky bottom-16 z-10 mt-5 flex items-center gap-2 rounded-xl border border-p1-border bg-p1-surface/95 p-2.5 shadow-p1-md backdrop-blur lg:bottom-4">
+            <Button variant="ghost" leftIcon={<ChevronLeft size={16} />} disabled={step === 0} onClick={() => go(step - 1)}>Back</Button>
+            <div className="flex-1" />
+            {editing ? (
+              <>
+                <Button variant={lastStep ? 'outline' : 'ghost'} leftIcon={<Save size={15} />} disabled={!addr} onClick={saveChanges} className="max-sm:px-3">
+                  <span className="max-sm:sr-only">Save changes</span>
+                </Button>
+                {!lastStep && <Button rightIcon={<ArrowRight size={16} />} onClick={next}>Continue</Button>}
+                {lastStep && editing.status === 'rejected' && <Button leftIcon={<Send size={15} />} disabled={!addr} onClick={resubmit}>Resubmit</Button>}
+                {lastStep && editing.status === 'draft' && (
+                  <Button leftIcon={canPublish ? <Check size={16} /> : <Lock size={15} />} disabled={!canPublish || !addr || !STEPS.slice(0, 4).every((_, i) => stepValid(i))} onClick={() => setConfirmPublish(true)}>
+                    {canPublish ? 'Publish' : 'Blocked'}
+                  </Button>
+                )}
+              </>
+            ) : !lastStep ? (
+              <>
+                {addr && <Button variant="ghost" loading={committing} onClick={() => void saveDraft()} className="hidden sm:inline-flex">Save draft</Button>}
+                <Button rightIcon={<ArrowRight size={16} />} onClick={next}>Continue</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" loading={committing} disabled={!addr} onClick={() => void saveDraft()}>Save draft</Button>
+                <Button leftIcon={canPublish ? <Check size={16} /> : <Lock size={15} />} disabled={!canPublish || committing || !STEPS.slice(0, 4).every((_, i) => stepValid(i))} onClick={() => setConfirmPublish(true)}>
+                  {canPublish ? 'Publish' : 'Publishing blocked'}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
+        {/* ------------------------------------------------------- preview */}
+        <aside className="hidden lg:block" aria-label="Preview">
+          <div className="sticky top-[136px] space-y-3">
+            <p className="text-[12.5px] font-medium text-p1-text-3">Preview</p>
+            <div className="overflow-hidden rounded-2xl border border-p1-border bg-p1-surface">
+              <PropertyImage seed={(addr?.project ?? 'new') + normalisedUnit} src={cover} alt="" rounded="rounded-none" className="aspect-[4/3] w-full" label={!cover} />
+              <div className="p-4">
+                <div className={cx('text-[19px] font-semibold tracking-[-0.02em] tabular-nums', priceShown ? 'text-p1-text' : 'text-p1-text-3')}>
+                  {priceShown ?? 'S$ —'}{deal === 'rent' && <span className="ml-0.5 text-[13px] font-normal text-p1-text-3">/mo</span>}
+                </div>
+                <div className="text-[13px] text-p1-text-2">{beds} bed · {baths} bath{Number(sqft) > 0 ? ` · ${Number(sqft).toLocaleString('en-SG')} sqft` : ''}</div>
+                <div className={cx('mt-2 truncate text-[14.5px] font-medium', addr ? 'text-p1-text' : 'text-p1-text-3')}>{addr?.project ?? 'Property not chosen'}</div>
+                <div className="truncate text-[12.5px] text-p1-text-3">{addr?.district ? `${districtCode(addr.district)} · ${districtLabel(addr.district)}` : 'District appears once matched'}</div>
+              </div>
+            </div>
+            {!canPublish && (
+              <p className="flex items-start gap-2 rounded-xl border border-p1-warning-border bg-p1-warning-soft px-3 py-2.5 text-[12.5px] leading-5 text-p1-text-2">
+                <Lock size={13} className="mt-0.5 shrink-0 text-p1-warning" aria-hidden />
+                Publishing is blocked right now. You can still save a draft.
+              </p>
+            )}
+          </div>
+        </aside>
       </div>
 
       <ConfirmDialog
@@ -1052,12 +876,33 @@ function ListingWizard() {
         onClose={() => { if (!committing) setConfirmPublish(false); }}
         onConfirm={editing ? publishEdit : () => void publish()}
         loading={committing}
+        icon={<Send size={19} />}
         title="Publish this listing?"
-        description={committing
-          ? 'Uploading your photographs. This stays open until they are safely stored.'
-          : 'It goes live immediately and uses one listing slot on your plan.'}
-        confirmLabel="Publish listing" />
-
+        description={committing ? 'Uploading your photographs. This stays open until they are stored.' : 'Tenants can find it as soon as you publish.'}
+        confirmLabel={committing ? 'Publishing…' : 'Publish listing'}
+      >
+        <div className="overflow-hidden rounded-xl border border-p1-border">
+          <div className="flex items-center gap-3 p-3">
+            <PropertyImage seed={(addr?.project ?? 'new') + normalisedUnit} src={cover} alt="" rounded="rounded-lg" className="h-14 w-[72px] shrink-0" />
+            <div className="min-w-0">
+              <div className="truncate text-[14px] font-semibold text-p1-text">{addr?.project ?? 'New listing'}{normalisedUnit ? ` ${normalisedUnit}` : ''}</div>
+              <div className="truncate text-[13px] text-p1-text-3">{priceShown ?? '—'}{deal === 'rent' ? ' / month' : ''} · {beds} bed{addr?.district ? ` · ${districtCode(addr.district)}` : ''}</div>
+            </div>
+          </div>
+          {listingLimit > 0 && (
+            <div className="border-t border-p1-border bg-p1-bg/60 px-3 py-2.5">
+              <div className="flex items-baseline justify-between text-[12.5px]">
+                <span className="text-p1-text-2">Listing slots after publishing</span>
+                <span className="font-semibold tabular-nums text-p1-text">{Math.min(listingLimit, activeListings + (editing?.status === 'published' ? 0 : 1))} of {listingLimit}</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-p1-subtle">
+                <div className="h-full rounded-full bg-p1-primary transition-[width] duration-500" style={{ width: `${Math.min(100, ((activeListings + 1) / listingLimit) * 100)}%` }} />
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="mt-3 text-[12.5px] leading-5 text-p1-text-3">A moderator reviews it after it goes live. You can pause it at any time.</p>
+      </ConfirmDialog>
     </>
   );
 }

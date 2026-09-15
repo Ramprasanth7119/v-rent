@@ -10,6 +10,7 @@ import { useDemo, preferredName, TODAY_ISO } from '../../../../lib/phase1/DemoCo
 import { DemoListing, sgd } from '../../../../lib/phase1/data';
 import { CsvRow, readRows, toNumber } from '../../../../lib/phase1/csv';
 import { districtFromPostal } from '../../../../lib/phase1/onemap';
+import { normaliseDeal } from '../../../../lib/phase1/pricing';
 import { Upload, Check, AlertTriangle, X, FileSpreadsheet, Download, CheckCircle2, ListChecks, FilePlus2 } from 'lucide-react';
 
 interface Row {
@@ -144,7 +145,7 @@ export default function ImportPage() {
   const runImport = () => {
     setConfirm(false);
     [...ok, ...warn].forEach((r, i) => {
-      addListing({
+      addListing(normaliseDeal({
         id: `imp-${i}-${Math.random().toString(36).slice(2, 6)}`,
         reference: `VR-${24200 + i}`,
         agent: preferredName(state.profile.fullName),
@@ -167,7 +168,7 @@ export default function ImportPage() {
         status: 'draft',
         images: 0,
         createdAt: TODAY_ISO,
-      });
+      }));
     });
     push({ tone: 'success', title: `${importable} drafts created`, body: 'Add photos to each draft, then publish.' });
     setStage('done');

@@ -14,6 +14,19 @@
  * replacing `TRANSACTIONS` and nothing else.
  */
 
+/**
+ * What the contracts below actually are, said once so every screen and the
+ * printed report describe them the same way. Flip `live` and the wording when
+ * the URA feed replaces the generator; nothing else should claim a source.
+ */
+export const MARKET_SOURCE = {
+  live: false,
+  name: 'Illustrative lease-contract dataset',
+  publisher: 'V-RENT, modelled on URA private residential rental contracts',
+  coverage: 'Private non-landed homes (condominiums, apartments and executive condominiums) in 20 developments',
+  note: 'The URA rental contract feed is not yet connected. Contracts are generated in the format URA publishes, so the method can be reviewed, and are not market evidence.',
+} as const;
+
 export interface Project {
   name: string;
   street: string;

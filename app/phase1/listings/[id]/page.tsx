@@ -18,12 +18,13 @@ import {
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
 import { Gallery } from '../../../../components/phase1/PropertyImage';
 import { useListingActions, ListingActionDialogs } from '../../../../components/phase1/listing/actions';
-import { HealthPanel, HealthRing } from '../../../../components/phase1/listing/health';
+import { HealthPanel } from '../../../../components/phase1/listing/health';
 import { PublicPreview } from '../../../../components/phase1/listing/PublicPreview';
 import { listingPhotos } from '../../../../lib/phase1/photos';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo } from '../../../../lib/phase1/DemoContext';
 import { sgd } from '../../../../lib/phase1/data';
+import { dealOf, psf as psfLabel } from '../../../../lib/phase1/pricing';
 import { LISTING_ACTIVITY, DEFAULT_ACTIVITY, AMENITIES } from '../../../../lib/phase1/agents';
 import { listingStats, enquiriesFor, ENQUIRY_STATUS, districtName } from '../../../../lib/phase1/performance';
 import {
@@ -88,7 +89,7 @@ function ListingDetailBody() {
   const newEnquiries = enquiries.filter((e) => e.status === 'new').length;
   const activity = LISTING_ACTIVITY[l.reference] ?? DEFAULT_ACTIVITY;
   const amenities = l.amenities?.length ? l.amenities : AMENITIES.slice(0, 4 + (l.sizeSqft % 4));
-  const psf = (l.monthlyRent / l.sizeSqft).toFixed(2);
+  const isSale = dealOf(l) === 'sale';
   const isLive = l.status === 'published' || l.status === 'paused' || l.status === 'expired';
   const editHref = `/phase1/listings/new?edit=${l.id}`;
 
@@ -109,18 +110,8 @@ function ListingDetailBody() {
   return (
     <>
       <PageHeader
-        crumbs={[{ label: 'Listings', href: '/phase1/listings' }, { label: l.reference }]}
-        title={l.project}
-        description={`${l.unitNo} · ${l.address}, Singapore ${l.postalCode}`}
-        meta={
-          <>
-            <StatusBadge kind="listing" value={l.status} size="lg" />
-            <Pill>{district(l.district)} {districtName(l.district)}</Pill>
-            <Pill>{l.reference}</Pill>
-            <Pill>{l.propertyType}</Pill>
-            <HealthRing listing={l} size={30} showLabel className="ml-1" />
-          </>
-        }
+        title={<span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">{l.project}<StatusBadge kind="listing" value={l.status} size="md" /></span>}
+        description={`${l.unitNo} · ${l.address}${l.address.includes(l.postalCode) ? '' : `, Singapore ${l.postalCode}`} · ${district(l.district)} ${districtName(l.district)} · ${l.reference}`}
         actions={
           <>
             <LinkButton href={editHref} variant="outline" leftIcon={<Pencil size={16} />}>Edit</LinkButton>
@@ -152,10 +143,10 @@ function ListingDetailBody() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-p1display text-[34px] font-medium leading-none tabular-nums text-p1-text">{sgd(l.monthlyRent)}</span>
-                  <span className="text-[15px] text-p1-text-2">per month</span>
+                  <span className="font-p1display text-[34px] font-medium leading-none tabular-nums text-p1-text">{sgd(isSale ? l.salePriceSgd ?? 0 : l.monthlyRent)}</span>
+                  <span className="text-[15px] text-p1-text-2">{isSale ? 'asking price' : 'per month'}</span>
                 </div>
-                <div className="mt-2 text-[14px] text-p1-text-2">S${psf} psf · minimum {l.minLeaseMonths}-month lease · available from {fmtDate(l.availableFrom)}</div>
+                <div className="mt-2 text-[14px] text-p1-text-2">{psfLabel(l) ?? 'Floor area not stated'} · {isSale ? 'available to view' : `minimum ${l.minLeaseMonths}-month lease · available`} from {fmtDate(l.availableFrom)}</div>
               </div>
               {isLive && stats.views30d > 0 && (
                 <div className="text-right">

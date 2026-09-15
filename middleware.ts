@@ -32,7 +32,7 @@ const PUBLIC_PATHS = ['/phase1', '/phase1/login', '/phase1/signup', '/phase1/for
  * a link may actually reveal is decided in the store, which returns only
  * published and paused listings.
  */
-const PUBLIC_PREFIXES = ['/phase1/share/'];
+const PUBLIC_PREFIXES = ['/phase1/share/', '/phase1/homes'];
 
 type CookieState = 'none' | 'valid' | 'unusable';
 

@@ -26,6 +26,7 @@ import { StatusBadge, Pill } from '../../../components/phase1/status';
 import { ConfirmDialog } from '../../../components/phase1/overlays';
 import { useDemo, TODAY } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
+import { dealOf, priceLabel } from '../../../lib/phase1/pricing';
 import { districtName } from '../../../lib/phase1/performance';
 import { toolsId, type Shortlist } from '../../../lib/phase1/tools';
 import { sgDate } from '../../../lib/phase1/format';
@@ -65,7 +66,8 @@ export default function ShortlistsPage() {
     return sendable.filter((l) => {
       if (district !== 'all' && String(l.district) !== district) return false;
       if (beds !== 'all' && (beds === '4' ? l.bedrooms < 4 : String(l.bedrooms) !== beds)) return false;
-      if (l.monthlyRent > cap) return false;
+      /* The cap is a monthly rent; a sale is never measured against it. */
+      if (dealOf(l) === 'rent' && l.monthlyRent > cap) return false;
       if (q && !`${l.project} ${l.address} ${l.unitNo} ${l.reference}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -126,7 +128,7 @@ export default function ShortlistsPage() {
     router.push(`/phase1/listings/export?${query.toString()}`);
   };
 
-  const total = picked.reduce((n, id) => n + (byId.get(id)?.monthlyRent ?? 0), 0);
+  const total = picked.reduce((n, id) => { const l = byId.get(id); return n + (l && dealOf(l) === 'rent' ? l.monthlyRent : 0); }, 0);
 
   return (
     <>
@@ -228,8 +230,8 @@ export default function ShortlistsPage() {
                           </span>
                         </span>
                         <span className="shrink-0 text-right">
-                          <span className="block font-p1display text-[16px] font-bold tabular-nums text-p1-text">{sgd(l.monthlyRent)}</span>
-                          <span className="block text-[12px] text-p1-text-3">a month</span>
+                          <span className="block font-p1display text-[16px] font-bold tabular-nums text-p1-text">{priceLabel(l).amount}</span>
+                          <span className="block text-[12px] text-p1-text-3">{dealOf(l) === 'sale' ? 'asking price' : 'a month'}</span>
                         </span>
                       </button>
                     </li>
@@ -302,7 +304,7 @@ export default function ShortlistsPage() {
                       return (
                         <li key={id} className="flex items-center justify-between gap-3 text-[13px]">
                           <span className="min-w-0 truncate text-p1-text">{l.project} {l.unitNo}</span>
-                          <span className="shrink-0 tabular-nums text-p1-text-2">{sgd(l.monthlyRent)}</span>
+                          <span className="shrink-0 tabular-nums text-p1-text-2">{priceLabel(l).amount}{dealOf(l) === 'sale' ? '' : '/mo'}</span>
                         </li>
                       );
                     })}

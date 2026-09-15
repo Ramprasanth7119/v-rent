@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Camera } from 'lucide-react';
 
 /**
- * Deterministic, generated property imagery.
+ * A listing's photograph, or an honest stand-in when it has none.
  *
- * A demo must not depend on the network — a stalled photo request in front of an
- * audience is worse than no photo at all. These are drawn from a seed, so the
- * same listing always produces the same picture, and every listing looks distinct.
+ * The stand-in used to be a coloured skyline drawn at the size of a
+ * photograph, which on a page of listings read as a set of illustrations and
+ * made a property product look like a toy. It is now a quiet architectural
+ * line drawing on the surface colour: clearly not a photograph, never louder
+ * than a real one beside it, and correct in both themes because it draws from
+ * the tokens. The seed still varies the massing so a grid is not twelve copies.
  */
 
 function hash(seed: string): number {
@@ -19,22 +23,6 @@ function hash(seed: string): number {
   return Math.abs(h);
 }
 
-/**
- * Daylight palettes.
- *
- * These were night scenes — five dark navy blocks, which on a page of twelve
- * listings became the loudest thing on it and made the whole product feel
- * heavy. A property portal is photographs of buildings in daylight, so the
- * stand-in is daylight too: pale sky, mid-tone massing, warm sun.
- */
-const PALETTES = [
-  { sky: ['#DCEBFF', '#A8C9F0'], mass: '#7E9BC0', mid: '#96B3D6', glow: '#FFD98A' },
-  { sky: ['#E4F0FB', '#B6D2EC'], mass: '#8AA6C6', mid: '#A2BEDC', glow: '#FFCF76' },
-  { sky: ['#FDE9D9', '#F3C7A8'], mass: '#B08F79', mid: '#C7A78F', glow: '#FFE0A3' },
-  { sky: ['#E8F2EC', '#B9D6C6'], mass: '#8FAE9C', mid: '#A6C4B2', glow: '#FFDC93' },
-  { sky: ['#EDE9FB', '#C3BCEB'], mass: '#9088BE', mid: '#A59DD2', glow: '#FFD98A' },
-];
-
 export function PropertyImage({
   seed,
   variant = 0,
@@ -42,160 +30,142 @@ export function PropertyImage({
   rounded = 'rounded-lg',
   src,
   alt,
+  label = false,
+  eager = false,
 }: {
   seed: string;
   variant?: number;
   className?: string;
   rounded?: string;
-  /** A real photograph. When present the generated artwork is not drawn. */
+  /** A real photograph. When present the stand-in is not drawn. */
   src?: string;
   alt?: string;
+  /** Say "Photos coming soon" on the stand-in. For large frames only. */
+  label?: boolean;
+  /** Load immediately — for the first image a visitor sees. */
+  eager?: boolean;
 }) {
-  // A listing with photographs shows them; generated artwork is what stands in
-  // until an agent has uploaded any.
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const img = useRef<HTMLImageElement>(null);
+
+  /* An image that finished — or failed — before React attached its handlers
+     never reports either, and would sit on the skeleton for good. */
+  useEffect(() => {
+    const el = img.current;
+    if (!el || !el.complete) return;
+    if (el.naturalWidth > 0) setLoaded(true); else setFailed(true);
+  }, [src]);
+
   const art = useMemo(() => {
     const h = hash(seed + '::' + variant);
-    const p = PALETTES[h % PALETTES.length];
-    const towers = 4 + (h % 3);
-
-    const bars = Array.from({ length: towers }).map((_, i) => {
-      const g = hash(seed + i + variant);
-      const w = 12 + (g % 14);
-      const x = (i * 100) / towers + (g % 5) - 2;
-      const height = 26 + (g % 46);
-      const front = g % 2 === 0;
-      return { x, w, height, front, g };
+    const count = 3 + (h % 3);
+    const blocks = Array.from({ length: count }).map((_, i) => {
+      const g = hash(`${seed}${i}${variant}`);
+      const w = 14 + (g % 10);
+      const x = 8 + (i * 84) / count + (g % 4);
+      const height = 22 + (g % 30);
+      return { x, w, height, g };
     });
-
-    return { p, bars, h };
+    return { blocks, h };
   }, [seed, variant]);
 
-  const { p, bars, h } = art;
-  const uid = `pi${h % 100000}${variant}`;
-
-  if (src) {
+  if (src && !failed) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- served by our own
-      // route, already sized, and must render without the optimiser in the path.
-      <img src={src} alt={alt ?? ''} className={`${rounded} object-cover ${className}`} />
+      <span className={`relative block overflow-hidden bg-p1-subtle ${rounded} ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- served by our own route, already sized */}
+        <img
+          ref={img}
+          src={src}
+          alt={alt ?? ''}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={`p1-photo p1-zoom h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        />
+        {!loaded && <span className="p1-skeleton absolute inset-0 rounded-none" aria-hidden />}
+      </span>
     );
   }
 
+  const ground = 62;
   return (
-    <svg
-      viewBox="0 0 100 70"
-      preserveAspectRatio="xMidYMid slice"
-      className={`${rounded} ${className}`}
-      role="img"
-      aria-label="Generated property illustration"
-    >
-      <defs>
-        <linearGradient id={`${uid}sky`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={p.sky[0]} />
-          <stop offset="100%" stopColor={p.sky[1]} />
-        </linearGradient>
-        <linearGradient id={`${uid}fade`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={p.mass} stopOpacity="0.02" />
-          <stop offset="100%" stopColor={p.mass} stopOpacity="0.18" />
-        </linearGradient>
-      </defs>
-
-      <rect width="100" height="70" fill={`url(#${uid}sky)`} />
-
-      {/* sun or moon, positioned by seed */}
-      <circle cx={16 + (h % 68)} cy={12 + (h % 8)} r="4.5" fill={p.glow} opacity="0.85" />
-      <circle cx={16 + (h % 68)} cy={12 + (h % 8)} r="9" fill={p.glow} opacity="0.13" />
-
-      {/* rear massing */}
-      {bars.filter((b) => !b.front).map((b, i) => (
-        <rect key={`r${i}`} x={b.x} y={70 - b.height} width={b.w} height={b.height} fill={p.mid} opacity="0.75" />
-      ))}
-
-      {/* front massing with window grids */}
-      {bars.filter((b) => b.front).map((b, i) => (
-        <g key={`f${i}`}>
-          <rect x={b.x} y={70 - b.height} width={b.w} height={b.height} fill={p.mass} />
-          {Array.from({ length: Math.floor(b.height / 6) }).map((_, r) =>
-            Array.from({ length: Math.max(1, Math.floor(b.w / 5)) }).map((_, c) => {
-              const lit = hash(`${seed}${variant}${i}${r}${c}`) % 5 < 2;
-              return (
-                <rect
-                  key={`${r}-${c}`}
-                  x={b.x + 1.6 + c * 5}
-                  y={70 - b.height + 3 + r * 6}
-                  width="2.6"
-                  height="3"
-                  fill={lit ? '#FFFFFF' : '#33455F'}
-                  opacity={lit ? 0.55 : 0.16}
-                  rx="0.4"
-                />
-              );
-            })
-          )}
+    <span className={`relative block overflow-hidden bg-p1-subtle ${rounded} ${className}`} role="img" aria-label={alt || 'No photographs yet'}>
+      <svg viewBox="0 0 100 70" preserveAspectRatio="xMidYMax slice" className="absolute inset-0 h-full w-full" aria-hidden>
+        <defs>
+          <linearGradient id={`pg${art.h % 100000}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--p1-surface)" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="var(--p1-subtle)" stopOpacity="1" />
+          </linearGradient>
+        </defs>
+        <rect width="100" height="70" fill={`url(#pg${art.h % 100000})`} />
+        <g className="p1-zoom" style={{ transformOrigin: '50% 100%' }}>
+          {art.blocks.map((b, i) => (
+            <g key={i}>
+              <rect x={b.x} y={ground - b.height} width={b.w} height={b.height} fill="var(--p1-surface)" stroke="var(--p1-border-strong)" strokeWidth="0.5" />
+              {Array.from({ length: Math.floor((b.height - 6) / 6) }).map((_, r) =>
+                Array.from({ length: Math.max(1, Math.floor((b.w - 3) / 5)) }).map((_, c) => (
+                  <rect key={`${r}-${c}`} x={b.x + 2.2 + c * 5} y={ground - b.height + 4 + r * 6} width="2.4" height="2.6" rx="0.3" fill="var(--p1-border)" />
+                )),
+              )}
+            </g>
+          ))}
+          <line x1="0" x2="100" y1={ground} y2={ground} stroke="var(--p1-border-strong)" strokeWidth="0.5" />
         </g>
-      ))}
-
-      <rect width="100" height="70" fill={`url(#${uid}fade)`} />
-    </svg>
+      </svg>
+      {label && (
+        <span className="absolute inset-x-0 bottom-3 flex justify-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-p1-surface/90 px-2.5 py-1 text-[12px] font-medium text-p1-text-3 ring-1 ring-p1-border backdrop-blur">
+            <Camera size={12} aria-hidden /> Photos coming soon
+          </span>
+        </span>
+      )}
+    </span>
   );
 }
 
 /** Photo gallery: one large frame, a thumbnail strip, and keyboard navigation. */
-export function Gallery({ seed, count, srcs = [] }: { seed: string; count: number; srcs?: string[] }) {
+export function Gallery({ seed, srcs = [] }: { seed: string; count: number; srcs?: string[] }) {
   const [active, setActive] = React.useState(0);
-  const shown = srcs.length > 0 ? srcs.length : Math.max(1, Math.min(count, 8));
-
+  const shown = srcs.length > 0 ? srcs.length : 1;
   const step = (d: number) => setActive((a) => (a + d + shown) % shown);
 
   return (
     <div>
       <div
-        className="group relative overflow-hidden rounded-2xl bg-p1-primary"
+        className="group relative overflow-hidden rounded-xl"
         tabIndex={0}
+        aria-roledescription="carousel"
+        aria-label={`Photographs, ${active + 1} of ${shown}`}
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
           if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
         }}
       >
-        <PropertyImage seed={seed} variant={active} rounded="rounded-2xl" className="aspect-[16/10] w-full" src={srcs[active]} alt={`Photograph ${active + 1}`} />
-
-        <button
-          onClick={() => step(-1)}
-          aria-label="Previous photograph"
-          className="absolute left-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus:opacity-100 max-sm:opacity-100 cursor-pointer"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
-        </button>
-        <button
-          onClick={() => step(1)}
-          aria-label="Next photograph"
-          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur transition-opacity group-hover:opacity-100 focus:opacity-100 max-sm:opacity-100 cursor-pointer"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
-        </button>
-
-        <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-3 py-1.5 text-[13px] font-medium tabular-nums text-white backdrop-blur">
-          {active + 1} / {count}
-        </div>
-        <div className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-black/60 px-3 py-1.5 text-[12px] font-medium text-white/90 backdrop-blur max-sm:hidden">
-          Illustrative image
-        </div>
+        <PropertyImage key={active} seed={seed} variant={active} rounded="rounded-xl" className="p1-xfade aspect-[16/10] w-full" src={srcs[active]} alt={`Photograph ${active + 1}`} label={srcs.length === 0} eager />
+        {shown > 1 && (
+          <>
+            <button onClick={() => step(-1)} aria-label="Previous photograph" className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-p1-surface/90 text-p1-text opacity-0 shadow-p1-md transition-opacity group-hover:opacity-100 focus:opacity-100 max-sm:opacity-100">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            <button onClick={() => step(1)} aria-label="Next photograph" className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-p1-surface/90 text-p1-text opacity-0 shadow-p1-md transition-opacity group-hover:opacity-100 focus:opacity-100 max-sm:opacity-100">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+            <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-[12px] font-medium tabular-nums text-white">{active + 1} / {shown}</div>
+          </>
+        )}
       </div>
-
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-        {Array.from({ length: shown }).map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setActive(i)}
-            aria-label={`Photograph ${i + 1}`}
-            className={`shrink-0 overflow-hidden rounded-lg transition-all cursor-pointer ${
-              i === active ? 'ring-2 ring-p1-primary ring-offset-2 ring-offset-p1-surface' : 'opacity-60 hover:opacity-100'
-            }`}
-          >
-            <PropertyImage seed={seed} variant={i} rounded="rounded-lg" className="h-14 w-20" src={srcs[i]} alt="" />
-          </button>
-        ))}
-      </div>
+      {shown > 1 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          {srcs.map((s, i) => (
+            <button key={s} onClick={() => setActive(i)} aria-label={`Photograph ${i + 1}`} aria-current={i === active || undefined}
+              className={`shrink-0 cursor-pointer overflow-hidden rounded-md transition-opacity ${i === active ? 'ring-2 ring-p1-primary ring-offset-2 ring-offset-p1-surface' : 'opacity-60 hover:opacity-100'}`}>
+              <PropertyImage seed={seed} variant={i} rounded="rounded-md" className="h-14 w-20" src={s} alt="" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -118,14 +118,14 @@ export function StatusBadge({
   const d = statusDef(kind, value);
   const Icon = d.icon;
   const sz = {
-    sm: 'h-6 px-2 text-[12px] gap-1',
-    md: 'h-7 px-2.5 text-[13px] gap-1.5',
-    lg: 'h-9 px-3.5 text-[15px] gap-2',
+    sm: 'h-[22px] px-2 text-[12px] gap-1',
+    md: 'h-6 px-2.5 text-[12.5px] gap-1.5',
+    lg: 'h-8 px-3 text-[14px] gap-1.5',
   }[size];
-  const iconSize = { sm: 11, md: 13, lg: 16 }[size];
+  const iconSize = { sm: 11, md: 12, lg: 14 }[size];
   return (
     <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border font-medium leading-none ${TONE_CLASS[d.tone]} ${sz} ${className}`}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border font-medium leading-none transition-colors duration-200 ${TONE_CLASS[d.tone]} ${sz} ${className}`}
       title={showHelp ? d.help : undefined}
     >
       <Icon size={iconSize} strokeWidth={2.5} aria-hidden />

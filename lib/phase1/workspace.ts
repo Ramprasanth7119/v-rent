@@ -489,9 +489,10 @@ function cleanListing(raw: unknown): DemoListing | null {
     bedrooms: num(l.bedrooms),
     bathrooms: num(l.bathrooms),
     sizeSqft: num(l.sizeSqft),
+    /* `dealType` decides which price the record carries; see `normaliseDeal`. */
     dealType: l.dealType === 'sale' ? 'sale' : 'rent',
-    monthlyRent: num(l.monthlyRent),
-    salePriceSgd: typeof l.salePriceSgd === 'number' ? num(l.salePriceSgd) : undefined,
+    monthlyRent: l.dealType === 'sale' ? 0 : num(l.monthlyRent),
+    salePriceSgd: l.dealType === 'sale' && typeof l.salePriceSgd === 'number' ? num(l.salePriceSgd) : undefined,
     availableFrom: str(l.availableFrom, 24),
     minLeaseMonths: num(l.minLeaseMonths),
     furnishing,

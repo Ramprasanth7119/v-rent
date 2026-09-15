@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react';
-import { Send, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Send, AlertTriangle } from 'lucide-react';
 import { Button, TextInput, TextArea, cx } from '../kit';
 
 export function EnquiryForm({
@@ -22,15 +22,20 @@ export function EnquiryForm({
   listingId,
   agentName,
   className = '',
+  bare = false,
+  initialMessage = '',
 }: {
   ownerId: string;
   listingId: string;
   agentName: string;
   className?: string;
+  /** Inside a dialog that already has its own title. */
+  bare?: boolean;
+  initialMessage?: string;
 }) {
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialMessage);
   const [moveIn, setMoveIn] = useState('');
   const [budget, setBudget] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
@@ -71,25 +76,31 @@ export function EnquiryForm({
 
   if (state === 'sent') {
     return (
-      <section className={cx('rounded-xl border border-p1-success-border bg-p1-success-soft/60 p-6 text-center', className)}>
-        <CheckCircle2 size={26} className="mx-auto text-p1-success" aria-hidden />
-        <h2 className="mt-3 text-[17px] font-semibold text-p1-text">Your enquiry is with {agentName}</h2>
-        <p className="mx-auto mt-1.5 max-w-md text-[14px] leading-6 text-p1-text-2">
-          It arrived in their inbox with the unit reference attached, so they know which flat you mean. Agents who use
-          V-RENT are asked to reply the same day.
+      <section role="status" className={cx('p1-in text-center', bare ? 'py-6' : 'rounded-xl border border-p1-success-border bg-p1-success-soft/60 p-6', className)}>
+        <span className="vr-pop mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="p1-check"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        </span>
+        <h2 className="mt-3 text-[17px] font-semibold text-p1-text">Sent to {agentName}</h2>
+        <p className="mx-auto mt-1 max-w-sm text-[14px] leading-6 text-p1-text-2">
+          They have the listing reference and will reply to you directly.
         </p>
       </section>
     );
   }
 
+  const Wrapper = bare ? 'div' : 'section';
   return (
-    <section className={cx('rounded-xl border border-p1-border bg-p1-surface p-5 sm:p-6', className)} id="enquire">
-      <h2 className="text-[17px] font-semibold text-p1-text">Ask {agentName} about this unit</h2>
-      <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">
-        Your details go to this agent only, with the listing reference attached.
-      </p>
+    <Wrapper className={cx(!bare && 'rounded-xl border border-p1-border bg-p1-surface p-5 sm:p-6', className)} id={bare ? undefined : 'enquire'}>
+      {!bare && (
+        <>
+          <h2 className="text-[17px] font-semibold text-p1-text">Ask {agentName} about this unit</h2>
+          <p className="mt-1 text-[13.5px] leading-5 text-p1-text-2">
+            Your details go to this agent only, with the listing reference attached.
+          </p>
+        </>
+      )}
 
-      <form className="mt-4 space-y-4" onSubmit={submit}>
+      <form className={cx('space-y-4', !bare && 'mt-4')} onSubmit={submit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextInput label="Your name" required value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
           <TextInput
@@ -130,12 +141,13 @@ export function EnquiryForm({
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" size="lg" disabled={!ready} loading={state === 'sending'} rightIcon={<Send size={16} />}>
+          <Button type="submit" size="lg" block={bare} disabled={!ready} loading={state === 'sending'} rightIcon={<Send size={16} />}>
             Send enquiry
           </Button>
-          <span className="text-[12.5px] text-p1-text-3">No account needed.</span>
+          {!bare && <span className="text-[12.5px] text-p1-text-3">No account needed.</span>}
         </div>
+        {bare && <p className="text-center text-[12.5px] text-p1-text-3">No account needed. Your details go to this agent only.</p>}
       </form>
-    </section>
+    </Wrapper>
   );
 }

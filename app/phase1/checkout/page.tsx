@@ -1,40 +1,46 @@
 "use client";
 
+/**
+ * Subscription.
+ *
+ * The plan and its usage lead, once. Below it, either the checkout for a plan
+ * that is not yet paid for — method, then the provider's page, then the
+ * confirmation — or, for a subscription already running, the billing details.
+ */
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, CreditCard, Smartphone, ShieldCheck, Lock } from 'lucide-react';
+import { CreditCard, Smartphone, ShieldCheck, Lock, Info } from 'lucide-react';
 import {
-  Button, LinkButton, Card, SectionCard, PageHeader, Callout, ChoiceCard, Stepper, KeyValue, Spinner, EmptyState } from '../../../components/phase1/kit';
+  Button, LinkButton, Card, ChoiceCard, EmptyState, Spinner, SuccessCheck, Tooltip,
+} from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
+import { CurrentPlanCard } from '../../../components/phase1/account/CurrentPlanCard';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { sgd } from '../../../lib/phase1/data';
 
 type Stage = 'choose' | 'redirect' | 'waiting' | 'done';
-
-const STEPS = [
-  { label: 'Create account' }, { label: 'Verify contact' }, { label: 'Professional details' },
-  { label: 'CEA verification' }, { label: 'Approval' }, { label: 'Subscribe' }, { label: 'Payment' }, { label: 'Start listing' },
-];
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { state, set } = useDemo();
   const [method, setMethod] = useState<'PayNow' | 'Card'>('PayNow');
   const [stage, setStage] = useState<Stage>(state.subscription === 'active' ? 'done' : 'choose');
-
-  const completed = (i: number) => [
-    true, state.emailVerified && state.mobileVerified, state.profileSubmitted, state.profileSubmitted,
-    state.approval === 'approved', !!state.plan, state.subscription === 'active', false,
-  ][i];
+  const [justActivated, setJustActivated] = useState(false);
 
   const plan = state.plan;
+
+  const heading = (
+    <h1 className="vr-rise mb-5 text-[24px] font-semibold tracking-[-0.02em] text-p1-text sm:text-[28px]">Subscription</h1>
+  );
+
   if (!plan) {
     return (
       <>
-        <PageHeader eyebrow="Subscription" title="Payment" />
+        {heading}
         <Card>
-          <EmptyState title="No plan selected yet" description="Choose a plan first, then come back here to pay."
-            action={<LinkButton href="/phase1/plans" variant="primary">Choose a plan</LinkButton>} />
+          <EmptyState title="No plan selected yet" description="Choose a plan, then pay for it here."
+            action={<LinkButton href="/phase1/plans">Choose a plan</LinkButton>} />
         </Card>
       </>
     );
@@ -45,109 +51,129 @@ export default function CheckoutPage() {
 
   const activate = () => {
     setStage('done');
+    setJustActivated(true);
     set({ subscription: 'active', paymentMethod: method });
   };
 
   return (
-    <>
-      <PageHeader
-        eyebrow="Subscription"
-        title="Payment"
-        description="Pay securely on our payment provider's page. Your subscription is activated the moment the payment is confirmed."
-      />
-      <Stepper steps={STEPS} current={6} completed={completed} />
+    <div className="mx-auto max-w-4xl">
+      {heading}
+      <CurrentPlanCard className="vr-rise mb-5" showAction={stage === 'done'} />
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div>
-          {stage === 'choose' && (
-            <SectionCard title="How would you like to pay?" description="Both options are processed by our payment provider. Card details never reach V-RENT.">
-              <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
-                <ChoiceCard
-                  selected={method === 'PayNow'} onSelect={() => setMethod('PayNow')}
-                  icon={<Smartphone size={20} />} title="PayNow" badge={<Pill tone="success">Recommended</Pill>}
-                  description="Instant bank transfer by QR code. No card needed."
-                />
-                <ChoiceCard
-                  selected={method === 'Card'} onSelect={() => setMethod('Card')}
-                  icon={<CreditCard size={20} />} title="Credit or debit card"
-                  description="Visa, Mastercard and American Express."
-                />
+      {stage === 'done' ? (
+        justActivated ? (
+          <Card padding="lg">
+            <div className="flex flex-col items-center py-4 text-center" role="status">
+              <SuccessCheck />
+              <h2 className="mt-4 text-[20px] font-semibold text-p1-text">Your subscription is active</h2>
+              <p className="mt-1 max-w-sm text-[14px] text-p1-text-3">A receipt has been sent to {state.profile.email}.</p>
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <Button onClick={() => router.push('/phase1/listings/new')}>Create a listing</Button>
+                <Button variant="outline" onClick={() => router.push('/phase1/dashboard')}>Go to dashboard</Button>
               </div>
-              <p className="mt-3 text-[13px] text-p1-text-3">
-                Processing cost to V-RENT: PayNow 1.3% ({sgd(Math.round(paynowFee))}) · Card 3.4% + S$0.50 ({sgd(Math.round(cardFee))}). Your price is the same either way.
-              </p>
-              <Button className="mt-6" variant="primary" size="lg" block leftIcon={<Lock size={16} />} onClick={() => setStage('redirect')}>
-                Continue to secure checkout
-              </Button>
-            </SectionCard>
-          )}
-
-          {stage === 'redirect' && (
-            <Card padding="lg">
-              <div className="py-6 text-center">
-                <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-p1-primary-soft text-p1-primary" aria-hidden><ShieldCheck size={30} /></span>
-                <h2 className="text-[20px] font-semibold text-p1-text">You are now on the payment provider&apos;s page</h2>
-                <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
-                  In the real product the agent completes payment here. This prototype stands in for that step.
-                </p>
-                <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <Button variant="primary" size="lg" onClick={() => setStage('waiting')}>Simulate successful payment</Button>
-                  <Button variant="outline" size="lg" onClick={() => setStage('choose')}>Cancel</Button>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {stage === 'waiting' && (
-            <Card padding="lg">
-              <div className="py-6 text-center" role="status" aria-live="polite">
-                <Spinner size={32} className="mx-auto mb-5 text-p1-primary dark:text-p1-info" />
-                <h2 className="text-[20px] font-semibold text-p1-text">Confirming your payment…</h2>
-                <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
-                  This usually takes a few seconds. Your subscription is activated only once the provider confirms the payment.
-                </p>
-                <div className="mt-6 flex flex-col items-center gap-2">
-                  <Button variant="primary" size="lg" onClick={activate}>Deliver the verified webhook</Button>
-                  <Pill tone="neutral">Prototype control</Pill>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {stage === 'done' && (
-            <Card padding="lg">
-              <div className="py-6 text-center">
-                <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden><CheckCircle2 size={32} /></span>
-                <h2 className="text-[22px] font-semibold text-p1-text">Your subscription is active</h2>
-                <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
-                  {plan.name} plan, paid by {state.paymentMethod ?? method}. A receipt has been emailed to {state.profile.email}.
-                </p>
-                <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <Button variant="primary" size="lg" onClick={() => router.push('/phase1/dashboard')}>Go to dashboard</Button>
-                  <Button variant="outline" size="lg" onClick={() => router.push('/phase1/listings/new')}>Create a listing</Button>
-                </div>
-              </div>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <SectionCard title="Order summary">
-            <KeyValue rows={[
-              { k: `${plan.name} plan`, v: '12 months' },
-              { k: 'Subtotal', v: sgd(plan.priceYearSgd) },
-              { k: 'GST', v: <span className="text-p1-text-3">To be confirmed</span> },
-            ]} />
-            <div className="mt-3 flex items-baseline justify-between border-t border-p1-border pt-3">
-              <span className="text-[15px] font-semibold text-p1-text">Total today</span>
-              <span className="text-[22px] font-semibold tabular-nums text-p1-text">{sgd(plan.priceYearSgd)}</span>
             </div>
-            <p className="mt-3 flex items-start gap-2 text-[13px] text-p1-text-3"><Lock size={14} className="mt-0.5 shrink-0" aria-hidden /> Secure checkout. Card details are entered on the provider&apos;s page and never stored by V-RENT.</p>
-          </SectionCard>
-          <Callout tone="info" title="Renews automatically in 12 months">You will be reminded by email 30 days before renewal and can cancel at any time.</Callout>
-        </div>
-      </div>
+          </Card>
+        ) : (
+          <Card padding="none" as="section" aria-labelledby="billing-h">
+            <h2 id="billing-h" className="px-5 py-4 text-[15px] font-semibold text-p1-text">Billing</h2>
+            <dl className="divide-y divide-p1-border border-t border-p1-border">
+              {[
+                ['Amount', `${sgd(plan.priceYearSgd)} a year`],
+                ['Payment method', state.paymentMethod ?? '—'],
+                ['Receipts sent to', state.profile.email],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between gap-4 px-5 py-3.5 text-[14px]">
+                  <dt className="text-p1-text-3">{k}</dt>
+                  <dd className="truncate font-medium text-p1-text">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+        )
+      ) : (
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0">
+            {stage === 'choose' && (
+              <Card padding="none" as="section" aria-labelledby="pay-h" className="p1-in">
+                <div className="flex items-center justify-between gap-3 px-5 py-4">
+                  <h2 id="pay-h" className="text-[15px] font-semibold text-p1-text">Payment method</h2>
+                  <Tooltip content={`What V-RENT pays to process it: PayNow 1.3% (${sgd(Math.round(paynowFee))}), card 3.4% + S$0.50 (${sgd(Math.round(cardFee))}). Your price is the same.`}>
+                    <button type="button" className="inline-flex items-center gap-1 text-[12.5px] text-p1-text-3 hover:text-p1-text">
+                      <Info size={13} aria-hidden /> Processing fees
+                    </button>
+                  </Tooltip>
+                </div>
+                <div className="border-t border-p1-border p-5">
+                  <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Payment method">
+                    <ChoiceCard
+                      selected={method === 'PayNow'} onSelect={() => setMethod('PayNow')}
+                      icon={<Smartphone size={19} />} title="PayNow" badge={<Pill tone="success">Recommended</Pill>}
+                      description="Bank transfer by QR code."
+                    />
+                    <ChoiceCard
+                      selected={method === 'Card'} onSelect={() => setMethod('Card')}
+                      icon={<CreditCard size={19} />} title="Card"
+                      description="Visa, Mastercard, Amex."
+                    />
+                  </div>
+                  <Button className="mt-5" size="lg" block leftIcon={<Lock size={16} />} onClick={() => setStage('redirect')}>
+                    Continue to secure checkout
+                  </Button>
+                </div>
+              </Card>
+            )}
 
-    </>
+            {stage === 'redirect' && (
+              <Card padding="lg" className="p1-in">
+                <div className="flex flex-col items-center py-4 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-p1-primary-soft text-p1-primary" aria-hidden><ShieldCheck size={24} /></span>
+                  <h2 className="mt-4 text-[18px] font-semibold text-p1-text">On the payment provider&apos;s page</h2>
+                  <p className="mt-1 max-w-sm text-[14px] text-p1-text-3">In the live product payment is completed here. This prototype stands in for it.</p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                    <Button onClick={() => setStage('waiting')}>Simulate successful payment</Button>
+                    <Button variant="outline" onClick={() => setStage('choose')}>Cancel</Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {stage === 'waiting' && (
+              <Card padding="lg" className="p1-in">
+                <div className="flex flex-col items-center py-4 text-center" role="status" aria-live="polite">
+                  <Spinner size={28} className="text-p1-primary" />
+                  <h2 className="mt-4 text-[18px] font-semibold text-p1-text">Confirming your payment</h2>
+                  <p className="mt-1 max-w-sm text-[14px] text-p1-text-3">Your subscription starts once the provider confirms it.</p>
+                  <div className="mt-6 flex flex-col items-center gap-2">
+                    <Button onClick={activate}>Deliver the verified webhook</Button>
+                    <Pill>Prototype control</Pill>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+
+          <aside className="min-w-0">
+            <Card as="section" aria-labelledby="order-h">
+              <h2 id="order-h" className="text-[13px] font-medium text-p1-text-3">Order summary</h2>
+              <div className="mt-3 flex items-baseline justify-between text-[14px]">
+                <span className="text-p1-text-2">{plan.name}, 12 months</span>
+                <span className="tabular-nums text-p1-text">{sgd(plan.priceYearSgd)}</span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between text-[14px]">
+                <span className="text-p1-text-2">GST</span>
+                <span className="text-p1-text-3">To be confirmed</span>
+              </div>
+              <div className="mt-3 flex items-baseline justify-between border-t border-p1-border pt-3">
+                <span className="text-[14px] font-semibold text-p1-text">Total today</span>
+                <span className="text-[22px] font-semibold tabular-nums tracking-[-0.02em] text-p1-text">{sgd(plan.priceYearSgd)}</span>
+              </div>
+              <p className="mt-3 flex items-start gap-2 text-[12.5px] leading-5 text-p1-text-3">
+                <Lock size={13} className="mt-0.5 shrink-0" aria-hidden /> Renews yearly, with a reminder 30 days before. Cancel any time.
+              </p>
+            </Card>
+          </aside>
+        </div>
+      )}
+    </div>
   );
 }

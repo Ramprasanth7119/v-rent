@@ -19,6 +19,27 @@ export const DEAL_LABEL: Record<DealType, string> = {
 /** Rent is the default: V-RENT started as a rental platform and most stock is. */
 export const dealOf = (l: DemoListing): DealType => l.dealType ?? 'rent';
 
+/**
+ * One listing, one price.
+ *
+ * The listing wizard and the CSV import both keep a rent field in memory while
+ * the agent works on a sale, and used to save it: a sale went to the store as
+ * S$2,150,000 *and* S$4,200 a month, and anything that read `monthlyRent`
+ * without asking which kind it held printed a rent on a property for sale.
+ * `dealType` is the agent's explicit choice, so it decides: a sale keeps its
+ * sale price and carries no rent (stored as 0, since older screens read the
+ * field as a number), and a rental keeps its rent and carries no sale price.
+ *
+ * Applied wherever a listing is written. Records saved before this existed are
+ * caught by the report validation instead, which refuses to guess.
+ */
+export function normaliseDeal<T extends Pick<DemoListing, 'dealType' | 'monthlyRent' | 'salePriceSgd'>>(l: T): T {
+  if (l.dealType === 'sale') return { ...l, monthlyRent: 0 };
+  const { salePriceSgd: _drop, ...rest } = l;
+  void _drop;
+  return { ...rest, dealType: 'rent' } as T;
+}
+
 /** The figure to show, whichever kind of listing this is. */
 export const priceOf = (l: DemoListing): number =>
   (dealOf(l) === 'sale' ? l.salePriceSgd ?? 0 : l.monthlyRent);

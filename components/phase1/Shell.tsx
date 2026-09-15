@@ -3,61 +3,68 @@
 /**
  * Phase 1 application shell.
  *
- * Two navigation models share one frame: the agent workspace (Workspace / Business / Account)
- * and the operations console for staff. Which one a person sees follows the role on their
- * session, and the console is only offered to accounts that can actually open it — the
- * authorisation itself is enforced server-side in `app/phase1/admin/layout.tsx`.
+ * Two navigation models share one frame: the agent workspace and the
+ * operations console for staff. Which one a person sees follows the role on
+ * their session, and the console is only offered to accounts that can actually
+ * open it — the authorisation itself is enforced server-side in
+ * `app/phase1/admin/layout.tsx`.
  *
- * Sign-in and sign-up render without this frame: there is no navigation to offer someone
- * who is not signed in.
+ * The navigation is deliberately short. Seven places an agent goes every day
+ * sit at the top; the tools they reach for weekly fold into two groups that
+ * open on their own when the current page is inside them; everything about the
+ * account lives under the avatar. Both follow the theme through the same
+ * tokens; the console is told apart by its "Ops" mark and its own navigation.
+ *
+ * Sign-in, sign-up, share links, the client document and the public
+ * marketplace render without this frame.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from './Toast';
 import {
-  FileSpreadsheet, Home, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Upload, Plus, Gavel, Receipt, BarChart3, Users,
-  Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, ChevronDown, LogOut, LayoutGrid, MapPinned,
-  Search, BookOpen, MessageCircle, Phone, Settings, TrendingUp, ChevronRight, ArrowLeftRight,
-  Rocket, RefreshCw, FileText, CalendarClock, LineChart, GitCompareArrows, LayoutPanelTop, Trees,
-  QrCode, Star, LifeBuoy, Video,
+  FileSpreadsheet, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Plus, Gavel, Receipt, BarChart3, Users,
+  Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, LogOut, LayoutGrid, Search, BookOpen, MessageCircle, Phone,
+  Settings, TrendingUp, ChevronRight, ChevronDown, ArrowLeftRight, Rocket, RefreshCw, FileText, CalendarClock, LineChart,
+  GitCompareArrows, LayoutPanelTop, Trees, QrCode, Star, LifeBuoy, Video, Megaphone, Compass, PanelLeftClose, PanelLeftOpen,
+  Globe, Home,
 } from 'lucide-react';
 import { useDemo } from '../../lib/phase1/DemoContext';
 import { usePersona } from '../layout/PersonaContext';
 import { useTheme } from './hooks';
-import { Avatar, Kbd, cx } from './kit';
+import { Avatar, Kbd, Tooltip, cx } from './kit';
 import { StatusBadge } from './status';
 import { useSession, shortName, agencyLabel } from '../../lib/phase1/SessionContext';
 import { MODERATION_QUEUE, VERIFICATION_QUEUE } from '../../lib/phase1/data';
+import { PublicFrame } from './landing/PublicFrame';
 
-type Icon = React.ComponentType<{ size?: number | string; className?: string }>;
-interface NavItem { href: string; label: string; icon: Icon; exact?: boolean; badge?: number; badgeTone?: 'neutral' | 'warning' | 'danger' | 'info' }
-interface NavGroup { title?: string; items: NavItem[] }
+type Icon = React.ComponentType<{ size?: number | string; className?: string; strokeWidth?: number }>;
+interface NavItem { href: string; label: string; icon: Icon; exact?: boolean; badge?: number; badgeTone?: 'neutral' | 'warning' | 'danger' | 'info'; also?: string[] }
+interface NavGroup { key: string; title?: string; items: NavItem[]; collapsible?: boolean; icon?: Icon }
 
 function isActive(pathname: string, item: NavItem) {
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(item.href + '/');
+  const match = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  if (item.exact) return pathname === item.href || (item.also ?? []).some(match);
+  return match(item.href) || (item.also ?? []).some(match);
 }
 
 const TITLES: Record<string, string> = {
-  phase1: 'Agent hub', signup: 'Create account', login: 'Sign in', verify: 'Verify contact', profile: 'Profile',
+  phase1: 'Home', signup: 'Create account', login: 'Sign in', verify: 'Verify contact', profile: 'Profile',
   status: 'Verification', plans: 'Plans', checkout: 'Subscription', payment: 'Payment', sandbox: 'Sandbox checkout', dashboard: 'Dashboard', properties: 'Properties',
   listings: 'Listings', new: 'Create listing', import: 'Bulk import', reports: 'Reports', admin: 'Operations', agents: 'Agents', performance: 'Performance', settings: 'Settings',
-  verification: 'Verification queue', moderation: 'Moderation queue', subscriptions: 'Subscriptions',
+  verification: 'Verification', moderation: 'Moderation', subscriptions: 'Subscriptions',
   featured: 'Featured placement', refresh: 'Automatic refresh', placement: 'Search placement',
-  viewings: 'Viewing scheduler', whatsapp: 'WhatsApp handover', shortlists: 'Client shortlists',
-  market: 'Market data', transactions: 'Rental transactions', compare: 'Project comparison',
-  floorplans: 'Floor plans', neighbourhood: 'Neighbourhood', agent: 'Public agent page', qr: 'QR code',
-  learn: 'Guides', sessions: 'Product sessions', support: 'Support', print: 'Printable report',
-  export: 'Export', shortlist: 'Shortlist',
+  viewings: 'Viewings', whatsapp: 'WhatsApp handover', shortlists: 'Client shortlists',
+  market: 'Market data', transactions: 'Transactions', compare: 'Compare projects',
+  floorplans: 'Floor plans', neighbourhood: 'Neighbourhood', agent: 'Public page', qr: 'QR code',
+  learn: 'Guides', sessions: 'Sessions', support: 'Support', print: 'Printable report',
+  export: 'Export', shortlist: 'Shortlist', enquiries: 'Enquiries',
 };
 
-/** Account ids are UUIDs; a raw one in a breadcrumb tells a reader nothing. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/* How often the console checks for work that arrived from someone else. */
 const QUEUE_POLL_MS = 15_000;
+const COLLAPSE_KEY = 'vrent_nav_collapsed';
 
 function crumbLabel(segment: string): string {
   if (TITLES[segment]) return TITLES[segment];
@@ -66,9 +73,23 @@ function crumbLabel(segment: string): string {
   return segment;
 }
 
+/** Crumbs only where they help: on a page two levels below a section. */
 function useCrumbs(pathname: string) {
-  const parts = pathname.split('/').filter(Boolean);
-  return parts.map((p, i) => ({ label: crumbLabel(p), href: '/' + parts.slice(0, i + 1).join('/') }));
+  const parts = pathname.split('/').filter(Boolean).slice(1);
+  if (parts.length < 2) return [];
+  return parts.map((p, i) => ({ label: crumbLabel(p), href: '/phase1/' + parts.slice(0, i + 1).join('/') }));
+}
+
+function useMedia(query: string) {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return match;
 }
 
 /* ------------------------------------------------------------------ popover */
@@ -77,7 +98,7 @@ function Popover({ open, onClose, children, align = 'right', width = 'w-80' }: {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.parentElement?.contains(e.target as Node)) onClose(); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
@@ -93,36 +114,123 @@ function Popover({ open, onClose, children, align = 'right', width = 'w-80' }: {
 
 /* ----------------------------------------------------------------- sidebar */
 
-function NavLink({ item, pathname, onNavigate }: { item: NavItem; pathname: string; onNavigate: () => void }) {
+function NavLink({ item, pathname, onNavigate, rail }: { item: NavItem; pathname: string; onNavigate: () => void; rail: boolean }) {
   const active = isActive(pathname, item);
   const Icon = item.icon;
-  const badgeCls = { neutral: 'bg-white/15 text-white/80', warning: 'bg-p1-warning text-white', danger: 'bg-p1-danger text-white', info: 'bg-p1-info text-white' }[item.badgeTone ?? 'neutral'];
-  return (
-    <Link href={item.href} aria-current={active ? 'page' : undefined} onClick={onNavigate}
-      className={cx('group relative flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] transition-colors',
-        active ? 'bg-white/12 font-semibold text-white' : 'text-white/72 hover:bg-white/8 hover:text-white')}>
-      {active && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r bg-p1-accent" aria-hidden />}
-      <Icon size={17} className={cx('shrink-0', active ? 'text-p1-accent' : 'text-white/50 group-hover:text-white/80')} aria-hidden />
-      <span className="flex-1 truncate">{item.label}</span>
-      {typeof item.badge === 'number' && item.badge > 0 && (
+  const hasBadge = typeof item.badge === 'number' && item.badge > 0;
+  const badgeCls = {
+    neutral: 'bg-p1-subtle text-p1-text-2',
+    warning: 'bg-p1-warning-soft text-p1-warning',
+    danger: 'bg-p1-danger-soft text-p1-danger',
+    info: 'bg-p1-primary-soft text-p1-primary',
+  }[item.badgeTone ?? 'neutral'];
+
+  const link = (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      aria-label={rail ? `${item.label}${hasBadge ? `, ${item.badge}` : ''}` : undefined}
+      onClick={onNavigate}
+      className={cx(
+        'group relative z-[1] flex h-9 items-center gap-3 rounded-lg text-[13.5px] transition-colors duration-150',
+        rail ? 'justify-center px-0' : 'px-2.5',
+        active ? 'font-medium text-p1-text' : 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text',
+      )}
+    >
+      <Icon
+        size={17}
+        strokeWidth={active ? 2.2 : 1.9}
+        className={cx('shrink-0 transition-colors', active ? 'text-p1-primary' : 'text-p1-text-3 group-hover:text-p1-text-2')}
+        aria-hidden
+      />
+      {!rail && <span className="flex-1 truncate">{item.label}</span>}
+      {hasBadge && !rail && (
         <span className={cx('flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums', badgeCls)}>{item.badge}</span>
+      )}
+      {hasBadge && rail && (
+        <span className={cx('absolute right-2 top-1.5 h-2 w-2 rounded-full ring-2', item.badgeTone === 'danger' ? 'bg-p1-danger' : 'bg-p1-warning', 'ring-p1-surface')} aria-hidden />
       )}
     </Link>
   );
+
+  return rail ? <Tooltip content={item.label} side="right">{link}</Tooltip> : link;
 }
 
-function SidebarGroups({ groups, pathname, onNavigate }: { groups: NavGroup[]; pathname: string; onNavigate: () => void }) {
+function SidebarNav({ groups, pathname, onNavigate, rail }: { groups: NavGroup[]; pathname: string; onNavigate: () => void; rail: boolean }) {
+  const holder = useRef<HTMLDivElement>(null);
+  const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  // A group opens on its own when the page you are on is inside it.
+  const groupOpen = (g: NavGroup) => !g.collapsible || rail || open[g.key] || g.items.some((i) => isActive(pathname, i));
+
+  /* The active highlight is one element that slides between items, so moving
+     from Listings to Enquiries reads as a move rather than two flashes. */
+  const measure = useCallback(() => {
+    const el = holder.current?.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (!el || !holder.current) { setIndicator(null); return; }
+    const box = holder.current.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    setIndicator({ top: r.top - box.top + holder.current.scrollTop, height: r.height });
+  }, []);
+
+  useLayoutEffect(() => { measure(); }, [measure, pathname, rail, open]);
+  useEffect(() => {
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (holder.current) ro?.observe(holder.current);
+    return () => ro?.disconnect();
+  }, [measure]);
+
   return (
-    <>
-      {groups.map((g, i) => (
-        <div key={g.title ?? i} className="mb-3">
-          {g.title && <div className="px-3 pb-1.5 pt-2.5 text-[11.5px] font-semibold text-white/45">{g.title}</div>}
-          <ul className="flex flex-col gap-px">
-            {g.items.map((item) => <li key={item.href}><NavLink item={item} pathname={pathname} onNavigate={onNavigate} /></li>)}
-          </ul>
-        </div>
-      ))}
-    </>
+    <div ref={holder} className="relative">
+      {indicator && (
+        <span
+          aria-hidden
+          className={cx('pointer-events-none absolute inset-x-0 z-0 rounded-lg transition-[transform,height] duration-200 ease-out', 'bg-p1-primary-soft/70 dark:bg-p1-subtle')}
+          style={{ height: indicator.height, transform: `translateY(${indicator.top}px)`, top: 0 }}
+        />
+      )}
+      {groups.map((g, gi) => {
+        const expanded = groupOpen(g);
+        const GroupIcon = g.icon;
+        return (
+          <div key={g.key} className={cx(gi > 0 && (rail ? 'mt-2 border-t pt-2' : g.collapsible ? 'mt-1' : 'mt-5'), gi === 1 && !rail && 'mt-5', rail && 'border-p1-border')}>
+            {g.title && !rail && (
+              g.collapsible ? (
+                <button
+                  type="button"
+                  onClick={() => setOpen((s) => ({ ...s, [g.key]: !expanded }))}
+                  aria-expanded={expanded}
+                  className={cx('mb-1 flex h-8 w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 text-[13.5px] transition-colors', 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text')}
+                >
+                  {GroupIcon && <GroupIcon size={17} strokeWidth={1.9} className="text-p1-text-3" aria-hidden />}
+                  <span className="flex-1 text-left">{g.title}</span>
+                  <ChevronDown size={14} className={cx('transition-transform duration-200', expanded ? 'rotate-0' : '-rotate-90', 'text-p1-text-3')} aria-hidden />
+                </button>
+              ) : (
+                <div className="px-2.5 pb-1.5 text-[11.5px] font-medium text-p1-text-3">{g.title}</div>
+              )
+            )}
+            {/* Grid rows animate the height of a group without measuring it. */}
+            <div className={cx('grid transition-[grid-template-rows] duration-200 ease-out', expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+              <ul className={cx('flex min-h-0 flex-col gap-0.5 overflow-hidden', g.collapsible && !rail && 'pl-4', g.collapsible && !rail && expanded && 'pb-1')} onTransitionEnd={measure}>
+                {g.items.map((item) => (
+                  <li key={item.href}><NavLink item={item} pathname={pathname} onNavigate={onNavigate} rail={rail} /></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LogoMark({ className = '' }: { className?: string }) {
+  return (
+    <span className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-p1-primary text-[15px] font-bold tracking-tight text-p1-primary-on', className)} aria-hidden>
+      V
+    </span>
   );
 }
 
@@ -130,73 +238,21 @@ function SidebarGroups({ groups, pathname, onNavigate }: { groups: NavGroup[]; p
 
 const BARE_ROUTES = ['/phase1/login', '/phase1/signup', '/phase1/forgot', '/phase1/reset'];
 /**
- * Pages that bring their own frame: a shared listing is tenant-facing, and the
- * shortlist is a document — workspace navigation would end up in the PDF.
+ * Pages that bring their own frame: a shared listing and the public
+ * marketplace are tenant-facing, and the shortlist is a document — workspace
+ * navigation would end up in the PDF.
  */
-const BARE_PREFIXES = ['/phase1/share/', '/phase1/listings/export'];
+const BARE_PREFIXES = ['/phase1/share/', '/phase1/listings/export', '/phase1/homes'];
 
 export function Phase1Shell({ children }: { children: React.ReactNode }) {
   const pathnameForFrame = usePathname();
   const { user } = useSession();
-  // The share page carries its own `.p1` wrapper because it is not part of the
-  // workspace; sign-in and sign-up still need one from here.
   if (BARE_PREFIXES.some((p) => pathnameForFrame.startsWith(p))) return <>{children}</>;
   if (BARE_ROUTES.includes(pathnameForFrame)) {
     return <div className="p1 font-p1sans">{children}</div>;
   }
-  // Only the agent hub is reachable signed out. Offering the workspace navigation
-  // to a visitor who cannot open any of it would be a menu of locked doors.
   if (!user) return <PublicFrame>{children}</PublicFrame>;
   return <Phase1Frame>{children}</Phase1Frame>;
-}
-
-/**
- * The frame a signed-out visitor sees on the agent hub: a marketing header with
- * the two things they can actually do, and nothing that implies an account.
- */
-function PublicFrame({ children }: { children: React.ReactNode }) {
-  const { isDarkMode, setDarkMode } = usePersona();
-  const { toggle: toggleTheme, ready: themeReady } = useTheme(setDarkMode, isDarkMode);
-
-  return (
-    <div className="p1 flex min-h-screen flex-col font-p1sans">
-      <a href="#p1-main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-p1-accent focus:px-4 focus:py-2 focus:text-[14px] focus:font-semibold focus:text-p1-accent-on">Skip to content</a>
-
-      <header className="sticky top-0 z-40 border-b border-p1-border bg-p1-surface/90 backdrop-blur supports-[backdrop-filter]:bg-p1-surface/80">
-        <div className="mx-auto flex h-14 w-full max-w-[1320px] items-center gap-3 px-4 sm:px-6 lg:px-8">
-          <Link href="/phase1" className="flex items-center gap-2.5" aria-label="V-RENT agent hub">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-p1-primary font-p1display text-[19px] font-semibold text-white">V</span>
-            <span className="hidden sm:block">
-              <span className="block text-[15px] font-semibold leading-4 tracking-tight text-p1-text">V-RENT</span>
-              <span className="block text-[11.5px] font-medium text-p1-text-3">Agent hub</span>
-            </span>
-          </Link>
-
-          <div className="flex-1" />
-
-          <button type="button" onClick={toggleTheme} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="flex h-10 w-10 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text cursor-pointer">
-            {themeReady && isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <Link href="/phase1/login" className="flex h-10 items-center rounded-lg px-3 text-[14px] font-medium text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text">Sign in</Link>
-          <Link href="/phase1/signup" className="flex h-10 items-center rounded-lg bg-p1-primary px-4 text-[14px] font-medium text-p1-primary-on hover:bg-p1-primary-hover">Create account</Link>
-        </div>
-      </header>
-
-      <main id="p1-main" className="flex-1" tabIndex={-1}>
-        <div className="vr-fade mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">{children}</div>
-      </main>
-
-      <footer className="mt-6 border-t border-p1-border bg-p1-surface">
-        <div className="mx-auto flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-3 px-4 py-5 text-[12.5px] text-p1-text-3 sm:px-6 lg:px-8">
-          <span>V-RENT is for CEA-registered salespersons. Registrations are checked against the public register.</span>
-          <span className="flex items-center gap-4">
-            <Link href="/phase1/login" className="hover:text-p1-text">Sign in</Link>
-            <Link href="/phase1/signup" className="hover:text-p1-text">Create an account</Link>
-          </span>
-        </div>
-      </footer>
-    </div>
-  );
 }
 
 function Phase1Frame({ children }: { children: React.ReactNode }) {
@@ -220,7 +276,20 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const [pop, setPop] = useState<null | 'bell' | 'help' | 'user'>(null);
   const [q, setQ] = useState('');
+  const [collapsed, setCollapsed] = useState(false);
+  const wide = useMedia('(min-width: 1280px)');
   const close = () => setDrawer(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a remembered preference, read once after mount
+    try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1'); } catch { /* storage blocked: stay expanded */ }
+  }, []);
+  const toggleCollapsed = () => setCollapsed((c) => {
+    try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* not remembered, still toggles */ }
+    return !c;
+  });
+  /** Icons only: always between 1024 and 1279, and above that when the agent chose it. */
+  const rail = !wide || collapsed;
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close overlays on navigation
   useEffect(() => { setDrawer(false); setPop(null); }, [pathname]);
@@ -245,26 +314,19 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [pathname, router]);
 
-  // Which console is on screen follows the URL; whether it may be opened follows the account.
   const isAdmin = isAdminAccount && pathname.startsWith('/phase1/admin');
 
   // Queue sizes come from the server for staff: a badge that disagrees with the
   // page it points at is worse than no badge. Fixtures are the fallback until
   // the first response lands.
   const [queues, setQueues] = useState({ verification: VERIFICATION_QUEUE.length, moderation: MODERATION_QUEUE.length });
-  /* What the counts were last time, so a change can be told from a repeat. */
   const seen = useRef<{ verification: number; moderation: number } | null>(null);
   useEffect(() => {
     if (!isAdminAccount) return;
     let live = true;
 
     /**
-     * Work arrives from other people. An agent signs up and joins the
-     * verification queue; a listing is submitted and joins moderation. Fetching
-     * this once per navigation meant an officer sitting on the console saw
-     * neither until they happened to click something.
-     *
-     * The count is cheap to ask for. When it has actually changed, the screen
+     * Work arrives from other people. When the count has changed, the screen
      * itself is re-rendered from the server too — that is what brings the new
      * row into the list rather than only moving a number in the sidebar.
      */
@@ -304,66 +366,48 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
   const newEnquiries = state.enquiries.filter((e) => e.status === 'new').length;
 
   const agentGroups: NavGroup[] = [
-    { title: 'Workspace', items: [
-      { href: '/phase1', label: 'Agent hub', icon: Home, exact: true },
+    { key: 'main', items: [
       { href: '/phase1/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/phase1/listings', label: 'Listings', icon: Building2, exact: true, badge: attention, badgeTone: 'danger' },
-      { href: '/phase1/properties', label: 'Properties', icon: MapPinned },
-      { href: '/phase1/listings/new', label: 'Create listing', icon: Plus },
-      { href: '/phase1/listings/import', label: 'Bulk import', icon: Upload },
+      { href: '/phase1/listings', label: 'Listings', icon: Building2, badge: attention, badgeTone: 'danger', also: ['/phase1/properties'] },
+      { href: '/phase1/enquiries', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'info' },
+      { href: '/phase1/viewings', label: 'Viewings', icon: CalendarClock },
+      { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
     ] },
-    { title: 'Reach', items: [
+    { key: 'grow', title: 'Marketing', icon: Megaphone, collapsible: true, items: [
       { href: '/phase1/featured', label: 'Featured placement', icon: Rocket },
       { href: '/phase1/refresh', label: 'Automatic refresh', icon: RefreshCw },
       { href: '/phase1/placement', label: 'Search placement', icon: Star },
-    ] },
-    { title: 'Clients', items: [
-      { href: '/phase1/enquiries', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'warning' },
-      { href: '/phase1/viewings', label: 'Viewings', icon: CalendarClock },
-      { href: '/phase1/whatsapp', label: 'WhatsApp handover', icon: Phone },
       { href: '/phase1/shortlists', label: 'Client shortlists', icon: FileText },
+      { href: '/phase1/whatsapp', label: 'WhatsApp handover', icon: Phone },
+      { href: '/phase1/agent', label: 'Public page', icon: Globe },
+      { href: '/phase1/qr', label: 'QR code', icon: QrCode },
     ] },
-    { title: 'Market data', items: [
+    { key: 'insight', title: 'Insights', icon: LineChart, collapsible: true, items: [
       { href: '/phase1/market/transactions', label: 'Transactions', icon: LineChart },
       { href: '/phase1/market/compare', label: 'Compare projects', icon: GitCompareArrows },
       { href: '/phase1/floorplans', label: 'Floor plans', icon: LayoutPanelTop },
       { href: '/phase1/neighbourhood', label: 'Neighbourhood', icon: Trees },
-    ] },
-    { title: 'Business', items: [
-      { href: '/phase1/checkout', label: 'Subscription', icon: CreditCard },
-      { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
       { href: '/phase1/reports', label: 'Reports', icon: FileSpreadsheet },
     ] },
-    { title: 'Account', items: [
-      { href: '/phase1/profile', label: 'Profile', icon: IdCard },
-      { href: '/phase1/agent', label: 'Public page', icon: Users },
-      { href: '/phase1/qr', label: 'QR code', icon: QrCode },
-      { href: '/phase1/status', label: 'Verification', icon: ShieldCheck },
-      { href: '/phase1/settings', label: 'Settings', icon: Settings },
-    ] },
-    { title: 'Help', items: [
-      { href: '/phase1/learn', label: 'Guides', icon: BookOpen, exact: true },
-      { href: '/phase1/learn/sessions', label: 'Sessions', icon: Video },
-      { href: '/phase1/support', label: 'Support', icon: LifeBuoy },
+    { key: 'account', title: 'Account', items: [
+      { href: '/phase1/checkout', label: 'Subscription', icon: CreditCard, also: ['/phase1/plans', '/phase1/payment'] },
+      { href: '/phase1/profile', label: 'Profile & CEA', icon: IdCard, also: ['/phase1/status'] },
     ] },
   ];
 
   const adminGroups: NavGroup[] = [
-    { items: [{ href: '/phase1/admin', label: 'Overview', icon: LayoutGrid, exact: true }] },
-    { title: 'Queues', items: [
+    { key: 'main', items: [{ href: '/phase1/admin', label: 'Overview', icon: LayoutGrid, exact: true }] },
+    { key: 'queues', title: 'Queues', items: [
       { href: '/phase1/admin/verification', label: 'Verification', icon: ShieldCheck, badge: queues.verification, badgeTone: 'warning' },
       { href: '/phase1/admin/moderation', label: 'Moderation', icon: Gavel, badge: queues.moderation, badgeTone: 'warning' },
     ] },
-    { title: 'Directory', items: [{ href: '/phase1/admin/agents', label: 'Agents', icon: Users }] },
-    { title: 'Billing', items: [{ href: '/phase1/admin/subscriptions', label: 'Subscriptions', icon: Receipt }] },
-    { title: 'Insight', items: [{ href: '/phase1/admin/reports', label: 'Reports & audit', icon: BarChart3 }] },
+    { key: 'manage', title: 'Manage', items: [
+      { href: '/phase1/admin/agents', label: 'Agents', icon: Users },
+      { href: '/phase1/admin/subscriptions', label: 'Subscriptions', icon: Receipt },
+      { href: '/phase1/admin/reports', label: 'Reports & audit', icon: BarChart3 },
+    ] },
   ];
 
-  /**
-   * What the bell shows is what the server recorded, not what this screen can
-   * infer. A moderation decision or a suspension happens elsewhere and has to
-   * reach the agent whether or not they were looking at the right page.
-   */
   const alerts = state.alerts;
   const unread = alerts.filter((a) => !a.read).length;
 
@@ -372,127 +416,159 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
     ? 'Operations'
     : agencyLabel(user, { short: true }) || user?.email || '';
 
-  const sidebar = (
-    <div className={cx('flex h-full flex-col text-white', isAdmin ? 'bg-p1-sidebar-2' : 'bg-p1-sidebar')}>
-      <div className="flex items-center justify-between px-4 pb-3 pt-4">
-        <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2.5 rounded-lg" aria-label="V-RENT home">
-          <span className={cx('flex h-9 w-9 items-center justify-center rounded-lg font-p1display text-[20px] font-semibold', isAdmin ? 'bg-white/10 text-p1-accent ring-1 ring-white/20' : 'bg-p1-accent text-[#0E2124]')}>V</span>
-          <span>
-            <span className="block text-[15px] font-semibold leading-5 tracking-tight">V-RENT</span>
-            <span className={cx('block text-[11.5px] font-medium', isAdmin ? 'text-white/55' : 'text-p1-accent')}>{isAdmin ? 'Operations console' : 'Agent workspace'}</span>
-          </span>
-        </Link>
-        <button type="button" onClick={close} className="flex h-10 w-10 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white xl:hidden cursor-pointer" aria-label="Close menu"><X size={20} /></button>
-      </div>
-
-      {isAdmin && (
-        <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg border border-p1-warning/40 bg-p1-warning/10 px-3 py-2 text-[12px] text-white/85">
-          <span className="h-1.5 w-1.5 rounded-full bg-p1-warning" aria-hidden /> Internal · staff only
+  const sidebar = (forceExpanded: boolean) => {
+    const r = forceExpanded ? false : rail;
+    return (
+      <div className="flex h-full flex-col border-r border-p1-border bg-p1-surface text-p1-text">
+        <div className={cx('flex h-14 shrink-0 items-center', r ? 'justify-center px-2' : 'justify-between px-4')}>
+          <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2.5 rounded-lg" aria-label="V-RENT home">
+            <LogoMark />
+            {!r && (
+              <span className="flex items-center gap-2">
+                <span className="text-[15px] font-semibold tracking-tight">V-RENT</span>
+                {isAdmin && <span className="rounded-md bg-p1-subtle px-1.5 py-0.5 text-[11px] font-medium text-p1-text-2">Ops</span>}
+              </span>
+            )}
+          </Link>
+          {forceExpanded && (
+            <button type="button" onClick={close} className={cx('flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg', 'text-p1-text-3 hover:bg-p1-subtle')} aria-label="Close menu"><X size={19} /></button>
+          )}
         </div>
-      )}
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-3" aria-label="Main">
-        <SidebarGroups groups={isAdmin ? adminGroups : agentGroups} pathname={pathname} onNavigate={close} />
-      </nav>
+        <nav className={cx('flex-1 overflow-y-auto pb-3', r ? 'px-2' : 'px-3')} aria-label="Main">
+          <SidebarNav groups={isAdmin ? adminGroups : agentGroups} pathname={pathname} onNavigate={close} rail={r} />
+        </nav>
 
-      <div className="border-t border-white/10 px-3 py-3">
-        {isAdminAccount && (
-          isAdmin ? (
-            <Link href="/phase1/dashboard" className="flex h-10 items-center gap-2.5 rounded-lg px-3 text-[13px] text-white/70 hover:bg-white/8 hover:text-white">
-              <ArrowLeftRight size={15} aria-hidden /> Switch to agent workspace
-            </Link>
-          ) : (
-            <Link href="/phase1/admin" className="flex h-10 items-center gap-2.5 rounded-lg px-3 text-[13px] text-white/70 hover:bg-white/8 hover:text-white">
-              <ArrowLeftRight size={15} aria-hidden /> Open operations console
-            </Link>
-          )
-        )}
-        <div className="mt-1 flex items-center gap-2.5 rounded-lg px-3 py-2">
-          <Avatar name={userName} size="sm" tone={isAdmin ? 'neutral' : 'accent'} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-semibold text-white">{userName}</div>
-            <div className="truncate text-[11.5px] text-white/55">{userSub}</div>
-          </div>
-          <button type="button" onClick={signOutAndSay} title="Sign out" aria-label="Sign out"
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white/55 hover:bg-white/10 hover:text-white">
-            <LogOut size={15} aria-hidden />
-          </button>
+        <div className={cx('shrink-0 border-t py-2', r ? 'px-2' : 'px-3', 'border-p1-border')}>
+          {isAdminAccount && (
+            <NavLink
+              item={isAdmin
+                ? { href: '/phase1/dashboard', label: 'Agent workspace', icon: ArrowLeftRight }
+                : { href: '/phase1/admin', label: 'Operations console', icon: ArrowLeftRight, exact: true }}
+              pathname="" onNavigate={close} rail={r}
+            />
+          )}
+          {!isAdmin && <NavLink item={{ href: '/phase1', label: 'All tools', icon: Compass, exact: true }} pathname={pathname} onNavigate={close} rail={r} />}
+          {!forceExpanded && wide && (
+            <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!collapsed}>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className={cx('mt-0.5 flex h-9 w-full cursor-pointer items-center gap-3 rounded-lg text-[13.5px] transition-colors', r ? 'justify-center' : 'px-2.5',
+                  'text-p1-text-3 hover:bg-p1-subtle hover:text-p1-text')}
+              >
+                {collapsed ? <PanelLeftOpen size={17} aria-hidden /> : <PanelLeftClose size={17} aria-hidden />}
+                {!r && <span>Collapse</span>}
+              </button>
+            </Tooltip>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const bottomNav: (NavItem | { menu: true })[] = isAdmin
-    ? [{ href: '/phase1/admin', label: 'Overview', icon: LayoutGrid, exact: true }, { href: '/phase1/admin/verification', label: 'Verify', icon: ShieldCheck }, { href: '/phase1/admin/moderation', label: 'Moderate', icon: Gavel }, { href: '/phase1/admin/agents', label: 'Agents', icon: Users }, { menu: true }]
-    : [{ href: '/phase1/dashboard', label: 'Dashboard', icon: LayoutDashboard }, { href: '/phase1/listings', label: 'Listings', icon: Building2, exact: true }, { href: '/phase1/listings/new', label: 'Create', icon: Plus }, { href: '/phase1/properties', label: 'Properties', icon: MapPinned }, { menu: true }];
+    ? [{ href: '/phase1/admin', label: 'Overview', icon: LayoutGrid, exact: true }, { href: '/phase1/admin/verification', label: 'Verify', icon: ShieldCheck, badge: queues.verification }, { href: '/phase1/admin/moderation', label: 'Moderate', icon: Gavel, badge: queues.moderation }, { href: '/phase1/admin/agents', label: 'Agents', icon: Users }, { menu: true }]
+    : [{ href: '/phase1/dashboard', label: 'Home', icon: LayoutDashboard }, { href: '/phase1/listings', label: 'Listings', icon: Building2 }, { href: '/phase1/listings/new', label: 'Create', icon: Plus }, { href: '/phase1/enquiries', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries }, { menu: true }];
 
   const submitSearch = () => {
     const term = q.trim();
     router.push(isAdmin ? `/phase1/admin/agents${term ? `?q=${encodeURIComponent(term)}` : ''}` : `/phase1/listings${term ? `?q=${encodeURIComponent(term)}` : ''}`);
   };
 
+  const iconBtn = 'relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-p1-text-2 transition-colors hover:bg-p1-subtle hover:text-p1-text';
+
   return (
     <div className="p1 min-h-screen font-p1sans">
-      <a href="#p1-main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-p1-accent focus:px-4 focus:py-2 focus:text-[14px] focus:font-semibold focus:text-p1-accent-on">Skip to content</a>
+      <a href="#p1-main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-p1-primary focus:px-4 focus:py-2 focus:text-[14px] focus:font-semibold focus:text-p1-primary-on">Skip to content</a>
 
       {drawer && (
-        <div className="fixed inset-0 z-[60] xl:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
-          <div className="p1-overlay absolute inset-0 bg-black/50" onClick={close} aria-hidden />
-          <div className="p1-drawer-left absolute inset-y-0 left-0 w-[288px] max-w-[85vw] shadow-p1-lg">{sidebar}</div>
+        <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+          <div className="p1-overlay absolute inset-0 bg-[#0B1220]/50" onClick={close} aria-hidden />
+          <div className="p1-drawer-left absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-p1-lg">{sidebar(true)}</div>
         </div>
       )}
 
       <div className="flex min-h-screen">
-        <aside data-print-hide className="sticky top-0 hidden h-screen w-[256px] shrink-0 xl:block">{sidebar}</aside>
+        <aside data-print-hide className={cx('sticky top-0 hidden h-screen shrink-0 transition-[width] duration-200 ease-out lg:block', rail ? 'w-[64px]' : 'w-[232px]')}>
+          {sidebar(false)}
+        </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header data-print-hide className="sticky top-0 z-40 border-b border-p1-border bg-p1-surface/90 backdrop-blur supports-[backdrop-filter]:bg-p1-surface/80">
-            <div className="flex h-14 items-center gap-2 px-3 sm:px-5 lg:px-6">
-              <button type="button" onClick={() => setDrawer(true)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle xl:hidden cursor-pointer" aria-label="Open menu"><MenuIcon size={21} /></button>
-              <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2 xl:hidden" aria-label="V-RENT home">
-                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-p1-primary font-p1display text-[16px] font-semibold text-white">V</span>
+          <header data-print-hide className="sticky top-0 z-40 border-b border-p1-border bg-p1-bg/85 backdrop-blur supports-[backdrop-filter]:bg-p1-bg/75">
+            <div className="flex h-14 items-center gap-2 px-3 sm:px-5 lg:px-8">
+              <button type="button" onClick={() => setDrawer(true)} className={cx(iconBtn, 'lg:hidden')} aria-label="Open menu"><MenuIcon size={20} /></button>
+              <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2 lg:hidden" aria-label="V-RENT home">
+                <LogoMark className="h-7 w-7 text-[13px]" />
               </Link>
 
-              <nav aria-label="Breadcrumb" className="hidden min-w-0 flex-1 md:block">
-                <ol className="flex items-center gap-1 text-[13px] text-p1-text-3">
-                  {crumbs.map((c, i) => (
-                    <li key={c.href} className="flex min-w-0 items-center gap-1">
-                      {i < crumbs.length - 1 ? <Link href={c.href} className="truncate rounded hover:text-p1-text hover:underline underline-offset-4">{c.label}</Link> : <span className="truncate font-medium text-p1-text" aria-current="page">{c.label}</span>}
-                      {i < crumbs.length - 1 && <ChevronRight size={13} aria-hidden className="shrink-0 text-p1-border-strong" />}
-                    </li>
-                  ))}
-                </ol>
-              </nav>
-              <div className="flex-1 md:hidden" />
+              {crumbs.length > 0 ? (
+                <nav aria-label="Breadcrumb" className="hidden min-w-0 md:block">
+                  <ol className="flex items-center gap-1 text-[13px] text-p1-text-3">
+                    {crumbs.map((c, i) => (
+                      <li key={c.href} className="flex min-w-0 items-center gap-1">
+                        {i < crumbs.length - 1 ? <Link href={c.href} className="truncate rounded hover:text-p1-text">{c.label}</Link> : <span className="truncate font-medium text-p1-text" aria-current="page">{c.label}</span>}
+                        {i < crumbs.length - 1 && <ChevronRight size={13} aria-hidden className="shrink-0 text-p1-border-strong" />}
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              ) : null}
 
-              <div className="flex items-center gap-0.5">
-                <form className="relative hidden md:block" role="search" onSubmit={(e) => { e.preventDefault(); submitSearch(); }}>
-                  <label htmlFor="p1-global-search" className="sr-only">{isAdmin ? 'Search agents' : 'Search listings'}</label>
-                  <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-p1-text-3" aria-hidden />
-                  <input ref={searchRef} id="p1-global-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={isAdmin ? 'Search agents, CEA numbers' : 'Search listings, references'} className="h-9 w-48 rounded-lg border border-p1-border bg-p1-bg pl-9 pr-9 text-[13.5px] text-p1-text placeholder:text-p1-text-3 hover:border-p1-border-strong lg:w-64" />
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"><Kbd>/</Kbd></span>
-                </form>
+              <div className="flex-1" />
 
-                <button type="button" onClick={toggleTheme} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} title={isDarkMode ? 'Light mode' : 'Dark mode'} className="flex h-10 w-10 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text cursor-pointer">
-                  {themeReady && isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
+              <form className="relative hidden md:block" role="search" onSubmit={(e) => { e.preventDefault(); submitSearch(); }}>
+                <label htmlFor="p1-global-search" className="sr-only">{isAdmin ? 'Search agents' : 'Search listings'}</label>
+                <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-p1-text-3" aria-hidden />
+                <input ref={searchRef} id="p1-global-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={isAdmin ? 'Search agents or CEA numbers' : 'Search listings'} className="h-9 w-56 rounded-lg border border-p1-border bg-p1-surface pl-9 pr-14 text-[13.5px] text-p1-text transition-[width,border-color,box-shadow] duration-200 placeholder:text-p1-text-3 hover:border-p1-border-strong focus:w-72 focus:border-p1-primary focus:shadow-[0_0_0_3px_var(--p1-ring)] focus-visible:outline-none lg:w-64" />
+                <span className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
+              </form>
+
+              <div className="ml-1 flex items-center gap-0.5">
+                <Tooltip content={isDarkMode ? 'Light mode' : 'Dark mode'} side="bottom">
+                  <button type="button" onClick={toggleTheme} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} className={iconBtn}>
+                    {themeReady && isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+                  </button>
+                </Tooltip>
+
+                <div className="relative hidden sm:block">
+                  <button type="button" onClick={() => setPop(pop === 'help' ? null : 'help')} aria-haspopup="dialog" aria-expanded={pop === 'help'} aria-label="Help and support" className={iconBtn}>
+                    <HelpCircle size={17} />
+                  </button>
+                  <Popover open={pop === 'help'} onClose={() => setPop(null)} width="w-72">
+                    <ul className="py-1.5 text-[13.5px]">
+                      {[
+                        { i: BookOpen, t: 'Guides', href: '/phase1/learn' },
+                        { i: Video, t: 'Product sessions', href: '/phase1/learn/sessions' },
+                        { i: LifeBuoy, t: 'Contact support', href: '/phase1/support' },
+                        ...(!isAdmin ? [{ i: Compass, t: 'All tools', href: '/phase1' }] : []),
+                      ].map((h) => (
+                        <li key={h.t}><Link href={h.href} onClick={() => setPop(null)} className="flex h-9 items-center gap-3 px-4 hover:bg-p1-subtle"><h.i size={15} className="text-p1-text-3" aria-hidden />{h.t}</Link></li>
+                      ))}
+                    </ul>
+                    <div className="border-t border-p1-border px-4 py-2.5 text-[12px] text-p1-text-3">
+                      <Kbd>/</Kbd> search{!isAdmin && <> · <Kbd>N</Kbd> new listing</>}
+                    </div>
+                  </Popover>
+                </div>
 
                 <div className="relative">
-                  <button type="button" onClick={() => { const opening = pop !== 'bell'; setPop(opening ? 'bell' : null); if (opening && unread > 0) markAlertsRead(); }} aria-haspopup="dialog" aria-expanded={pop === 'bell'} aria-label={`Notifications, ${unread} unread`} className="relative flex h-10 w-10 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text cursor-pointer">
-                    <Bell size={18} />
-                    {unread > 0 && <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-p1-danger px-1 text-[10px] font-bold text-white">{unread}</span>}
+                  <button type="button" onClick={() => { const opening = pop !== 'bell'; setPop(opening ? 'bell' : null); if (opening && unread > 0) markAlertsRead(); }} aria-haspopup="dialog" aria-expanded={pop === 'bell'} aria-label={`Notifications, ${unread} unread`} className={iconBtn}>
+                    <Bell size={17} />
+                    {unread > 0 && <span className="vr-pop absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-p1-danger px-1 text-[10px] font-bold text-white ring-2 ring-p1-bg">{unread}</span>}
                   </button>
-                  <Popover open={pop === 'bell'} onClose={() => setPop(null)} width="w-96">
+                  <Popover open={pop === 'bell'} onClose={() => setPop(null)} width="w-[380px]">
                     <div className="flex items-center justify-between border-b border-p1-border px-4 py-3">
                       <span className="text-[14px] font-semibold text-p1-text">Notifications</span>
-                      {!isAdmin && newEnquiries > 0 && <Link href="/phase1/enquiries" onClick={() => setPop(null)} className="text-[12.5px] font-medium text-p1-primary hover:underline underline-offset-4 dark:text-p1-info">{newEnquiries} new enquir{newEnquiries === 1 ? 'y' : 'ies'}</Link>}
+                      {!isAdmin && newEnquiries > 0 && <Link href="/phase1/enquiries" onClick={() => setPop(null)} className="text-[12.5px] font-medium text-p1-primary hover:underline underline-offset-4">{newEnquiries} new enquir{newEnquiries === 1 ? 'y' : 'ies'}</Link>}
                     </div>
                     <ul className="max-h-96 overflow-y-auto">
-                      {alerts.length === 0 && <li className="px-4 py-6 text-center text-[13px] text-p1-text-3">Nothing yet. Decisions about your account and your listings appear here.</li>}
+                      {alerts.length === 0 && <li className="px-4 py-8 text-center text-[13px] text-p1-text-3">You&apos;re all caught up.</li>}
                       {alerts.slice(0, 12).map((n) => {
                         const dot = { info: 'bg-p1-info', success: 'bg-p1-success', warning: 'bg-p1-warning', danger: 'bg-p1-danger' }[n.tone];
                         const body = (
-                          <div className={cx('flex gap-3 px-4 py-3', !n.read && 'bg-p1-primary-soft/30')}>
+                          <div className={cx('flex gap-3 px-4 py-3', !n.read && 'bg-p1-primary-soft/40')}>
                             <span className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', dot)} aria-hidden />
                             <div className="min-w-0">
                               <div className="text-[13.5px] font-medium leading-5 text-p1-text">{n.title}</div>
@@ -501,8 +577,6 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                             </div>
                           </div>
                         );
-                        // Notices are written server-side with an absolute URL,
-                        // so they work from an email as well as from here.
                         const href = n.href?.replace(/^https?:\/\/[^/]+/, '');
                         return (
                           <li key={n.id} className="border-b border-p1-border last:border-b-0 hover:bg-p1-subtle/60">
@@ -514,93 +588,84 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                   </Popover>
                 </div>
 
-                <div className="relative hidden sm:block">
-                  <button type="button" onClick={() => setPop(pop === 'help' ? null : 'help')} aria-haspopup="dialog" aria-expanded={pop === 'help'} aria-label="Help and support" className="flex h-10 w-10 items-center justify-center rounded-lg text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text cursor-pointer">
-                    <HelpCircle size={18} />
-                  </button>
-                  <Popover open={pop === 'help'} onClose={() => setPop(null)} width="w-72">
-                    <div className="px-4 py-3 text-[14px] font-semibold text-p1-text">Help and support</div>
-                    <ul className="border-t border-p1-border py-1 text-[13.5px]">
-                      {[{ i: BookOpen, t: 'Agent guide', d: 'How listings, plans and verification work' }, { i: MessageCircle, t: 'Chat with support', d: 'Weekdays 9am – 6pm SGT' }, { i: Phone, t: 'Call +65 6000 0000', d: 'Urgent account issues' }].map((h) => (
-                        <li key={h.t}><button type="button" className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-p1-subtle/60 cursor-pointer"><h.i size={16} className="mt-0.5 shrink-0 text-p1-text-3" aria-hidden /><span><span className="block font-medium text-p1-text">{h.t}</span><span className="block text-[12.5px] text-p1-text-3">{h.d}</span></span></button></li>
-                      ))}
-                    </ul>
-                    <div className="border-t border-p1-border px-4 py-2.5 text-[12px] text-p1-text-3">
-                      Shortcuts: <Kbd>/</Kbd> search{!isAdmin && <> · <Kbd>n</Kbd> new listing</>}
-                    </div>
-                  </Popover>
-                </div>
-
                 <div className="relative ml-1">
-                  <button type="button" onClick={() => setPop(pop === 'user' ? null : 'user')} aria-haspopup="menu" aria-expanded={pop === 'user'} className="flex h-10 items-center gap-2 rounded-lg pl-1 pr-1.5 hover:bg-p1-subtle cursor-pointer">
+                  <button type="button" onClick={() => setPop(pop === 'user' ? null : 'user')} aria-haspopup="menu" aria-expanded={pop === 'user'} aria-label="Account menu" className="flex h-9 cursor-pointer items-center rounded-full p-0.5 transition-shadow hover:shadow-[0_0_0_3px_var(--p1-border)]">
                     <Avatar name={userName} size="sm" tone={isAdmin ? 'neutral' : 'primary'} />
-                    <ChevronDown size={14} className="text-p1-text-3" aria-hidden />
                   </button>
                   <Popover open={pop === 'user'} onClose={() => setPop(null)} width="w-72">
                     <div className="flex items-center gap-3 px-4 py-3.5">
-                      <Avatar name={userName} size="md" />
+                      <Avatar name={userName} size="md" tone={isAdmin ? 'neutral' : 'primary'} />
                       <div className="min-w-0">
                         <div className="truncate text-[14px] font-semibold text-p1-text">{userName}</div>
-                        <div className="truncate text-[12.5px] text-p1-text-3">{isAdmin ? 'ops.lena@v-rent.sg' : state.profile.email}</div>
+                        <div className="truncate text-[12.5px] text-p1-text-3">{userSub}</div>
                       </div>
                     </div>
                     {!isAdmin && (
-                      <div className="border-t border-p1-border px-4 py-3">
-                        <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-p1-text-3">Account standing</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          <StatusBadge kind="agent" value={state.profileSubmitted ? state.approval : 'not_submitted'} size="sm" />
-                          <StatusBadge kind="subscription" value={state.subscription} size="sm" />
-                        </div>
+                      <div className="flex flex-wrap gap-1.5 border-t border-p1-border px-4 py-2.5">
+                        <StatusBadge kind="agent" value={state.profileSubmitted ? state.approval : 'not_submitted'} size="sm" />
+                        <StatusBadge kind="subscription" value={state.subscription} size="sm" />
                       </div>
                     )}
                     <ul className="border-t border-p1-border py-1 text-[13.5px]">
-                      {!isAdmin && <li><Link href="/phase1/profile" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><IdCard size={15} className="text-p1-text-3" aria-hidden /> My profile</Link></li>}
-                      {!isAdmin && <li><Link href="/phase1/checkout" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><Receipt size={15} className="text-p1-text-3" aria-hidden /> Subscription and billing</Link></li>}
-                      {!isAdmin && <li><Link href="/phase1/settings" onClick={() => setPop(null)} className="flex h-10 items-center gap-3 px-4 hover:bg-p1-subtle/60"><Settings size={15} className="text-p1-text-3" aria-hidden /> Settings</Link></li>}
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() => { setPop(null); signOutAndSay(); }}
-                          className="flex h-10 w-full cursor-pointer items-center gap-3 px-4 text-left hover:bg-p1-subtle/60"
-                        >
-                          <LogOut size={15} className="text-p1-text-3" aria-hidden /> Sign out
-                        </button>
-                      </li>
+                      {!isAdmin && [
+                        { href: '/phase1/profile', label: 'Profile & CEA', icon: IdCard },
+                        { href: '/phase1/status', label: 'Verification status', icon: ShieldCheck },
+                        { href: '/phase1/checkout', label: 'Subscription and billing', icon: Receipt },
+                        { href: '/phase1/properties', label: 'Properties', icon: Building2 },
+                      ].map((m) => (
+                        <li key={m.href}><Link href={m.href} onClick={() => setPop(null)} className="flex h-9 items-center gap-3 px-4 hover:bg-p1-subtle"><m.icon size={15} className="text-p1-text-3" aria-hidden /> {m.label}</Link></li>
+                      ))}
+                      <li><Link href="/phase1/settings" onClick={() => setPop(null)} className="flex h-9 items-center gap-3 px-4 hover:bg-p1-subtle"><Settings size={15} className="text-p1-text-3" aria-hidden /> Settings</Link></li>
+                      <li><Link href="/phase1/homes" onClick={() => setPop(null)} className="flex h-9 items-center gap-3 px-4 hover:bg-p1-subtle"><Home size={15} className="text-p1-text-3" aria-hidden /> View the tenant site</Link></li>
                     </ul>
-
+                    <div className="border-t border-p1-border py-1">
+                      <button type="button" onClick={() => { setPop(null); signOutAndSay(); }} className="flex h-9 w-full cursor-pointer items-center gap-3 px-4 text-left text-[13.5px] hover:bg-p1-subtle">
+                        <LogOut size={15} className="text-p1-text-3" aria-hidden /> Sign out
+                      </button>
+                    </div>
                   </Popover>
                 </div>
               </div>
             </div>
           </header>
 
-          <main id="p1-main" className="flex-1 pb-24 xl:pb-10" tabIndex={-1}>
-            <div key={pathname} className="vr-fade mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 print:max-w-none print:p-0">{children}</div>
+          <main id="p1-main" className="flex-1 pb-24 lg:pb-12" tabIndex={-1}>
+            <div key={pathname} className="vr-fade mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">{children}</div>
           </main>
         </div>
       </div>
 
-      <nav data-print-hide aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-p1-border bg-p1-surface/95 backdrop-blur xl:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav data-print-hide aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-p1-border bg-p1-surface/95 backdrop-blur lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <ul className="grid grid-cols-5">
-          {bottomNav.map((item, i) => {
+          {bottomNav.map((item) => {
             if ('menu' in item) {
               return (
                 <li key="menu">
-                  <button type="button" onClick={() => setDrawer(true)} className="flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium text-p1-text-3 cursor-pointer" aria-label="Open full menu">
-                    <span className="flex h-7 w-12 items-center justify-center rounded-full"><MenuIcon size={19} aria-hidden /></span>
+                  <button type="button" onClick={() => setDrawer(true)} className="flex h-14 w-full cursor-pointer flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-p1-text-3" aria-label="Open full menu">
+                    <MenuIcon size={20} aria-hidden />
                     More
                   </button>
                 </li>
               );
             }
-            const active = isActive(pathname, item);
-            const Icon = item.icon;
             const isCreate = item.href === '/phase1/listings/new';
+            const active = !isCreate && isActive(pathname, item) && !(item.href === '/phase1/listings' && pathname === '/phase1/listings/new');
+            const Icon = item.icon;
             return (
               <li key={item.href}>
-                <Link href={item.href} aria-current={active ? 'page' : undefined} className={cx('flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium', active ? 'text-p1-primary dark:text-p1-accent' : 'text-p1-text-3')}>
-                  <span className={cx('flex h-7 w-12 items-center justify-center rounded-full', isCreate ? 'bg-p1-accent text-p1-accent-on' : active && 'bg-p1-primary-soft')}><Icon size={19} aria-hidden /></span>
-                  {item.label}
+                <Link href={item.href} aria-current={active ? 'page' : undefined} className={cx('relative flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors', active ? 'text-p1-primary' : 'text-p1-text-3')}>
+                  {isCreate ? (
+                    <span className="flex h-9 w-12 items-center justify-center rounded-xl bg-p1-primary text-p1-primary-on shadow-p1-sm"><Icon size={20} aria-hidden /></span>
+                  ) : (
+                    <>
+                      <span className="relative">
+                        <Icon size={20} strokeWidth={active ? 2.2 : 1.9} aria-hidden />
+                        {typeof item.badge === 'number' && item.badge > 0 && <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-p1-danger px-1 text-[10px] font-bold text-white">{item.badge}</span>}
+                      </span>
+                      {item.label}
+                    </>
+                  )}
+                  {active && <span className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-p1-primary" aria-hidden />}
                 </Link>
               </li>
             );

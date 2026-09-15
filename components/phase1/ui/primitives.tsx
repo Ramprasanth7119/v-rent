@@ -42,9 +42,14 @@ const DISPLAY = new Set([
  * they are different breakpoints, and collapsing them would break every
  * responsive override in the kit.
  */
+const POSITION = new Set(['static', 'relative', 'absolute', 'fixed', 'sticky']);
+
 const family = (token: string): string | null => {
   if (token.includes(':')) return null;
   if (DISPLAY.has(token)) return 'display';
+  // A base of `relative` and a caller's `absolute inset-0` resolved by stylesheet
+  // order left the map wrapper static and zero pixels tall.
+  if (POSITION.has(token)) return 'position';
   const m = /^(h|w)-/.exec(token);
   return m ? m[1] : null;
 };
@@ -95,26 +100,27 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const BTN_VARIANT: Record<ButtonVariant, string> = {
-  primary:          'bg-p1-primary text-p1-primary-on shadow-p1-sm hover:bg-p1-primary-hover hover:shadow-p1-md',
-  secondary:        'bg-p1-primary-soft text-p1-primary hover:bg-p1-primary-soft/70 dark:text-p1-text',
-  outline:          'border border-p1-border-strong bg-p1-surface text-p1-text hover:bg-p1-subtle',
+  primary:          'bg-p1-primary text-p1-primary-on shadow-p1-sm hover:bg-p1-primary-hover',
+  secondary:        'bg-p1-primary-soft text-p1-primary hover:bg-p1-primary-soft/70',
+  outline:          'border border-p1-border-strong bg-p1-surface text-p1-text hover:border-p1-text-3/40 hover:bg-p1-subtle',
   ghost:            'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text',
-  /* Gold is for a navy surface, where blue would disappear. On a light page
-     the action colour is blue — two competing call-to-action colours on one
-     screen is what makes an interface look assembled rather than designed. */
-  accent:           'bg-p1-accent text-p1-accent-on hover:bg-p1-accent-hover font-semibold shadow-p1-sm',
-  danger:           'bg-p1-danger text-white hover:opacity-90',
+  /* Amber is reserved for "featured". One action colour per screen is what
+     keeps an interface from looking assembled. */
+  accent:           'bg-p1-accent text-p1-accent-on hover:bg-p1-accent-hover shadow-p1-sm',
+  danger:           'bg-p1-danger text-white hover:opacity-90 dark:text-p1-bg',
   'danger-outline': 'border border-p1-danger-border bg-p1-surface text-p1-danger hover:bg-p1-danger-soft',
-  link:             'text-p1-primary underline-offset-4 hover:underline px-0 h-auto dark:text-p1-info',
+  link:             'text-p1-primary underline-offset-4 hover:underline px-0 h-auto',
 };
 
+/* Controls are 10px radius, not pills: a pill reads as a tag, a button should
+   read as a button. Heights keep a 40px minimum tap target on the small size. */
 export const BTN_SIZE: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3.5 text-[13px] gap-1.5 rounded-full',
-  md: 'h-11 px-5 text-[14px] gap-2 rounded-full',
-  lg: 'h-12 px-6 text-[15px] gap-2.5 rounded-full',
+  sm: 'h-9 px-3 text-[13px] gap-1.5 rounded-lg',
+  md: 'h-10 px-4 text-[14px] gap-2 rounded-lg',
+  lg: 'h-12 px-5 text-[15px] gap-2 rounded-lg',
 };
 
-const BTN_BASE = 'inline-flex select-none items-center justify-center whitespace-nowrap font-semibold transition-[background-color,box-shadow,transform,opacity,border-color] duration-150 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer';
+const BTN_BASE = 'inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-[background-color,box-shadow,transform,opacity,border-color,color] duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 cursor-pointer';
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = 'primary', size = 'md', loading = false, leftIcon, rightIcon, block, className = '', disabled, children, type = 'button', ...rest },
@@ -164,8 +170,8 @@ export const IconButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAt
       aria-label={label}
       title={label}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
-        size === 'sm' ? 'h-9 w-9' : 'h-11 w-11',
+        'inline-flex shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-150 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+        size === 'sm' ? 'h-9 w-9' : 'h-10 w-10',
         variant === 'outline' ? 'border border-p1-border-strong bg-p1-surface text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text' : 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text',
         className,
       )}
@@ -181,8 +187,10 @@ export const IconButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAt
 export function Avatar({ name, size = 'md', className = '', tone = 'primary' }: { name: string; size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'; className?: string; tone?: 'primary' | 'accent' | 'neutral' }) {
   const initials = name.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   const sz = { xs: 'h-6 w-6 text-[10px]', sm: 'h-8 w-8 text-[12px]', md: 'h-10 w-10 text-[14px]', lg: 'h-14 w-14 text-[18px]', xl: 'h-20 w-20 text-[26px]' }[size];
-  const bg = { primary: 'bg-p1-primary text-white', accent: 'bg-p1-accent text-p1-accent-on', neutral: 'bg-p1-subtle text-p1-text-2' }[tone];
-  return <span className={cx('inline-flex shrink-0 items-center justify-center rounded-full font-semibold', bg, sz, className)} aria-hidden>{initials}</span>;
+  // Soft fills rather than solid ones: a column of solid blue discs is louder than
+  // the names beside them.
+  const bg = { primary: 'bg-p1-primary-soft text-p1-primary', accent: 'bg-p1-accent-soft text-p1-accent-text', neutral: 'bg-p1-subtle text-p1-text-2' }[tone];
+  return <span className={cx('inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-tight', bg, sz, className)} aria-hidden>{initials}</span>;
 }
 
 /** Keyboard shortcut hint. */

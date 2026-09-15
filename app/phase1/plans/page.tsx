@@ -1,127 +1,121 @@
 "use client";
 
+/**
+ * Plans.
+ *
+ * The current plan and its usage first, then the three plans side by side.
+ * Each entitlement is a number with its meaning one hover away, rather than a
+ * sentence under every card.
+ */
+
 import { useRouter } from 'next/navigation';
-import { Check, Lock, Sparkles } from 'lucide-react';
-import {
-  Button, LinkButton, Card, PageHeader, Callout, Stepper, cx } from '../../../components/phase1/kit';
-import { Pill } from '../../../components/phase1/status';
+import { Check, Info, Lock } from 'lucide-react';
+import { Button, Callout, Card, LinkButton, Tooltip, cx } from '../../../components/phase1/kit';
+import { CurrentPlanCard } from '../../../components/phase1/account/CurrentPlanCard';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { INCUMBENT_PRICING, PLANS, sgd } from '../../../lib/phase1/data';
 
-const STEPS = [
-  { label: 'Create account' }, { label: 'Verify contact' }, { label: 'Professional details' },
-  { label: 'CEA verification' }, { label: 'Approval' }, { label: 'Subscribe' }, { label: 'Payment' }, { label: 'Start listing' },
-];
+const TERMS: Record<string, { label: string; help: string }> = {
+  active_listing_limit: { label: 'Active listings', help: 'Published and paused listings count towards this. Drafts do not.' },
+  images_per_listing: { label: 'Photos per listing', help: 'How many photographs one listing can carry.' },
+  listing_duration_days: { label: 'Listing runs for', help: 'How long a listing stays live before it needs renewing.' },
+  featured_slots: { label: 'Featured slots', help: 'Listings you can feature at no extra charge. Arrives in a later phase.' },
+};
 
-function friendly(label: string, value: string) {
-  if (label === 'Featured slots') {
-    return value === 'None' ? 'No featured slots' : `${value.replace(/\s*\(Phase 6\)/, '')} featured slots — coming in a later phase`;
-  }
-  return `${value} ${label.toLowerCase()}`;
-}
+const clean = (v: string) => v.replace(/\s*\(Phase 6\)/, '');
 
 export default function PlansPage() {
   const router = useRouter();
   const { state, set } = useDemo();
   const locked = state.approval !== 'approved';
 
-  const completed = (i: number) => [
-    true,
-    state.emailVerified && state.mobileVerified,
-    state.profileSubmitted,
-    state.profileSubmitted,
-    state.approval === 'approved',
-    !!state.plan,
-    state.subscription === 'active',
-    false,
-  ][i];
-
   return (
-    <>
-      <PageHeader
-        eyebrow="Subscription"
-        title="Choose the plan that fits your portfolio"
-        description="One flat yearly price with your listing quota included. No credits, no boosts, no surprises. Upgrade or downgrade at any time."
-      />
-      <Stepper steps={STEPS} current={5} completed={completed} />
+    <div className="mx-auto max-w-5xl">
+      <h1 className="vr-rise mb-5 text-[24px] font-semibold tracking-[-0.02em] text-p1-text sm:text-[28px]">Plans</h1>
+
+      {state.plan && <CurrentPlanCard className="vr-rise mb-6" showAction={false} />}
 
       {locked && (
-        <Callout tone="warning" title="Plans open once your application is approved" className="mb-6"
-          action={<LinkButton href="/phase1/status" variant="outline" size="sm">View application status</LinkButton>}>
-          Only verified CEA-registered agents can subscribe. Your application status shows what is outstanding.
+        <Callout tone="warning" compact className="mb-5"
+          action={<LinkButton href="/phase1/status" variant="outline" size="sm">View status</LinkButton>}>
+          Plans open once your application is approved.
         </Callout>
       )}
 
-      <div className="vr-stagger grid gap-5 md:grid-cols-3" role="radiogroup" aria-label="Plans">
+      <div className="vr-stagger grid gap-4 md:grid-cols-3" role="list" aria-label="Plans">
         {PLANS.map((p) => {
-          const selected = state.plan?.code === p.code;
-          const recommended = !!p.highlight;
+          const current = state.plan?.code === p.code;
+          const recommended = Boolean(p.highlight);
           return (
             <Card
               key={p.code}
-              padding="lg"
-              className={cx('relative flex flex-col', recommended && 'border-2 border-p1-primary shadow-p1-md', selected && 'ring-2 ring-p1-primary/35')}
+              role="listitem"
+              padding="none"
+              className={cx('relative flex flex-col transition-[border-color,box-shadow] duration-200', recommended ? 'border-p1-primary shadow-p1-md' : 'hover:border-p1-border-strong')}
             >
-              {recommended && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <Pill tone="accent" className="h-7 px-3 text-[13px] shadow-p1-sm"><Sparkles size={13} aria-hidden /> Most agents choose this</Pill>
-                </span>
-              )}
-              <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-p1-text-3">{p.name}</div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="font-p1display text-[40px] font-medium leading-none tracking-tight text-p1-text tabular-nums">{sgd(p.priceYearSgd)}</span>
-                <span className="text-[15px] text-p1-text-2">/year</span>
+              <div className="p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[15px] font-semibold text-p1-text">{p.name}</span>
+                  {current ? (
+                    <span className="rounded-md bg-p1-subtle px-2 py-0.5 text-[12px] font-medium text-p1-text-2">Current</span>
+                  ) : recommended ? (
+                    <span className="rounded-md bg-p1-primary-soft px-2 py-0.5 text-[12px] font-medium text-p1-primary">Most agents</span>
+                  ) : null}
+                </div>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-[34px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-p1-text">{sgd(p.priceYearSgd)}</span>
+                  <span className="text-[14px] text-p1-text-3">/ year</span>
+                </div>
+                <div className="mt-1 text-[13px] tabular-nums text-p1-text-3">About {sgd(Math.round(p.priceYearSgd / 12))} a month</div>
               </div>
-              <div className="mt-1.5 text-[14px] text-p1-text-3">about {sgd(Math.round(p.priceYearSgd / 12))} a month</div>
 
-              <ul className="mt-6 flex-1 space-y-3">
-                {p.entitlements.map((e) => (
-                  <li key={e.key} className="flex items-start gap-2.5 text-[14px] leading-5 text-p1-text-2">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-p1-success-soft text-p1-success" aria-hidden><Check size={12} strokeWidth={3} /></span>
-                    <span><span className="font-semibold text-p1-text">{e.value.replace(/\s*\(Phase 6\)/, '')}</span> {friendly(e.label, e.value).replace(/^\S+\s/, '').replace(/^days\s/, '')}</span>
-                  </li>
-                ))}
-              </ul>
+              <dl className="flex-1 divide-y divide-p1-border border-t border-p1-border">
+                {p.entitlements.map((e) => {
+                  const term = TERMS[e.key] ?? { label: e.label, help: e.label };
+                  const none = e.value === 'None';
+                  return (
+                    <div key={e.key} className="flex items-center justify-between gap-3 px-5 py-2.5 text-[13.5px]">
+                      <dt className="flex items-center gap-1.5 text-p1-text-2">
+                        {term.label}
+                        <Tooltip content={term.help}>
+                          <button type="button" aria-label={`About ${term.label.toLowerCase()}`} className="flex h-5 w-5 items-center justify-center rounded-full text-p1-text-3 hover:text-p1-text">
+                            <Info size={13} aria-hidden />
+                          </button>
+                        </Tooltip>
+                      </dt>
+                      <dd className={cx('font-semibold tabular-nums', none ? 'text-p1-text-3' : 'text-p1-text')}>{none ? '—' : clean(e.value)}</dd>
+                    </div>
+                  );
+                })}
+              </dl>
 
-              {selected ? (
-                <Button className="mt-6" variant="outline" size="lg" block disabled leftIcon={<Check size={16} />}>Current plan</Button>
-              ) : (
-                <Button
-                  className="mt-6" variant={recommended ? 'primary' : 'primary'} size="lg" block disabled={locked}
-                  leftIcon={locked ? <Lock size={16} /> : undefined}
-                  onClick={() => { set({ plan: p }); router.push('/phase1/checkout'); }}
-                >
-                  Choose {p.name}
-                </Button>
-              )}
-              {selected && <p className="mt-2 text-center text-[13px] text-p1-text-3">You are on this plan. Choose another card to change.</p>}
+              <div className="border-t border-p1-border p-5">
+                {current ? (
+                  <Button variant="outline" block disabled leftIcon={<Check size={16} />}>Your plan</Button>
+                ) : (
+                  <Button
+                    variant={recommended ? 'primary' : 'outline'} block disabled={locked}
+                    leftIcon={locked ? <Lock size={15} /> : undefined}
+                    onClick={() => { set({ plan: p }); router.push('/phase1/checkout'); }}
+                  >
+                    {state.plan ? `Switch to ${p.name}` : `Choose ${p.name}`}
+                  </Button>
+                )}
+              </div>
             </Card>
           );
         })}
       </div>
 
-      <Card className="mt-8" padding="lg">
-        <h2 className="text-[17px] font-semibold text-p1-text">Compare with PropertyGuru</h2>
-        <p className="mt-1 text-[14px] text-p1-text-2">Published agent package prices, verified 28 August 2026 (after GST).</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          {INCUMBENT_PRICING.map((c) => (
-            <div key={c.name} className="rounded-xl border border-p1-border bg-p1-subtle/60 p-4">
-              <div className="text-[13px] font-medium text-p1-text-2">{c.name}</div>
-              <div className="mt-1 text-[24px] font-semibold tabular-nums text-p1-danger">{sgd(c.priceYearSgd)}<span className="text-[13px] font-normal text-p1-text-3">/yr</span></div>
-              <div className="mt-0.5 text-[13px] text-p1-text-3">{c.note}</div>
-            </div>
-          ))}
-          <div className="rounded-xl border-2 border-p1-primary bg-p1-primary-soft/60 p-4">
-            <div className="text-[13px] font-medium text-p1-text-2">V-RENT, all plans</div>
-            <div className="mt-1 text-[24px] font-semibold tabular-nums text-p1-success">{sgd(PLANS[0].priceYearSgd)}–{sgd(PLANS[2].priceYearSgd)}<span className="text-[13px] font-normal text-p1-text-3">/yr</span></div>
-            <div className="mt-0.5 text-[13px] text-p1-text-3">quota included, no credits</div>
-          </div>
-        </div>
-        <p className="mt-4 text-[13px] leading-5 text-p1-text-3">
-          Incumbents charge for visibility (credits, refreshes and boosted placement), not for listing management. V-RENT prices are indicative and subject to client confirmation.
-        </p>
-      </Card>
-
-    </>
+      <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-p1-border bg-p1-surface px-5 py-3.5 text-[13px]">
+        <span className="font-medium text-p1-text-2">For comparison</span>
+        {INCUMBENT_PRICING.map((c) => (
+          <span key={c.name} className="text-p1-text-3">{c.name} <span className="font-semibold tabular-nums text-p1-text">{sgd(c.priceYearSgd)}</span>/yr</span>
+        ))}
+        <Tooltip content="Published agent package prices, verified 28 August 2026, after GST. V-RENT prices are indicative and subject to client confirmation.">
+          <button type="button" className="ml-auto inline-flex items-center gap-1 text-p1-text-3 hover:text-p1-text"><Info size={13} aria-hidden /> Source</button>
+        </Tooltip>
+      </div>
+    </div>
   );
 }
