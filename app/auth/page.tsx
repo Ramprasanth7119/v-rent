@@ -8,8 +8,8 @@ import { Badge } from '../../components/ui/Badge';
 import { usePersona } from '../../components/layout/PersonaContext';
 import { 
   ShieldCheck, Compass, Briefcase, Mail, Key, Sparkles, 
-  Smartphone, Fingerprint, Lock, Upload, User, ArrowRight, 
-  ShieldAlert, Award, FileText, CheckCircle, Globe, AtSign, Apple,
+  Smartphone, Fingerprint, Lock, Upload, User, 
+  ShieldAlert, Award, CheckCircle, Globe, AtSign, Apple,
 } from 'lucide-react';
 
 export default function OnboardingAuthPage() {
@@ -163,7 +163,7 @@ export default function OnboardingAuthPage() {
         </div>
         <div className="space-y-1">
           <h1 className="text-xl font-black uppercase text-foreground">V-RENT Onboarding Gate</h1>
-          <p className="text-xs text-neutral-400">Singapore's Unified PropTech Super Ecosystem</p>
+          <p className="text-xs text-neutral-400">Singapore&apos;s Unified PropTech Super Ecosystem</p>
         </div>
       </div>
 
@@ -184,7 +184,7 @@ export default function OnboardingAuthPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setLoginMethod(tab.id as any)}
+                  onClick={() => setLoginMethod(tab.id as typeof loginMethod)}
                   className={`flex-1 flex flex-col items-center gap-1.5 pb-2 text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer border-b-2 ${
                     active ? 'border-brand-gold text-brand-gold' : 'border-transparent text-neutral-400 hover:text-foreground'
                   }`}
@@ -385,7 +385,7 @@ export default function OnboardingAuthPage() {
               return (
                 <div 
                   key={role.id}
-                  onClick={() => setSelectedRole(role.id as any)}
+                  onClick={() => setSelectedRole(role.id as typeof selectedRole)}
                   className={`p-3.5 border rounded-xl cursor-pointer transition-all ${
                     isSelected ? 'border-brand-gold bg-brand-gold/5' : 'border-border bg-card'
                   }`}

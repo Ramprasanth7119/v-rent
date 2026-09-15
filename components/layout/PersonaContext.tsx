@@ -27,6 +27,7 @@ export const PersonaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const savedLang = localStorage.getItem('vrent_lang') as LangCode;
     if (savedLang && ['EN', 'ZH', 'MS', 'TA'].includes(savedLang)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the saved language from localStorage, which only exists after mount
       setLanguageState(savedLang);
     }
     const savedPersona = localStorage.getItem('vrent_persona') as PersonaType;
@@ -48,7 +49,9 @@ export const PersonaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Set default dark mode based on persona or preferences
   useEffect(() => {
     // Check local storage or default to dark mode for dashboards, light for consumer
+    /* Kept as an effect: it runs after children's effects, an ordering the theme toggles depend on. */
     if (persona === 'consumer') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- persona default theme; see above
       setDarkMode(false);
     } else {
       setDarkMode(true);

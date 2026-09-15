@@ -11,7 +11,7 @@ import {
   getDocuments, uploadDocument, signDocument 
 } from '../../lib/services/documents';
 import { VaultDocument } from '../../lib/mock-data/documents';
-import { FileText, ArrowRight, ShieldCheck, Download, Edit3, Plus, UserCheck } from 'lucide-react';
+import { FileText, Download, Edit3, Plus, UserCheck } from 'lucide-react';
 
 export default function DocumentVaultPage() {
   const [docs, setDocs] = useState<VaultDocument[]>([]);
@@ -39,6 +39,7 @@ export default function DocumentVaultPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads the documents from the service on mount
     loadDocs();
   }, []);
 
@@ -229,7 +230,7 @@ export default function DocumentVaultPage() {
                 { value: 'Floor Plan', label: 'Title Deed Floorplan Layout' }
               ]}
               value={uploadType}
-              onChange={(e: any) => setUploadType(e.target.value)}
+              onChange={(e: { target: { value: string } }) => setUploadType(e.target.value as VaultDocument['type'])}
             />
           </div>
 
@@ -258,7 +259,7 @@ export default function DocumentVaultPage() {
         ) : (
           <div className="space-y-6 text-center">
             <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              You are signing <span className="font-bold text-foreground">"{selectedDoc?.name}"</span>. 
+              You are signing <span className="font-bold text-foreground">&quot;{selectedDoc?.name}&quot;</span>. 
               This will lock the current file version and dispatch notifications to counter-signing verified brokers.
             </p>
 

@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
-import { Input, Select, Textarea } from '../../../components/ui/Input';
+import { Input, Textarea } from '../../../components/ui/Input';
 import { Badge } from '../../../components/ui/Badge';
 import { 
-  Building2, ShieldCheck, FileText, ArrowRight, ArrowLeft, CheckCircle, 
-  Sparkles, Upload, Image as ImageIcon, Check, Loader2, Eye, User, Trash2
+  Building2, ShieldCheck, ArrowRight, ArrowLeft, CheckCircle, 
+  Sparkles, Upload, Image as Check, Loader2, Trash2
 } from 'lucide-react';
 
 export default function NewListingWizardPage() {
@@ -43,10 +43,13 @@ export default function NewListingWizardPage() {
   const [aiGenerating, setAiGenerating] = useState<boolean>(false);
 
   // Comparable Transaction History (Fetched from HDB records on verification)
-  const [comparables, setComparables] = useState<any[]>([]);
+  const [comparables, setComparables] = useState<{ block: string; unit: string; price: number; date: string; size: string }[]>([]);
 
   // HDB details fetched from Singpass/MyInfo
-  const [myInfoFlatDetails, setMyInfoFlatDetails] = useState<any>(null);
+  const [myInfoFlatDetails, setMyInfoFlatDetails] = useState<{
+    owner: string; nric: string; address: string; sizeSqm: number; sizeSqft: number; flatType: string;
+    remainingLease: number; buildYear: number; district: number; mrtStation: string; mrtDistance: number;
+  } | null>(null);
 
   // Trigger HDB MyInfo data load
   const triggerSingpassAuth = () => {
@@ -134,7 +137,7 @@ export default function NewListingWizardPage() {
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-xl font-black uppercase tracking-wider text-foreground">List a Property</h1>
-            <p className="text-xs text-neutral-500">Post your property directly on Singapore's PropTech Super Platform.</p>
+            <p className="text-xs text-neutral-500">Post your property directly on Singapore&apos;s PropTech Super Platform.</p>
           </div>
           <Badge variant="gold" className="text-[10px] font-black uppercase">Direct Owner Services</Badge>
         </div>

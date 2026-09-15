@@ -1,26 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { mockProperties, Property } from '../../lib/mock-data/properties';
 import { 
-  X, Plus, Calculator, Compass, Sparkles, MapPin, 
-  Trash2, Building, HelpCircle, MessageSquare
+  X, Plus, Sparkles, 
+  Trash2, Building, HelpCircle
 } from 'lucide-react';
 
 export default function ComparePropertiesPage() {
-  const [selectedProps, setSelectedProps] = useState<Property[]>([]);
+  // Default compared properties for high-fidelity initial presentation
+  const [selectedProps, setSelectedProps] = useState<Property[]>(() => (mockProperties.length >= 2 ? [mockProperties[0], mockProperties[1]] : []));
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
 
-  // Set default compared properties for high-fidelity initial presentation
-  useEffect(() => {
-    if (mockProperties.length >= 2) {
-      setSelectedProps([mockProperties[0], mockProperties[1]]);
-    }
-  }, []);
 
   const handleAddProperty = (prop: Property) => {
     if (selectedProps.find(p => p.id === prop.id)) {

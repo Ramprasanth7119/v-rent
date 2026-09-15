@@ -3,10 +3,9 @@
 import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
 import { 
-  FileSearch, Compass, MapPin, Landmark, ArrowRight, 
-  Search, Train, School, ShieldCheck, ArrowUpRight
+  Landmark, 
+  Search, Train, School, ShieldCheck, ArrowUpRight, type LucideIcon
 } from 'lucide-react';
 
 interface LandingPageItem {
@@ -19,7 +18,7 @@ interface LandingPageItem {
 interface LandingPageCategory {
   title: string;
   description: string;
-  icon: any;
+  icon: LucideIcon;
   items: LandingPageItem[];
 }
 

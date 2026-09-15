@@ -12,10 +12,10 @@ import { getListings } from '../../lib/services/properties';
 import { Lead } from '../../lib/mock-data/leads';
 import { Property } from '../../lib/mock-data/properties';
 import { 
-  Users, Home, Sparkles, FolderKanban, Plus, 
-  MapPin, CheckCircle, Clock, AlertTriangle, Play,
+  Sparkles, Plus, 
+  CheckCircle, 
   LineChart, TrendingUp, DollarSign, Shield, ArrowUpRight, BarChart2, X,
-  RefreshCw, Bell, Timer, Zap, ToggleLeft, ToggleRight
+  RefreshCw, Bell, Timer, Zap
 } from 'lucide-react';
 
 function AgentDashboardContent() {
@@ -53,7 +53,7 @@ function AgentDashboardContent() {
 
   // Advanced Prospecting State
   const [prospectDistrict, setProspectDistrict] = useState('9');
-  const [prospectData, setProspectData] = useState<any>(null);
+  const [prospectData, setProspectData] = useState<{ demand: string; gap: string; leadsCount: number; avgYield: string; opportunityScore: number } | null>(null);
   const [prospectLoading, setProspectLoading] = useState(false);
 
   // Auto-Repost / Listing Refresh Automation state
@@ -84,6 +84,7 @@ function AgentDashboardContent() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loads leads and listings from the service for the open tab
     loadData();
   }, [activeTab]);
 
@@ -130,7 +131,7 @@ function AgentDashboardContent() {
     setTimeout(() => {
       setProspectLoading(false);
       
-      const regionMap: Record<string, any> = {
+      const regionMap: Record<string, NonNullable<typeof prospectData>> = {
         '9': {
           demand: '9.6/10 - Extreme Demand',
           gap: 'Severe under-supply of 2BR layouts priced below S$2.3M. Highly active buyers are looking for direct Orchard Road transport lines.',
@@ -323,7 +324,7 @@ function AgentDashboardContent() {
                         <div className="relative">
                           <select
                             value={selectedLead.stage}
-                            onChange={(e) => handleStageChange(selectedLead.id, e.target.value as any)}
+                            onChange={(e) => handleStageChange(selectedLead.id, e.target.value as Lead['stage'])}
                             className="bg-neutral-100 dark:bg-neutral-800 text-foreground px-2.5 py-1 rounded text-xs focus:outline-none cursor-pointer"
                           >
                             {kanbanColumns.map(col => (
@@ -820,7 +821,7 @@ function AgentDashboardContent() {
                     { value: 'EC', label: 'Executive Condominium' }
                   ]}
                   value={genCategory}
-                  onChange={(e: any) => setGenCategory(e.target.value)}
+                  onChange={(e: { target: { value: string } }) => setGenCategory(e.target.value)}
                 />
               </div>
 
@@ -849,7 +850,7 @@ function AgentDashboardContent() {
                     { value: 'Jurong', label: 'D22 - Jurong East Gateway' }
                   ]}
                   value={genArea}
-                  onChange={(e: any) => setGenArea(e.target.value)}
+                  onChange={(e: { target: { value: string } }) => setGenArea(e.target.value)}
                 />
               </div>
 
@@ -936,7 +937,7 @@ function AgentDashboardContent() {
                     ].map((opt) => (
                       <div 
                         key={opt.id}
-                        onClick={() => setSelectedBoost(opt.id as any)}
+                        onClick={() => setSelectedBoost(opt.id as typeof selectedBoost)}
                         className={`p-3 border rounded-xl cursor-pointer transition-all ${
                           selectedBoost === opt.id 
                             ? 'border-brand-gold bg-brand-gold/5' 
@@ -949,7 +950,7 @@ function AgentDashboardContent() {
                             type="radio" 
                             name="boostTier" 
                             checked={selectedBoost === opt.id} 
-                            onChange={() => setSelectedBoost(opt.id as any)} 
+                            onChange={() => setSelectedBoost(opt.id as typeof selectedBoost)} 
                             className="text-brand-gold focus:ring-brand-gold"
                           />
                         </div>

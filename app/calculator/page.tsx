@@ -8,8 +8,8 @@ import { Tabs } from '../../components/ui/Tabs';
 import { Badge } from '../../components/ui/Badge';
 import { 
   Calculator, ShieldAlert, BadgeDollarSign, Compass, Info, 
-  TrendingUp, Coins, PiggyBank, Percent, Sparkles, Building, 
-  HelpCircle, ArrowRight, CheckCircle2, ShieldAlert as WarningIcon
+  TrendingUp, PiggyBank, Percent, Sparkles, Building, 
+  ArrowRight, CheckCircle2, ShieldAlert as WarningIcon
 } from 'lucide-react';
 
 export default function CalculatorPage() {
@@ -18,11 +18,8 @@ export default function CalculatorPage() {
   const [purchasePrice, setPurchasePrice] = useState(1500000);
   const [buyerProfile, setBuyerProfile] = useState<'citizen' | 'pr' | 'foreigner'>('citizen');
   const [propertyCount, setPropertyCount] = useState<1 | 2 | 3>(1);
-  const [bsdResult, setBsdResult] = useState(0);
-  const [absdResult, setAbsdResult] = useState(0);
-  const [absdRate, setAbsdRate] = useState(0);
-
-  const calculateStampDuty = () => {
+  /* Every result below is calculated from its inputs during render, so it is never a step behind them. */
+  const { bsdResult, absdRate, absdResult } = (() => {
     const price = purchasePrice;
     let bsd = 0;
     
@@ -47,19 +44,14 @@ export default function CalculatorPage() {
     }
 
     const absd = price * rate;
-    setBsdResult(Math.round(bsd));
-    setAbsdRate(rate * 100);
-    setAbsdResult(Math.round(absd));
-  };
+    return { bsdResult: Math.round(bsd), absdRate: rate * 100, absdResult: Math.round(absd) };
+  })();
 
   // 2. LOAN REPAYMENT STATE
   const [loanAmount, setLoanAmount] = useState(1000000);
   const [interestRate, setInterestRate] = useState(3.2);
   const [tenureYears, setTenureYears] = useState(25);
-  const [monthlyRepayment, setMonthlyRepayment] = useState(0);
-  const [totalInterest, setTotalInterest] = useState(0);
-
-  const calculateLoan = () => {
+  const { monthlyRepayment, totalInterest } = (() => {
     const P = loanAmount;
     const r = (interestRate / 100) / 12;
     const n = tenureYears * 12;
@@ -69,29 +61,22 @@ export default function CalculatorPage() {
     else monthly = P * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
 
     const totalPaid = monthly * n;
-    setMonthlyRepayment(Math.round(monthly));
-    setTotalInterest(Math.round(totalPaid - P));
-  };
+    return { monthlyRepayment: Math.round(monthly), totalInterest: Math.round(totalPaid - P) };
+  })();
 
   // 3. TDSR THRESHOLD STATE
   const [monthlyIncome, setMonthlyIncome] = useState(12000);
   const [otherDebtRepayments, setOtherDebtRepayments] = useState(1500);
   const [proposedMortgageInstallment, setProposedMortgageInstallment] = useState(4500);
-  const [tdsrScore, setTdsrScore] = useState(0);
-  const [tdsrPassed, setTdsrPassed] = useState<boolean | null>(null);
-
-  const checkTdsr = () => {
+  const { tdsrScore, tdsrPassed } = ((): { tdsrScore: number; tdsrPassed: boolean | null } => {
     const totalDebt = otherDebtRepayments + proposedMortgageInstallment;
     const ratio = (totalDebt / monthlyIncome) * 100;
-    setTdsrScore(Math.round(ratio));
-    setTdsrPassed(ratio <= 55);
-  };
+    return { tdsrScore: Math.round(ratio), tdsrPassed: ratio <= 55 };
+  })();
 
   // 4. PROGRESSIVE PAYMENT STATE (Singapore construction milestones)
   const [progPrice, setProgPrice] = useState(1800000);
-  const [progMilestones, setProgMilestones] = useState<any[]>([]);
-
-  const calculateProgressivePayments = () => {
+  const progMilestones = (() => {
     const price = progPrice;
     const stages = [
       { name: "1. Option Fee (Booking)", pct: 5, desc: "Paid in cash upon signing the Option to Purchase (OTP)." },
@@ -116,8 +101,8 @@ export default function CalculatorPage() {
         cumulative
       };
     });
-    setProgMilestones(calculated);
-  };
+    return calculated;
+  })();
 
   // 5. BUDGET AFFORDABILITY STATE
   const [affSalary1, setAffSalary1] = useState(8500);
@@ -128,9 +113,7 @@ export default function CalculatorPage() {
   const [affStressRate, setAffStressRate] = useState(4.0);
   const [affLoanTenure, setAffLoanTenure] = useState(25);
 
-  const [affResult, setAffResult] = useState<any>(null);
-
-  const calculateAffordability = () => {
+  const affResult = (() => {
     const totalIncome = affSalary1 + affSalary2;
     const tdsrCap = totalIncome * 0.55;
     const maxInstallment = Math.max(0, tdsrCap - affOtherDebts);
@@ -159,7 +142,7 @@ export default function CalculatorPage() {
     const minCashDownpayment = Math.round(affordablePrice * 0.05); // 5% absolute cash
     const cpfDownpayment = Math.round(Math.max(0, requiredDownpayment - minCashDownpayment));
 
-    setAffResult({
+    return {
       totalIncome,
       maxInstallment: Math.round(maxInstallment),
       maxLoan: Math.round(maxLoan),
@@ -168,8 +151,8 @@ export default function CalculatorPage() {
       minCashDownpayment,
       cpfDownpayment,
       insufficientCapital: totalCapital < requiredDownpayment
-    });
-  };
+    };
+  })();
 
   // 6. RENTAL YIELD & ROI STATE
   const [yieldPrice, setYieldPrice] = useState(1600000);
@@ -177,9 +160,7 @@ export default function CalculatorPage() {
   const [yieldExpenses, setYieldExpenses] = useState(8000); // Annual expenses (maintenance, tax)
   const [yieldMortgageInterest, setYieldMortgageInterest] = useState(24000); // Annual mortgage interest
   const [yieldCashInvested, setYieldCashInvested] = useState(480000); // Cash downpayment + stamp duties
-  const [yieldResult, setYieldResult] = useState<any>(null);
-
-  const calculateRentalYield = () => {
+  const yieldResult = (() => {
     const annualGrossRent = yieldMonthlyRent * 12;
     const grossYield = (annualGrossRent / yieldPrice) * 100;
     const netRentalIncome = annualGrossRent - yieldExpenses;
@@ -188,40 +169,15 @@ export default function CalculatorPage() {
     const cashFlowAfterMortgage = netRentalIncome - yieldMortgageInterest;
     const cashOnCashROI = (cashFlowAfterMortgage / yieldCashInvested) * 100;
 
-    setYieldResult({
+    return {
       annualGrossRent,
       grossYield: Number(grossYield.toFixed(2)),
       netRentalIncome,
       netYield: Number(netYield.toFixed(2)),
       cashFlowAfterMortgage,
       cashOnCashROI: Number(cashOnCashROI.toFixed(2))
-    });
-  };
-
-  // Trigger calculations on mount / state modifications
-  React.useEffect(() => {
-    calculateStampDuty();
-  }, [purchasePrice, buyerProfile, propertyCount]);
-
-  React.useEffect(() => {
-    calculateLoan();
-  }, [loanAmount, interestRate, tenureYears]);
-
-  React.useEffect(() => {
-    checkTdsr();
-  }, [monthlyIncome, otherDebtRepayments, proposedMortgageInstallment]);
-
-  React.useEffect(() => {
-    calculateProgressivePayments();
-  }, [progPrice]);
-
-  React.useEffect(() => {
-    calculateAffordability();
-  }, [affSalary1, affSalary2, affCash, affCpf, affOtherDebts, affStressRate, affLoanTenure]);
-
-  React.useEffect(() => {
-    calculateRentalYield();
-  }, [yieldPrice, yieldMonthlyRent, yieldExpenses, yieldMortgageInterest, yieldCashInvested]);
+    };
+  })();
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -267,7 +223,7 @@ export default function CalculatorPage() {
                         { value: 'foreigner', label: 'Foreigner' }
                       ]}
                       value={buyerProfile}
-                      onChange={(e: any) => setBuyerProfile(e.target.value)}
+                      onChange={(e: { target: { value: string } }) => setBuyerProfile(e.target.value as typeof buyerProfile)}
                     />
                   </div>
                   {buyerProfile !== 'foreigner' && (
@@ -280,7 +236,7 @@ export default function CalculatorPage() {
                           { value: 3, label: '3rd & Subsequent Property' }
                         ]}
                         value={propertyCount}
-                        onChange={(e: any) => setPropertyCount(Number(e.target.value) as any)}
+                        onChange={(e: { target: { value: string } }) => setPropertyCount(Number(e.target.value) as typeof propertyCount)}
                       />
                     </div>
                   )}
@@ -291,12 +247,12 @@ export default function CalculatorPage() {
                     <h3 className="text-xs font-bold uppercase tracking-wider text-brand-gold">Calculation Summary</h3>
                     <div className="space-y-3 divide-y divide-neutral-800 text-xs">
                       <div className="flex justify-between py-2 font-semibold">
-                        <span>Buyer's Stamp Duty (BSD)</span>
+                        <span>Buyer&apos;s Stamp Duty (BSD)</span>
                         <span>S${bsdResult.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between py-3 font-semibold">
                         <span className="flex flex-col">
-                          <span>Additional Buyer's Stamp Duty (ABSD)</span>
+                          <span>Additional Buyer&apos;s Stamp Duty (ABSD)</span>
                           <span className="text-[10px] text-neutral-400 mt-1">Rate: {absdRate}%</span>
                         </span>
                         <span>S${absdResult.toLocaleString()}</span>
@@ -444,7 +400,7 @@ export default function CalculatorPage() {
                       )}
                     </div>
                     <p className="text-[10px] text-neutral-500 mt-4 leading-relaxed font-sans font-normal normal-case">
-                      MAS guidelines state that a borrower's total debt servicing obligations (TDSR) cannot exceed 55% of their gross monthly income.
+                      MAS guidelines state that a borrower&apos;s total debt servicing obligations (TDSR) cannot exceed 55% of their gross monthly income.
                     </p>
                   </div>
                 </Card>
@@ -742,7 +698,11 @@ function MortgagePreQualTab() {
   const [downPaymentPct, setDownPaymentPct] = useState(25);
   const [selectedBank, setSelectedBank] = useState('dbs');
   const [loanTenure, setLoanTenure] = useState(25);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{
+    bank: { id: string; name: string; logo: string; rate: number; maxLtv: number };
+    loanAmount: number; downPayment: number; monthly: number; tdsr: number; msr: number;
+    passed: boolean; refNo: string; applicantName: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const banks = [
@@ -830,7 +790,7 @@ function MortgagePreQualTab() {
                 <label className="text-[9px] font-bold uppercase text-neutral-500 block">Nationality Status</label>
                 <select
                   value={nationality}
-                  onChange={e => setNationality(e.target.value as any)}
+                  onChange={e => setNationality(e.target.value as typeof nationality)}
                   className="w-full text-xs font-bold rounded-lg border border-border bg-card p-2 text-foreground focus:outline-none"
                 >
                   <option value="citizen">Singapore Citizen</option>
@@ -845,7 +805,7 @@ function MortgagePreQualTab() {
                 <label className="text-[9px] font-bold uppercase text-neutral-500 block">Employment Type</label>
                 <select
                   value={employmentType}
-                  onChange={e => setEmploymentType(e.target.value as any)}
+                  onChange={e => setEmploymentType(e.target.value as typeof employmentType)}
                   className="w-full text-xs font-bold rounded-lg border border-border bg-card p-2 text-foreground focus:outline-none"
                 >
                   <option value="employed">Salaried Employee</option>

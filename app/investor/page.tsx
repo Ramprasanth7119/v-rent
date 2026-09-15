@@ -8,10 +8,10 @@ import { Button } from '../../components/ui/Button';
 import { getListings } from '../../lib/services/properties';
 import { Property } from '../../lib/mock-data/properties';
 import { 
-  Landmark, TrendingUp, Sparkles, AlertCircle, Compass, ArrowRight, 
-  MapPin, Calendar, DollarSign, BarChart3, Clock, CheckCircle2, 
-  Building, Globe, FileSearch, ExternalLink, ChevronDown, ChevronUp, X,
-  Briefcase, FileSpreadsheet
+  Landmark, TrendingUp, Sparkles, AlertCircle, 
+  MapPin, Calendar, Clock, CheckCircle2, 
+  Building, Globe, ExternalLink, ChevronDown, ChevronUp, X,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface GlsSite {
@@ -89,7 +89,7 @@ const glsSites: GlsSite[] = [
   },
 ];
 
-import { Input, Select } from '../../components/ui/Input';
+import { Input } from '../../components/ui/Input';
 
 interface PortfolioProperty {
   id: string;
@@ -123,6 +123,7 @@ function InvestorDashboardContent() {
 
   const [opps, setOpps] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [oppYields, setOppYields] = useState<Record<string, number>>({});
   const [expandedGls, setExpandedGls] = useState<string | null>(null);
 
   // Dynamic Portfolio State
@@ -140,9 +141,11 @@ function InvestorDashboardContent() {
   const [addPurchaseYear, setAddPurchaseYear] = useState(2023);
 
   useEffect(() => {
-    setLoading(true);
     getListings().then(res => {
-      setOpps(res.filter(p => p.aiMatchedScore >= 90).slice(0, 3));
+      const picked = res.filter(p => p.aiMatchedScore >= 90).slice(0, 3);
+      setOpps(picked);
+      /* Estimated once when the opportunities load, not again on every render. */
+      setOppYields(Object.fromEntries(picked.map((p) => [p.id, 3.8 + Math.random() * 0.8])));
       setLoading(false);
     });
   }, []);
@@ -566,7 +569,7 @@ function InvestorDashboardContent() {
                       </div>
                     </div>
                     <div className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3" /> Est. Rental Yield: {(3.8 + Math.random() * 0.8).toFixed(1)}%
+                      <TrendingUp className="h-3 w-3" /> Est. Rental Yield: {(oppYields[p.id] ?? 3.8).toFixed(1)}%
                     </div>
                   </div>
                   <div className="px-4 pb-4 pt-2 border-t border-border">

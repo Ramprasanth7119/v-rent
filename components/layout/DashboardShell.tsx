@@ -9,7 +9,7 @@ import { AgencySidebar } from './AgencySidebar';
 import { InvestorSidebar } from './InvestorSidebar';
 import { AdminSidebar } from './AdminSidebar';
 import { CommandPalette } from '../ui/CommandPalette';
-import { Terminal, Shield, Briefcase, TrendingUp, Compass, Search, Sun, Moon, Menu, X } from 'lucide-react';
+import { Terminal, Shield, Briefcase, TrendingUp, Compass, Search, Sun, Moon, Menu, type LucideIcon } from 'lucide-react';
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -36,6 +36,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   const isPhase1 = pathname?.startsWith('/phase1') ?? false;
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: true only once the component is running in the browser
     setMounted(true);
   }, []);
 
@@ -167,7 +168,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
     }
   }, [persona, pathname, router, mounted]);
 
-  const personas: { type: PersonaType; label: string; icon: any; color: string }[] = [
+  const personas: { type: PersonaType; label: string; icon: LucideIcon; color: string }[] = [
     { type: 'consumer', label: 'Consumer', icon: Compass, color: 'bg-emerald-500 text-white' },
     { type: 'agent', label: 'Agent CRM', icon: Briefcase, color: 'bg-brand-gold text-brand-navy' },
     { type: 'agency', label: 'Agency ERP', icon: Shield, color: 'bg-blue-500 text-white' },

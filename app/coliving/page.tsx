@@ -662,7 +662,7 @@ export default function ColivingPage() {
           </h2>
         </div>
         <p className="text-xs text-neutral-500 -mt-2 mb-4">
-          Singapore's leading professionally managed co-living brands.
+          Singapore&apos;s leading professionally managed co-living brands.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

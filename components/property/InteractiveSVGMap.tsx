@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import { MapPin, Info, Layers, Train } from 'lucide-react';
+import { MapPin, Info, Layers } from 'lucide-react';
+import type { Property } from '../../lib/mock-data/properties';
 
 interface InteractiveSVGMapProps {
   onSelectRegion?: (region: string | null) => void;
@@ -9,8 +10,8 @@ interface InteractiveSVGMapProps {
   priceHeatmap?: boolean;
   showMrtLines?: boolean;
   compact?: boolean;
-  listings?: any[];
-  onSelectProperty?: (property: any) => void;
+  listings?: Property[];
+  onSelectProperty?: (property: Property) => void;
 }
 
 export const InteractiveSVGMap: React.FC<InteractiveSVGMapProps> = ({

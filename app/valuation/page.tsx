@@ -132,7 +132,7 @@ function ForecastTab() {
                 { value: 'EC', label: 'Executive Condominium (EC)' },
               ]}
               value={forecastType}
-              onChange={(e: any) => setForecastType(e.target.value)}
+              onChange={(e: { target: { value: string } }) => setForecastType(e.target.value)}
             />
           </div>
 
@@ -331,7 +331,7 @@ export default function ValuationPage() {
         ].map(tab => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            onClick={() => setActiveTab(tab.key as typeof activeTab)}
             className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 -mb-px cursor-pointer ${
               activeTab === tab.key
                 ? 'border-brand-gold text-brand-gold'
@@ -378,7 +378,7 @@ export default function ValuationPage() {
                     { value: 'Commercial', label: 'Commercial Office / Retail' }
                   ]}
                   value={propertyType}
-                  onChange={(e: any) => setPropertyType(e.target.value)}
+                  onChange={(e: { target: { value: string } }) => setPropertyType(e.target.value as typeof propertyType)}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -399,7 +399,7 @@ export default function ValuationPage() {
                       { value: 'Low', label: 'Low Floor' }
                     ]}
                     value={floor}
-                    onChange={(e: any) => setFloor(e.target.value as any)}
+                    onChange={(e: { target: { value: string } }) => setFloor(e.target.value as typeof floor)}
                   />
                 </div>
               </div>

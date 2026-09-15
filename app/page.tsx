@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  Search, Bot, Sparkles, Map, TrendingUp, Calculator, 
+  Search, Bot, Sparkles, Calculator, 
   ArrowRight, Landmark, ArrowUpRight, ShieldCheck, Trophy,
-  ThumbsUp, MessageSquare, Plus, User, CheckCircle, HelpCircle,
-  Send, ChevronDown, ChevronUp
+  ThumbsUp, MessageSquare, Plus, HelpCircle,
+  Send
 } from 'lucide-react';
 import { useRef } from 'react';
 import { Button } from '../components/ui/Button';
@@ -104,7 +104,7 @@ export default function HomePage() {
   const [sliderSavings, setSliderSavings] = useState(250000);
 
   // Interactive Chatbot State
-  const [chatMessages, setChatMessages] = useState<any[]>([
+  const [chatMessages, setChatMessages] = useState<{ id: string; sender: string; content: string }[]>([
     { id: '1', sender: 'assistant', content: "Hello! I'm Ava, your V-RENT real estate AI consultant. Feel free to ask me about Singapore ABSD rates, loan calculators (TDSR limits), or district property trends!" }
   ]);
   const [chatInput, setChatInput] = useState('');
@@ -121,7 +121,10 @@ export default function HomePage() {
   const [expandedQId, setExpandedQId] = useState<string | null>(null);
   const [qnaInput, setQnaInput] = useState('');
   const [upvotedQIds, setUpvotedQIds] = useState<string[]>([]);
-  const [qnaQuestions, setQnaQuestions] = useState<any[]>([
+  const [qnaQuestions, setQnaQuestions] = useState<{
+    id: string; category: string; title: string; content: string; upvotes: number; author: string; time: string;
+    answer: { agentName: string; agentCea: string; agentAvatar: string; content: string } | null;
+  }[]>([
     {
       id: "q-1",
       category: "ABSD",
@@ -191,7 +194,7 @@ export default function HomePage() {
   };
 
   const handlePresetSubmit = (text: string) => {
-    const userMsg = { id: Date.now().toString(), sender: 'user', content: text };
+    const userMsg = { id: new Date().getTime().toString(), sender: 'user', content: text };
     setChatMessages(prev => [...prev, userMsg]);
     setChatTyping(true);
 

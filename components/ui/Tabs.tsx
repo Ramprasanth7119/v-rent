@@ -22,11 +22,12 @@ export const Tabs: React.FC<TabsProps> = ({
 }) => {
   const [localActiveTab, setLocalActiveTab] = React.useState(activeTab || items[0]?.id);
 
-  React.useEffect(() => {
-    if (activeTab) {
-      setLocalActiveTab(activeTab);
-    }
-  }, [activeTab]);
+  /* Follow the parent when it changes the active tab, without an extra render pass. */
+  const [syncedTab, setSyncedTab] = React.useState(activeTab);
+  if (activeTab !== syncedTab) {
+    setSyncedTab(activeTab);
+    if (activeTab) setLocalActiveTab(activeTab);
+  }
 
   const handleTabClick = (id: string) => {
     setLocalActiveTab(id);

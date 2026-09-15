@@ -56,7 +56,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     if (cmd.action) {
       cmd.action();
     } else if (cmd.href) {
-      window.location.href = cmd.href;
+      window.location.assign(cmd.href);
     }
   };
 

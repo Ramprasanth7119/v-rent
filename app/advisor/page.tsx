@@ -6,8 +6,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { 
-  Bot, Send, Sparkles, Plus, ThumbsUp, MessageSquare, 
-  User, CheckCircle, HelpCircle, Shield, ArrowRight, X, Globe, Moon, Sun, ChevronDown
+  Bot, Send, Plus, ThumbsUp, MessageSquare, 
+  CheckCircle, Shield, X
 } from 'lucide-react';
 import { usePersona } from '../../components/layout/PersonaContext';
 
@@ -115,15 +115,17 @@ function AdvisorPageContent() {
   const searchParams = useSearchParams();
   const initialMode = searchParams.get('mode') || 'advisor'; // 'advisor' | 'copilot' | 'qna'
 
-  const [mode, setMode] = useState<'advisor' | 'copilot' | 'qna'>(initialMode as any);
+  const [mode, setMode] = useState<'advisor' | 'copilot' | 'qna'>(initialMode as 'advisor' | 'copilot' | 'qna');
 
   // Sync mode with URL search parameters to ensure reload stability
-  useEffect(() => {
+  const [syncedParams, setSyncedParams] = useState(searchParams);
+  if (syncedParams !== searchParams) {
+    setSyncedParams(searchParams);
     const queryMode = searchParams.get('mode') || 'advisor';
     if (queryMode === 'advisor' || queryMode === 'copilot' || queryMode === 'qna') {
-      setMode(queryMode as any);
+      setMode(queryMode);
     }
-  }, [searchParams]);
+  }
 
   const changeMode = (newMode: 'advisor' | 'copilot' | 'qna') => {
     setMode(newMode);
@@ -223,6 +225,7 @@ function AdvisorPageContent() {
 
   useEffect(() => {
     // Initial welcome message
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- stamped with the visitor's local time, so it is set after mount rather than during the server render
     setMessages([
       {
         id: "msg-welcome",
@@ -253,7 +256,7 @@ function AdvisorPageContent() {
     if (!text.trim()) return;
     
     const userMsg: ChatMessage = {
-      id: `msg-u-${Date.now()}`,
+      id: `msg-u-${new Date().getTime()}`,
       sender: 'user',
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { getListings } from '../../../lib/services/properties';
 import { Property } from '../../../lib/mock-data/properties';
-import { Compass, Sparkles, User, MapPin, Send, Plus, X, Tag, ShieldCheck } from 'lucide-react';
+import { MapPin, Send, Plus, X } from 'lucide-react';
 
 interface Pitch {
   id: string;
@@ -145,7 +145,7 @@ export default function BuyerRequirementBoard() {
     if (!p) return;
 
     const newPitch: Pitch = {
-      id: `ptch-${Date.now()}`,
+      id: `ptch-${new Date().getTime()}`,
       agentName: "Marcus Lim",
       agentAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
       propertyTitle: p.title,

@@ -6,17 +6,55 @@ import { getListings } from '../../lib/services/properties';
 import { Property } from '../../lib/mock-data/properties';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Card } from '../../components/ui/Card';
 import { Drawer } from '../../components/ui/Drawer';
 import InteractiveSVGMap from '../../components/property/InteractiveSVGMap';
 import PropertyCard from '../../components/property/PropertyCard';
 import {
   Compass, Train, MapPin, Sparkles, Trash2,
-  LayoutList, Map as MapIcon, SlidersHorizontal, X
+  LayoutList, Map as MapIcon, X
 } from 'lucide-react';
 
 /* ─────────── Global callback name ─────────── */
 const GMAPS_CALLBACK = '__vrentMapsReady__';
+
+/* ─────────── Google Maps, as far as this page uses it ───────────
+   The Maps JavaScript API is loaded from Google at runtime and no type
+   package is installed, so the members this page touches are described here. */
+type Coordinate = number | (() => number);
+interface GLatLng { lat: Coordinate; lng: Coordinate }
+interface GPath { getLength(): number; getAt(index: number): GLatLng | undefined }
+interface GMap { setOptions(options: object): void }
+interface GPolygon { getPath(): GPath; setMap(map: GMap | null): void }
+interface GOverlayCompleteEvent { type: string; overlay: GPolygon }
+interface GMarker { setMap(map: GMap | null): void; setVisible(visible: boolean): void; addListener(event: string, handler: () => void): void }
+interface GInfoWindow { open(map: GMap | null, anchor: GMarker): void; close(): void }
+interface GDrawingManager { setMap(map: GMap): void; setDrawingMode(mode: string | null): void }
+interface GOverlayView {
+  setMap(map: GMap | null): void;
+  getPanes(): { overlayMouseTarget: HTMLElement } | null;
+  getProjection(): { fromLatLngToDivPixel(position: GLatLng): { x: number; y: number } | null };
+}
+interface GPriceLabel { setMap(map: GMap | null): void; setHighlight(on: boolean): void; setVisible(visible: boolean): void }
+interface GoogleMapsApi {
+  maps: {
+    Map: new (element: HTMLElement, options: object) => GMap;
+    LatLng: new (lat: number, lng: number) => GLatLng;
+    Marker: new (options: object) => GMarker;
+    InfoWindow: new (options: object) => GInfoWindow;
+    OverlayView: new () => GOverlayView;
+    SymbolPath: { CIRCLE: number };
+    ControlPosition: { TOP_CENTER: number };
+    event: { addListener(target: object, event: string, handler: (...args: never[]) => void): void };
+    drawing: { DrawingManager: new (options: object) => GDrawingManager; OverlayType: { POLYGON: string } };
+    geometry: {
+      spherical: { computeArea(path: GPath): number };
+      poly: { containsLocation(point: GLatLng, polygon: GPolygon): boolean };
+    };
+  };
+}
+type MapsWindow = Window & { google?: GoogleMapsApi; [callback: string]: unknown };
+/** A vertex from the drawing tools is a LatLng with methods; a literal has plain numbers. */
+const coordinate = (v: Coordinate) => (typeof v === 'function' ? v() : typeof v === 'number' ? v : 0);
 
 function MapSearchPage() {
   const { isDarkMode } = usePersona();
@@ -35,17 +73,17 @@ function MapSearchPage() {
   const [showPins, setShowPins] = useState(true);
 
   /* ── Stable ref so event listeners always call the LATEST runPolygonFilter ── */
-  const polygonFilterRef = useRef<(poly: any, google: any) => void>(() => {});
+  const polygonFilterRef = useRef<(poly: GPolygon, google: GoogleMapsApi) => void>(() => {});
   const [debugText, setDebugText] = useState('');
 
   /* ── Google Maps refs & state ── */
   const mapDivRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const labelsRef = useRef<any[]>([]);          // overlay price-label divs
-  const drawingMgrRef = useRef<any>(null);
-  const activePolygonRef = useRef<any>(null);
-  const openInfoRef = useRef<any>(null);
+  const mapInstanceRef = useRef<GMap | null>(null);
+  const markersRef = useRef<GMarker[]>([]);
+  const labelsRef = useRef<GPriceLabel[]>([]);          // overlay price-label divs
+  const drawingMgrRef = useRef<GDrawingManager | null>(null);
+  const activePolygonRef = useRef<GPolygon | null>(null);
+  const openInfoRef = useRef<GInfoWindow | null>(null);
 
   const [mapsReady, setMapsReady] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
@@ -57,7 +95,7 @@ function MapSearchPage() {
     if (typeof window === 'undefined') return;
 
     // already loaded
-    if ((window as any).google?.maps?.Map) {
+    if ((window as unknown as MapsWindow).google?.maps?.Map) {
       setMapsReady(true);
       return;
     }
@@ -66,7 +104,7 @@ function MapSearchPage() {
     if (document.getElementById('gmaps-vrent')) return;
 
     // register callback BEFORE injecting script
-    (window as any)[GMAPS_CALLBACK] = () => {
+    (window as unknown as MapsWindow)[GMAPS_CALLBACK] = () => {
       setMapsReady(true);
     };
 
@@ -83,7 +121,7 @@ function MapSearchPage() {
     document.head.appendChild(s);
 
     return () => {
-      delete (window as any)[GMAPS_CALLBACK];
+      delete (window as unknown as MapsWindow)[GMAPS_CALLBACK];
     };
   }, []);
 
@@ -129,7 +167,7 @@ function MapSearchPage() {
      Core map initialiser
   ──────────────────────────────────────────────── */
   const initMap = useCallback(() => {
-    const google = (window as any).google;
+    const google = (window as unknown as MapsWindow).google;
     if (!google?.maps || !mapDivRef.current) return;
 
     /* -- Base map -- */
@@ -167,7 +205,7 @@ function MapSearchPage() {
     dm.setMap(map);
     drawingMgrRef.current = dm;
 
-    google.maps.event.addListener(dm, 'overlaycomplete', (evt: any) => {
+    google.maps.event.addListener(dm, 'overlaycomplete', (evt: GOverlayCompleteEvent) => {
       if (evt.type !== google.maps.drawing.OverlayType.POLYGON) return;
       // remove previous lasso
       activePolygonRef.current?.setMap(null);
@@ -190,7 +228,7 @@ function MapSearchPage() {
 
   /* ── Effect to draw markers on Google Maps dynamically ── */
   useEffect(() => {
-    const google = (window as any).google;
+    const google = (window as unknown as MapsWindow).google;
     if (!google?.maps || !mapInstanceRef.current) return;
 
     // Clear old markers/labels
@@ -201,12 +239,12 @@ function MapSearchPage() {
 
     /* -- Custom price-label overlay class -- */
     class PriceLabel extends google.maps.OverlayView {
-      private pos: any;
+      private pos: GLatLng;
       public div: HTMLDivElement | null = null;
       public property: Property;
       public highlighted: boolean = true;
 
-      constructor(pos: any, prop: Property) {
+      constructor(pos: GLatLng, prop: Property) {
         super();
         this.pos = pos;
         this.property = prop;
@@ -310,8 +348,8 @@ function MapSearchPage() {
 
     // Run visibility check once on mount
     labelsRef.current.forEach(l => {
-      if (typeof (l as any).setVisible === 'function') {
-        (l as any).setVisible(showPins);
+      if (typeof l.setVisible === 'function') {
+        l.setVisible(showPins);
       }
     });
     markersRef.current.forEach(m => {
@@ -323,8 +361,8 @@ function MapSearchPage() {
   /* ── Effect to toggle pin visibility based on showPins state ── */
   useEffect(() => {
     labelsRef.current.forEach(l => {
-      if (typeof (l as any).setVisible === 'function') {
-        (l as any).setVisible(showPins);
+      if (typeof l.setVisible === 'function') {
+        l.setVisible(showPins);
       }
     });
     markersRef.current.forEach(m => {
@@ -333,7 +371,7 @@ function MapSearchPage() {
   }, [showPins]);
 
   /* ── Polygon containment filter ── */
-  const runPolygonFilter = (poly: any, google: any) => {
+  const runPolygonFilter = (poly: GPolygon, google: GoogleMapsApi) => {
     try {
       let areaSqm = 0;
       try {
@@ -352,13 +390,8 @@ function MapSearchPage() {
           let vLat = 0;
           let vLng = 0;
           if (xy) {
-            if (typeof xy.lat === 'function') {
-              vLat = xy.lat();
-              vLng = xy.lng();
-            } else if (typeof xy.lat === 'number') {
-              vLat = xy.lat;
-              vLng = xy.lng;
-            }
+            vLat = coordinate(xy.lat);
+            vLng = coordinate(xy.lng);
           }
           vertices.push({ lat: vLat, lng: vLng });
         }
@@ -419,9 +452,9 @@ function MapSearchPage() {
 
       setFilteredListings(matched);
       setLassoPct(allListings.length > 0 ? Math.round((inside / allListings.length) * 100) : 0);
-    } catch (globalErr: any) {
+    } catch (globalErr) {
       console.error("Global error in runPolygonFilter:", globalErr);
-      setDebugText(`Global error: ${globalErr.message}`);
+      setDebugText(`Global error: ${globalErr instanceof Error ? globalErr.message : String(globalErr)}`);
     }
   };
 
@@ -445,7 +478,7 @@ function MapSearchPage() {
         labelsRef.current[idx]?.setHighlight(meetsType && meetsPrice && meetsBeds);
       });
     } else {
-      const google = (window as any).google;
+      const google = (window as unknown as MapsWindow).google;
       if (google?.maps) runPolygonFilter(activePolygonRef.current, google);
     }
   }, [selectedType, maxPrice, minBeds, allListings, viewMode, mapsReady]);

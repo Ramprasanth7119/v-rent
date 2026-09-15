@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
-  Filter, Grid, List as ListIcon, Map as MapIcon, 
-  Sparkles, SlidersHorizontal, ArrowUpDown, RefreshCw 
+  Grid, List as ListIcon, Map as MapIcon, 
+  Sparkles, SlidersHorizontal, ArrowUpDown 
 } from 'lucide-react';
 import { getListings, ListingFilters } from '../../lib/services/properties';
 import { Property } from '../../lib/mock-data/properties';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import PropertyCard from '../../components/property/PropertyCard';
 import InteractiveSVGMap from '../../components/property/InteractiveSVGMap';
@@ -75,6 +74,7 @@ function SearchPageContent() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetches listings for the current filters
     fetchResults();
   }, [query, selectedType, selectedRegion, minPrice, maxPrice, bedrooms, sortBy]);
 
@@ -127,7 +127,7 @@ function SearchPageContent() {
           <div className="relative">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="appearance-none rounded-lg border border-border bg-card px-3 py-2 pr-8 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-brand-gold cursor-pointer"
             >
               <option value="ai_score">Sort: Best Match</option>
@@ -170,7 +170,7 @@ function SearchPageContent() {
               <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 rounded">Parsed Successfully</span>
             </div>
             <p className="text-neutral-600 dark:text-neutral-300">
-              Parsed query: <span className="font-bold font-mono">"{query}"</span>
+              Parsed query: <span className="font-bold font-mono">&quot;{query}&quot;</span>
             </p>
             <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed pt-1">
               <span className="font-semibold text-foreground">AI Match Rationale:</span> Prioritizing units based on proximity to transit nodes, tenure constraints, and price ceilings. Correlating listing properties against URA transaction averages.
@@ -203,7 +203,7 @@ function SearchPageContent() {
               </div>
               <h3 className="text-base font-bold text-foreground uppercase">No Properties Matched</h3>
               <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-                We couldn't find any listings matching your search constraints. Try resetting filters or searching with a broader query.
+                We couldn&apos;t find any listings matching your search constraints. Try resetting filters or searching with a broader query.
               </p>
               <Button size="sm" variant="gold" onClick={handleResetFilters}>Reset Filters</Button>
             </div>

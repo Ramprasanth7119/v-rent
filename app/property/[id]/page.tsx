@@ -16,9 +16,12 @@ import { GreenMarkBadge } from '../../../components/property/GreenMarkBadge';
 import FraudDetectionPanel from '../../../components/property/FraudDetectionPanel';
 import VirtualStaging from '../../../components/property/VirtualStaging';
 import { 
-  MapPin, Heart, Share2, Compass, Landmark, ShieldCheck, 
-  Calendar, MessageSquare, ArrowRight, UserCheck, Sparkles 
+  MapPin, 
+  UserCheck, Sparkles 
 } from 'lucide-react';
+
+/* Leaflet is loaded from unpkg at runtime; the npm package supplies its types. */
+type LeafletWindow = Window & { L?: typeof import('leaflet') };
 
 export default function PropertyDetailPage() {
   const params = useParams();
@@ -41,13 +44,14 @@ export default function PropertyDetailPage() {
   const [leafletReady, setLeafletReady] = useState(false);
   const [activeMapTab, setActiveMapTab] = useState<'commute' | 'mrt' | 'schools' | 'bus' | 'stores'>('commute');
   const [commuteMode, setCommuteMode] = useState<'public' | 'drive' | 'taxi'>('public');
-  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [mapInstance, setMapInstance] = useState<import('leaflet').Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
   // Dynamic Leaflet CSS/JS Injection
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if ((window as any).L) {
+    if ((window as LeafletWindow).L) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Leaflet is a global loaded outside React; this notices it is already on the page
       setLeafletReady(true);
       return;
     }
@@ -73,16 +77,17 @@ export default function PropertyDetailPage() {
   // Initialize Leaflet map
   useEffect(() => {
     if (!leafletReady || !mapContainerRef.current || !property || typeof window === 'undefined') return;
-    const L = (window as any).L;
+    const L = (window as LeafletWindow).L;
+    if (!L) return;
 
-    if ((mapContainerRef.current as any)._leaflet_id) {
+    if ((mapContainerRef.current as HTMLDivElement & { _leaflet_id?: number })._leaflet_id) {
       return;
     }
 
     const map = L.map(mapContainerRef.current, {
       zoomControl: true,
       zoomControlOptions: { position: 'topright' }
-    }).setView([property.coordinates.lat, property.coordinates.lng], 14);
+    } as import('leaflet').MapOptions).setView([property.coordinates.lat, property.coordinates.lng], 14);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -107,11 +112,13 @@ export default function PropertyDetailPage() {
   // Update map markers when tabs or modes swap
   useEffect(() => {
     if (!mapInstance || !property || typeof window === 'undefined') return;
-    const L = (window as any).L;
+    const L = (window as LeafletWindow).L;
+    if (!L) return;
 
     // Clear everything except the main property marker
-    mapInstance.eachLayer((layer: any) => {
-      if (layer instanceof L.Marker && layer.getPopup() && !layer.getPopup().getContent().includes(property.title)) {
+    mapInstance.eachLayer((layer) => {
+      const popup = layer instanceof L.Marker ? layer.getPopup()?.getContent() : undefined;
+      if (typeof popup === 'string' && !popup.includes(property.title)) {
         mapInstance.removeLayer(layer);
       }
       if (layer instanceof L.Polyline) {
@@ -217,6 +224,7 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     if (id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- shows the loading state for the listing this effect fetches
       setLoading(true);
       getListingById(id).then(res => {
         setProperty(res);
@@ -418,7 +426,7 @@ export default function PropertyDetailPage() {
                     ].map((tab) => (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveMapTab(tab.id as any)}
+                        onClick={() => setActiveMapTab(tab.id as typeof activeMapTab)}
                         className={`px-2.5 py-1.5 rounded text-[10px] font-black uppercase tracking-wider transition-colors cursor-pointer ${
                           activeMapTab === tab.id
                             ? 'bg-brand-gold text-brand-navy font-black'
@@ -444,7 +452,7 @@ export default function PropertyDetailPage() {
                             <button
                               key={mode.id}
                               type="button"
-                              onClick={() => setCommuteMode(mode.id as any)}
+                              onClick={() => setCommuteMode(mode.id as typeof commuteMode)}
                               className={`flex-1 py-1 rounded cursor-pointer transition-colors ${
                                 commuteMode === mode.id
                                   ? 'bg-brand-gold text-brand-navy font-black shadow'
@@ -502,7 +510,7 @@ export default function PropertyDetailPage() {
                         </div>
                         <div className="p-3.5 border border-border rounded-xl bg-card hover:bg-neutral-50 dark:hover:bg-neutral-950/20 transition-colors flex justify-between items-center">
                           <div>
-                            <span className="text-xs font-black text-foreground block">St. Margaret's Primary School</span>
+                            <span className="text-xs font-black text-foreground block">St. Margaret&apos;s Primary School</span>
                             <span className="text-[9px] text-neutral-400 font-bold uppercase block mt-0.5">Co-Ed Elementary</span>
                           </div>
                           <Badge variant="secondary" className="text-[9px] font-black">780m</Badge>
@@ -610,7 +618,7 @@ export default function PropertyDetailPage() {
           {/* Lease Decay Calculator (if leasehold) */}
           {property.tenure.includes('Leasehold') && (
             <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Lease Decay Estimator (Bala's Curve Representation)</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Lease Decay Estimator (Bala&apos;s Curve Representation)</h3>
               <Card className="p-5 space-y-4">
                 <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-neutral-400">
                   <span>Current Lease Remaining</span>
@@ -711,7 +719,7 @@ export default function PropertyDetailPage() {
                 <UserCheck className="h-8 w-8 text-emerald-500 mx-auto" />
                 <h4 className="font-bold text-emerald-800 dark:text-emerald-300 uppercase">Viewing Requested</h4>
                 <p className="text-neutral-500 dark:text-neutral-400">
-                  We've notified the verified agent. A scheduling confirmation will arrive shortly in your messages channel.
+                  We&apos;ve notified the verified agent. A scheduling confirmation will arrive shortly in your messages channel.
                 </p>
               </div>
             ) : (

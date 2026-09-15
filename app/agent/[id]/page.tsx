@@ -10,7 +10,7 @@ import { Card } from '../../../components/ui/Card';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import PropertyCard from '../../../components/property/PropertyCard';
-import { Star, ShieldCheck, Mail, Phone, MapPin, MessageSquare, Plus, Check } from 'lucide-react';
+import { Star, ShieldCheck, Mail, Phone, Check } from 'lucide-react';
 
 interface ClientReview {
   id: string;
@@ -39,6 +39,7 @@ function AgentProfilePage() {
 
   useEffect(() => {
     if (!id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- shows the loading state for the agent this effect fetches
     setLoading(true);
     
     Promise.all([

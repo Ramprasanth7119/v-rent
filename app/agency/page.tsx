@@ -7,8 +7,6 @@ import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { mockAgents } from '../../lib/mock-data/agents';
-import { Trophy, CreditCard, GitFork, UserCheck, ShieldCheck, Mail } from 'lucide-react';
-
 function AgencyDashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -239,7 +237,7 @@ function AgencyDashboardContent() {
               ].map((item) => (
                 <div 
                   key={item.key}
-                  onClick={() => handleRoutingToggle(item.key as any)}
+                  onClick={() => handleRoutingToggle(item.key as keyof typeof routingToggles)}
                   className="p-4 border border-border bg-neutral-50/20 dark:bg-neutral-900/10 rounded-xl flex items-start gap-3 cursor-pointer select-none"
                 >
                   <input

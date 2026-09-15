@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/ui/Card';
-import { Input, Select } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { getAgents } from '../../lib/services/agents';
@@ -11,7 +10,6 @@ import { Search, Compass, Star, ShieldCheck, Mail, Phone, MapPin, Award } from '
 
 export default function AgentDirectoryPage() {
   const [allAgents, setAllAgents] = useState<Agent[]>([]);
-  const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
   
   // Filter States
   const [query, setQuery] = useState('');
@@ -24,16 +22,14 @@ export default function AgentDirectoryPage() {
 
   // Fetch agents initially
   useEffect(() => {
-    setLoading(true);
     getAgents().then(res => {
       setAllAgents(res);
-      setFilteredAgents(res);
       setLoading(false);
     });
   }, []);
 
   // Filter evaluation logic
-  useEffect(() => {
+  const filteredAgents = useMemo(() => {
     let list = [...allAgents];
 
     // 1. Text Query (Name, Agency, CEA)
@@ -85,7 +81,7 @@ export default function AgentDirectoryPage() {
       list = list.filter(a => a.rating >= minRating);
     }
 
-    setFilteredAgents(list);
+    return list;
   }, [query, specialization, language, location, minRating, allAgents]);
 
   return (

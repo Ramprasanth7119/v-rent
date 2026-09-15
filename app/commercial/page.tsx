@@ -9,8 +9,6 @@ import {
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CommercialCategory = 'All' | 'Office' | 'Retail' | 'Industrial' | 'Shophouse' | 'Medical Suite' | 'F&B';
@@ -971,7 +969,7 @@ export default function CommercialPage() {
                     <p className="font-bold text-sm uppercase tracking-wider">Expert Advisory</p>
                   </div>
                   <p className="text-xs text-white/70 leading-relaxed">
-                    Connect with Singapore's top commercial property specialists. CEA-licensed, specialising in CBD office, Shophouses & Industrial.
+                    Connect with Singapore&apos;s top commercial property specialists. CEA-licensed, specialising in CBD office, Shophouses & Industrial.
                   </p>
                   <div className="space-y-1.5">
                     {[
@@ -999,7 +997,7 @@ export default function CommercialPage() {
         <section className="rounded-2xl bg-gradient-to-br from-neutral-50 to-white dark:from-neutral-900/50 dark:to-neutral-900 border border-border p-8 space-y-6">
           <div className="text-center space-y-1">
             <h2 className="text-lg font-black uppercase tracking-wider text-foreground">Why V-Rent Commercial</h2>
-            <p className="text-xs text-neutral-500">Singapore's most comprehensive commercial property platform</p>
+            <p className="text-xs text-neutral-500">Singapore&apos;s most comprehensive commercial property platform</p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
