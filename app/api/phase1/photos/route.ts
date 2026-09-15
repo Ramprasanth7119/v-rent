@@ -5,6 +5,10 @@
  * The account comes from the session, so an agent can only ever write to their
  * own listing. Limits are enforced here and not only in the browser: the form
  * is a convenience, this is the rule.
+ *
+ * The browser sends one photograph per request, because the hosting platform
+ * refuses a request body over 4.5 MB and three phone photographs are more
+ * than that.
  */
 
 import { NextResponse } from 'next/server';
@@ -12,7 +16,7 @@ import { currentUser } from '../../../../lib/auth/session';
 import { findById } from '../../../../lib/auth/store';
 import { loadWorkspace, patchWorkspace } from '../../../../lib/phase1/workspace-store';
 import {
-  MAX_PHOTOS_PER_LISTING, deletePhoto, pruneOrphans, savePhotos,
+  MAX_PHOTOS_PER_LISTING, PhotoProcessingUnavailable, deletePhoto, pruneOrphans, savePhotos, type SaveResult,
 } from '../../../../lib/phase1/photo-store';
 import { TODAY_ISO } from '../../../../lib/phase1/workspace';
 import { logged } from '../../../../lib/phase1/reqlog';
@@ -80,7 +84,19 @@ async function POST_handler(req: Request) {
   }
 
   const existing = listing.photos ?? [];
-  const { saved, rejected, warnings } = await savePhotos(user.id, listingId, existing, files);
+  let result: SaveResult;
+  try {
+    result = await savePhotos(user.id, listingId, existing, files);
+  } catch (err) {
+    if (err instanceof PhotoProcessingUnavailable) {
+      return NextResponse.json(
+        { error: 'Photographs cannot be processed on the server right now, so nothing was saved. Try again shortly.', code: 'processing_unavailable' },
+        { status: 503 },
+      );
+    }
+    throw err;
+  }
+  const { saved, rejected, warnings } = result;
   const photos = [...existing, ...saved];
 
   await commit(account, listingId, photos);

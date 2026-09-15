@@ -13,7 +13,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
-import { DUPLICATE_WITHIN, PhotoQuality, hammingDistance, processPhoto } from './image';
+import { DUPLICATE_WITHIN, hammingDistance, type PhotoQuality } from './photo-quality';
 import { store } from '../store/driver';
 
 /** What an agent may upload, and how much of it. */
@@ -79,6 +79,36 @@ export interface PhotoMeta extends PhotoQuality {
 
 type MetaFile = Record<string, PhotoMeta>;
 
+/* ------------------------------------------------------- image library */
+
+/** The image library could not be loaded on this instance, so nothing can be processed. */
+export class PhotoProcessingUnavailable extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : 'The image library is unavailable.');
+    this.name = 'PhotoProcessingUnavailable';
+  }
+}
+
+type Processor = typeof import('./image')['processPhoto'];
+let processor: Promise<Processor> | null = null;
+
+/**
+ * The image library is native code, loaded on the first upload rather than
+ * when this module is. Serving a stored photograph never touches it, so an
+ * instance that cannot load it still shows every photograph, and an upload
+ * reports the reason instead of taking the route down with it.
+ */
+function loadProcessor(): Promise<Processor> {
+  processor ??= import('./image')
+    .then((m) => m.processPhoto)
+    .catch((err: unknown) => {
+      processor = null;
+      console.error('[v-rent] the image library failed to load; photographs cannot be processed:', err);
+      throw new PhotoProcessingUnavailable(err);
+    });
+  return processor;
+}
+
 /** Both come from our own records, but neither is trusted into a key. */
 function checkIds(ownerId: string, listingId: string) {
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(ownerId) || !/^[A-Za-z0-9._-]{1,64}$/.test(listingId)) {
@@ -127,6 +157,8 @@ export interface SaveResult {
  * A partial success is the right outcome here: an agent who selects seven
  * photographs, one of them a screenshot, should end up with the six good ones
  * and a clear note about the seventh — not an error and an empty listing.
+ *
+ * Throws `PhotoProcessingUnavailable` when the image library cannot load.
  */
 export async function savePhotos(
   ownerId: string,
@@ -135,6 +167,7 @@ export async function savePhotos(
   files: File[],
 ): Promise<SaveResult> {
   checkIds(ownerId, listingId);
+  const processPhoto = await loadProcessor();
   const meta = await photoMeta(ownerId, listingId);
 
   const saved: string[] = [];

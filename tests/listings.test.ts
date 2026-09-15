@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { EMPTY_FILTERS, ListingFilters, activeCount, matches } from '../components/phase1/listing/filters';
 import { comparablePrice, dealOf, priceLabel, priceOf, psf } from '../lib/phase1/pricing';
 import { listingKey, unitKey } from '../lib/phase1/duplicates';
-import { hammingDistance } from '../lib/phase1/image';
+import { hammingDistance } from '../lib/phase1/photo-quality';
 import type { DemoListing } from '../lib/phase1/data';
 
 const TODAY = new Date('2026-08-28T09:00:00+08:00');

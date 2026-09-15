@@ -25,6 +25,7 @@ import { StatusBadge } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
 import { PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
+import { uploadPhotos } from '../../../../components/phase1/listing/upload';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { LocationPicker } from '../../../../components/phase1/listing/LocationPicker';
 import { PropertyImage } from '../../../../components/phase1/PropertyImage';
@@ -314,19 +315,19 @@ function ListingWizard() {
     if (added.length > 0) {
       setUploading(true);
       try {
-        const form = new FormData();
-        form.append('listingId', editing.id);
-        added.forEach((f) => form.append('file', f));
-        const res = await fetch('/api/phase1/photos', { method: 'POST', body: form });
-        if (!res.ok) throw new Error(String(res.status));
-        const body = (await res.json()) as { photos: string[]; rejected?: { name: string; reason: string }[]; warnings?: PhotoNote[] };
-        setShots(body.photos.map((id) => ({ kind: 'saved', id }) as Shot));
-        setPhotoNotes(body.warnings ?? []);
-        if (body.rejected?.length) push({ tone: 'warn', title: 'Some photographs were not added', body: body.rejected.map((r) => r.name).join(', ') });
-        else push({ tone: 'success', title: added.length === 1 ? 'Photograph added' : `${added.length} photographs added` });
-      } catch {
-        push({ tone: 'error', title: 'Upload failed', body: 'The photographs were not saved. Check your connection and try again.' });
-        setShots(shots);
+        const result = await uploadPhotos(editing.id, added);
+        /* What the server holds is the truth; previews of anything it did not keep are dropped. */
+        setShots(result.photos ? result.photos.map((id) => ({ kind: 'saved', id }) as Shot) : shots);
+        setPhotoNotes(result.warnings);
+        const kept = added.length - result.failed.length - result.rejected.length;
+        if (result.failed.length) {
+          const more = result.failed.length > 1 ? ` ${result.failed.length} photographs were not saved.` : '';
+          push({ tone: 'error', title: kept > 0 ? 'Some photographs were not uploaded' : 'Upload failed', body: `${result.failed[0].message}${more}` });
+        } else if (result.rejected.length) {
+          push({ tone: 'warn', title: 'Some photographs were not added', body: result.rejected.join(', ') });
+        } else {
+          push({ tone: 'success', title: added.length === 1 ? 'Photograph added' : `${added.length} photographs added` });
+        }
       } finally {
         setUploading(false);
       }
@@ -347,15 +348,15 @@ function ListingWizard() {
   const commitPhotos = async (listingId: string) => {
     const files = pendingFiles(shots);
     if (files.length === 0) return;
-    const form = new FormData();
-    form.append('listingId', listingId);
-    files.forEach((f) => form.append('file', f));
-    try {
-      const res = await fetch('/api/phase1/photos', { method: 'POST', body: form });
-      const body = (await res.json().catch(() => null)) as { warnings?: PhotoNote[] } | null;
-      if (body?.warnings?.length) push({ tone: 'warn', title: 'Some photographs are worth a second look', body: body.warnings.map((w) => w.name).join(', ') });
-    } catch {
-      push({ tone: 'warn', title: 'Listing saved without photographs', body: 'The upload did not go through. Open the listing and add them again.' });
+    const result = await uploadPhotos(listingId, files);
+    if (result.failed.length) {
+      push({
+        tone: 'warn',
+        title: result.photos ? 'Some photographs were not uploaded' : 'Listing saved without photographs',
+        body: `${result.failed[0].message} Open the listing and add them again.`,
+      });
+    } else if (result.warnings.length) {
+      push({ tone: 'warn', title: 'Some photographs are worth a second look', body: result.warnings.map((w) => w.name).join(', ') });
     }
   };
 

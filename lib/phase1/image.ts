@@ -17,24 +17,18 @@
  *   Quality. Dark, blurry and duplicate photographs are the most common reason
  *   a listing is rejected, and finding out at moderation wastes a day. They are
  *   flagged at upload instead.
+ *
+ * This module loads the native image library, so only the upload path imports
+ * it, and lazily (see `photo-store.ts`). What needs no library lives in
+ * `photo-quality.ts`.
  */
 
 import sharp, { type Sharp } from 'sharp';
+import type { PhotoQuality } from './photo-quality';
 
 /** Wide enough for a full-bleed gallery on a large screen, and no wider. */
 const MAIN_WIDTH = 1600;
 const THUMB_WIDTH = 480;
-
-export interface PhotoQuality {
-  /** Mean luminance, 0–255. */
-  brightness: number;
-  /** How much fine detail survives a high-pass — low means soft or out of focus. */
-  detail: number;
-  dark: boolean;
-  blurry: boolean;
-  /** Perceptual hash, for spotting the same photograph uploaded twice. */
-  hash: string;
-}
 
 export interface ProcessedPhoto {
   main: Buffer;
@@ -67,19 +61,6 @@ async function perceptualHash(image: Sharp): Promise<string> {
   // 64 bits as 16 hex characters.
   return (bits.match(/.{8}/g) ?? []).map((byte) => parseInt(byte, 2).toString(16).padStart(2, '0')).join('');
 }
-
-/** How many bits differ. Under about 6 is the same photograph. */
-export function hammingDistance(a: string, b: string): number {
-  if (a.length !== b.length) return 64;
-  let d = 0;
-  for (let i = 0; i < a.length; i += 2) {
-    let x = parseInt(a.slice(i, i + 2), 16) ^ parseInt(b.slice(i, i + 2), 16);
-    while (x) { d += x & 1; x >>= 1; }
-  }
-  return d;
-}
-
-export const DUPLICATE_WITHIN = 6;
 
 /**
  * Decode, correct, resize and measure. Returns null when the bytes are not an
