@@ -243,7 +243,7 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
             {/* ------------------------------------------------ headline */}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-[30px] font-semibold leading-tight tracking-[-0.025em] tabular-nums text-p1-text sm:text-[34px]">
+                <div className="font-p1display text-[30px] font-bold leading-tight tracking-[-0.025em] tabular-nums text-p1-primary sm:text-[34px]">
                   {p.amount}<span className="ml-1 text-[16px] font-normal text-p1-text-3">{sale ? '' : '/ month'}</span>
                 </div>
                 <h1 className="mt-1 text-[20px] font-semibold tracking-[-0.015em] text-p1-text">{l.project}</h1>
@@ -341,7 +341,7 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
           {/* ------------------------------------------------ enquiry panel */}
           <aside className="hidden lg:block">
             <div className="sticky top-[89px] rounded-2xl border border-p1-border bg-p1-surface p-5 shadow-p1-md">
-              <div className="text-[24px] font-semibold tracking-[-0.02em] tabular-nums text-p1-text">{p.amount}<span className="ml-1 text-[14px] font-normal text-p1-text-3">{sale ? '' : '/ month'}</span></div>
+              <div className="font-p1display text-[24px] font-bold tracking-[-0.02em] tabular-nums text-p1-primary">{p.amount}<span className="ml-1 text-[14px] font-normal text-p1-text-3">{sale ? '' : '/ month'}</span></div>
               <div className="mt-1 flex items-center gap-1.5 text-[13.5px] text-p1-text-2">
                 <CalendarDays size={14} className="text-p1-text-3" aria-hidden />
                 {sale ? 'Viewings from' : 'Available'} {sgDate(l.availableFrom)}
@@ -385,7 +385,7 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-p1-border bg-p1-surface/95 backdrop-blur lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="mx-auto flex max-w-[1200px] items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
-            <div className="text-[18px] font-semibold tabular-nums text-p1-text">{p.amount}<span className="text-[13px] font-normal text-p1-text-3">{p.unit}</span></div>
+            <div className="font-p1display text-[18px] font-bold tabular-nums text-p1-primary">{p.amount}<span className="text-[13px] font-normal text-p1-text-3">{p.unit}</span></div>
             <div className="truncate text-[12.5px] text-p1-text-3">{bedLabel(l.bedrooms)} · {districtLabel(l.district)}</div>
           </div>
           {a.mobile && <a href={`tel:${a.mobile.replace(/\s/g, '')}`} aria-label={`Call ${a.name}`} className="p1-press flex h-11 w-11 items-center justify-center rounded-lg border border-p1-border-strong text-p1-text"><Phone size={18} aria-hidden /></a>}

@@ -25,6 +25,8 @@ import { PropertyImage } from '../../../../../components/phase1/PropertyImage';
 import { CopyText } from '../../../../../components/phase1/market/CopyText';
 import { coverPhoto } from '../../../../../lib/phase1/photos';
 import { useToast } from '../../../../../components/phase1/Toast';
+import { useDemoDataOn } from '../../../../../lib/phase1/report-data/switch';
+import { DEMO_LIVE_ACTION_BLOCKED } from '../../../../../lib/phase1/report-data';
 import type { DirectoryAgent } from '../../../../../lib/phase1/admin-directory';
 import { DemoListing } from '../../../../../lib/phase1/data';
 import { dealOf, priceLabel } from '../../../../../lib/phase1/pricing';
@@ -48,6 +50,7 @@ type Tab = 'overview' | 'listings' | 'activity';
 export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent; listings: DemoListing[] }) {
   const router = useRouter();
   const { push } = useToast();
+  const demoOn = useDemoDataOn();
   const [override, setOverride] = useState<DirectoryAgent['status'] | null>(null);
   const [confirm, setConfirm] = useState<null | 'suspend' | 'reinstate' | 'approve' | 'reject'>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -77,6 +80,10 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
     if (!agent.real) {
       setOverride(next);
       push({ tone: 'info', title: 'Sample agent', body: 'Nothing was changed — this row is demonstration data, not an account.' });
+      return;
+    }
+    if (demoOn) {
+      push(DEMO_LIVE_ACTION_BLOCKED);
       return;
     }
 
@@ -111,6 +118,10 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
     if (!agent.real) {
       setOverride(next);
       push({ tone: 'info', title: 'Sample agent', body: 'Nothing was changed — this row is demonstration data, not an account.' });
+      return;
+    }
+    if (demoOn) {
+      push(DEMO_LIVE_ACTION_BLOCKED);
       return;
     }
 
@@ -218,14 +229,14 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
 
       {/* ------------------------------------------------------------ KPIs */}
       <section aria-label="Agent at a glance" className="vr-stagger mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KPI label="Live listings" value={published.length} of={listings.length} icon={<Building size={16} />} sub={`${listings.length} in portfolio`} />
-        <KPI label="Drafts" value={drafts.length} icon={<FileText size={16} />} sub="Not yet published" />
-        <KPI label="Rent listed" value={inventoryValue} prefix="S$" compact icon={<Wallet size={16} />} sub={`a month · ${rentals.length} ${rentals.length === 1 ? 'rental' : 'rentals'}`} />
+        <KPI label="Live listings" value={published.length} of={listings.length} icon={<Building size={16} />} iconTone="primary" sub={`${listings.length} in portfolio`} />
+        <KPI label="Drafts" value={drafts.length} icon={<FileText size={16} />} iconTone="neutral" sub="Not yet published" />
+        <KPI label="Rent listed" value={inventoryValue} prefix="S$" compact icon={<Wallet size={16} />} iconTone="success" sub={`a month · ${rentals.length} ${rentals.length === 1 ? 'rental' : 'rentals'}`} />
         <KPI
           label="CEA registration"
           value={ceaDays === null ? 0 : Math.max(0, ceaDays)}
           suffix=" days"
-          icon={<CalendarClock size={16} />}
+          icon={<CalendarClock size={16} />} iconTone="accent"
           tone={expired || (ceaDays !== null && ceaDays < 0) ? 'danger' : ceaDays !== null && ceaDays <= 60 ? 'warning' : 'default'}
           sub={ceaDays === null ? 'No end date on record' : ceaDays < 0 ? `Lapsed ${sgDate(agent.ceaValidUntil)}` : `Valid to ${sgDate(agent.ceaValidUntil)}`}
         />

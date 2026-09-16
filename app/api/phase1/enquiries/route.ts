@@ -99,7 +99,7 @@ async function POST_handler(req: Request) {
     tone: 'info',
     title: `New enquiry about ${listing.project} ${listing.unitNo}`,
     body: `${name} asked: ${message.slice(0, 160)}${message.length > 160 ? '…' : ''}`,
-    href: `${origin}/phase1/performance`,
+    href: `${origin}/phase1/enquiries?enquiry=${encodeURIComponent(enquiry.id)}`,
   });
 
   return NextResponse.json({ ok: true });

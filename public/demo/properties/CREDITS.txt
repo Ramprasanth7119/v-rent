@@ -1,0 +1,15 @@
+Demo Data photographs — shown only on demo- listings (lib/phase1/photos.ts).
+All from Unsplash (https://unsplash.com/license), cropped to 1400x900 and 560x360.
+
+lst-1   photo-1600607687939-ce8a6c25118c
+lst-2   photo-1522708323590-d24dbb6b0267
+lst-3   photo-1600210492486-724fe5c67fb0
+lst-4   photo-1554995207-c18c203602cb
+lst-5   photo-1560448204-e02f11c3d0e2
+lst-6   photo-1600585154340-be6161a56a0c
+lst-7   photo-1493809842364-78817add7ffb
+lst-8   photo-1502672260266-1c1ef2d93688
+lst-9   photo-1586023492125-27b2c045efd7
+lst-10  photo-1512918728675-ed5a9ecdebfd
+lst-11  photo-1484154218962-a197022b5858
+lst-12  photo-1545324418-cc1a3fa10c00

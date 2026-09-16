@@ -76,9 +76,9 @@ export default function PublicAgentPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Live listings shown" value={live.length} hint={live.length ? 'Updated the moment you publish' : 'Nothing published yet'} icon={<Eye size={15} />} />
-        <Metric label="Districts covered" value={districts.length} hint={districts.slice(0, 3).join(', ') || '—'} icon={<MapPin size={15} />} />
-        <Metric label="Page" value={page.visible ? 'Visible' : 'Hidden'} tone={page.visible ? 'success' : 'warning'} hint={page.visible ? 'Anyone with the link can open it' : 'The link returns nothing'} icon={<IdCard size={15} />} />
+        <Metric label="Live listings shown" value={live.length} hint={live.length ? 'Updated the moment you publish' : 'Nothing published yet'} icon={<Eye size={15} />} iconTone="primary" />
+        <Metric label="Districts covered" value={districts.length} hint={districts.slice(0, 3).join(', ') || '—'} icon={<MapPin size={15} />} iconTone="info" />
+        <Metric label="Page" value={page.visible ? 'Visible' : 'Hidden'} tone={page.visible ? 'success' : 'warning'} hint={page.visible ? 'Anyone with the link can open it' : 'The link returns nothing'} icon={<IdCard size={15} />} iconTone="primary" />
       </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">

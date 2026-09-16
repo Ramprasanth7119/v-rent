@@ -19,10 +19,7 @@ const TERMS: Record<string, { label: string; help: string }> = {
   active_listing_limit: { label: 'Active listings', help: 'Published and paused listings count towards this. Drafts do not.' },
   images_per_listing: { label: 'Photos per listing', help: 'How many photographs one listing can carry.' },
   listing_duration_days: { label: 'Listing runs for', help: 'How long a listing stays live before it needs renewing.' },
-  featured_slots: { label: 'Featured slots', help: 'Listings you can feature at no extra charge. Arrives in a later phase.' },
 };
-
-const clean = (v: string) => v.replace(/\s*\(Phase 6\)/, '');
 
 export default function PlansPage() {
   const router = useRouter();
@@ -83,7 +80,7 @@ export default function PlansPage() {
                           </button>
                         </Tooltip>
                       </dt>
-                      <dd className={cx('font-semibold tabular-nums', none ? 'text-p1-text-3' : 'text-p1-text')}>{none ? '—' : clean(e.value)}</dd>
+                      <dd className={cx('font-semibold tabular-nums', none ? 'text-p1-text-3' : 'text-p1-text')}>{none ? '—' : e.value}</dd>
                     </div>
                   );
                 })}

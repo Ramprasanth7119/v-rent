@@ -110,10 +110,10 @@ const percentile = (sorted: number[], p: number) => {
 /** Monday-first weekday index, which is how a working week is read. */
 const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
 
-export async function opsSnapshot(): Promise<OpsSnapshot> {
+export async function opsSnapshot(opts: { demo?: boolean } = {}): Promise<OpsSnapshot> {
   const [directory, subscriptions, moderation, applications, audit, requests, accounts] =
     await Promise.all([
-      agentDirectory(),
+      agentDirectory(opts),
       realSubscriptions(),
       moderationQueue(),
       pendingApplications(),

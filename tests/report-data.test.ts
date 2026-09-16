@@ -1,7 +1,7 @@
 /**
  * The report's Demo Data switch and the two providers behind it.
  *
- * ON must mean the property's original data and OFF the demo data, never the
+ * ON must mean the demo data and OFF the property's original data, never the
  * other way round. Original data must never be topped up with demo figures when
  * a lookup fails, demo figures must never reach a server or the listing, and
  * both must survive the same consistency checks before a page is printed.
@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DemoListing } from '../lib/phase1/data';
-import { MARKET_MONTHS, TRANSACTIONS } from '../lib/phase1/market';
+import { MARKET_MONTHS, MARKET_SOURCE, TRANSACTIONS } from '../lib/phase1/market';
 import type { MarketPosition } from '../lib/phase1/market-position';
 import { validateMarket } from '../lib/phase1/report';
 import { validateCompeting, validateHistory, type CompetingSet, type MarketHistory } from '../lib/phase1/report-insights';
@@ -56,27 +56,27 @@ const RENTALS = [
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('the Demo Data switch', () => {
-  it('uses the original data when ON and the demo data when OFF', () => {
-    expect(providerFor(true)).toBe(originalDataProvider);
-    expect(providerFor(true).mode).toBe('original');
-    expect(providerFor(false)).toBe(demoDataProvider);
-    expect(providerFor(false).mode).toBe('demo');
+  it('shows the demo data when ON and the original data when OFF', () => {
+    expect(providerFor(true)).toBe(demoDataProvider);
+    expect(providerFor(true).mode).toBe('demo');
+    expect(providerFor(false)).toBe(originalDataProvider);
+    expect(providerFor(false).mode).toBe('original');
   });
 
-  it('is ON unless the address turns it off', () => {
-    expect(isDemoDataOn(new URLSearchParams(''))).toBe(true);
-    expect(isDemoDataOn(new URLSearchParams('ids=lst-1&demo=on'))).toBe(true);
+  it('is OFF unless the address turns it on', () => {
+    expect(isDemoDataOn(new URLSearchParams(''))).toBe(false);
     expect(isDemoDataOn(new URLSearchParams('ids=lst-1&demo=off'))).toBe(false);
+    expect(isDemoDataOn(new URLSearchParams('ids=lst-1&demo=on'))).toBe(true);
   });
 
   it('changes only its own parameter', () => {
-    const off = new URLSearchParams(withDemoData('ids=lst-1,lst-2&mode=detailed', false));
-    expect(off.get('demo')).toBe('off');
-    expect(off.get('ids')).toBe('lst-1,lst-2');
-    expect(off.get('mode')).toBe('detailed');
-    const on = new URLSearchParams(withDemoData(off.toString(), true));
-    expect(on.has('demo')).toBe(false);
+    const on = new URLSearchParams(withDemoData('ids=lst-1,lst-2&mode=detailed', true));
+    expect(on.get('demo')).toBe('on');
+    expect(on.get('ids')).toBe('lst-1,lst-2');
     expect(on.get('mode')).toBe('detailed');
+    const off = new URLSearchParams(withDemoData(on.toString(), false));
+    expect(off.has('demo')).toBe(false);
+    expect(off.get('mode')).toBe('detailed');
   });
 
   it('shows the demo notice only in demo mode', () => {
@@ -86,7 +86,17 @@ describe('the Demo Data switch', () => {
 });
 
 describe('original data', () => {
-  it('draws history, comparables and trend from the held contracts', () => {
+  it('holds no contracts while the URA feed is not connected, and never borrows the illustrative set', () => {
+    const l = listing();
+    if (MARKET_SOURCE.live) return;
+    expect(originalDataProvider.contracts(l)).toEqual([]);
+    const position = originalDataProvider.position(l) as MarketPosition;
+    expect(position.status).not.toBe('ok');
+    const history = originalDataProvider.history(l) as MarketHistory;
+    expect((history.rows ?? []).length).toBe(0);
+  });
+
+  it.runIf(MARKET_SOURCE.live)('draws history, comparables and trend from the held contracts', () => {
     const l = listing();
     expect(originalDataProvider.contracts(l)).toBe(TRANSACTIONS);
     const held = new Set(TRANSACTIONS.map((t) => t.id));

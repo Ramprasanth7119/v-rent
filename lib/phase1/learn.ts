@@ -142,13 +142,13 @@ export const GUIDES: Guide[] = [
   {
     id: 'visible',
     title: 'Keep a listing visible',
-    summary: 'Refreshing, featuring and what each is actually for.',
+    summary: 'Refreshing, and what it is actually for.',
     minutes: 4,
     outcome: 'A listing that stays in front of people without daily work.',
     steps: [
       {
         title: 'Fix the health score first',
-        body: 'Paid placement on a listing with three photographs and no description buys traffic that bounces. The health score says what is missing.',
+        body: 'Refreshing a listing with three photographs and no description only brings back traffic that bounces. The health score says what is missing.',
         href: '/phase1/listings',
         linkLabel: 'Listing manager',
       },
@@ -157,12 +157,6 @@ export const GUIDES: Guide[] = [
         body: 'Keeps the listing near the top of new results without you editing it every morning. Alternate days is enough.',
         href: '/phase1/refresh',
         linkLabel: 'Automatic refresh',
-      },
-      {
-        title: 'Feature it when it is not moving',
-        body: 'A paid slot above the ordinary results, priced per day. Use it on a unit that is good and quiet, not on one that is overpriced.',
-        href: '/phase1/featured',
-        linkLabel: 'Featured placement',
       },
     ],
   },
@@ -225,7 +219,7 @@ export const SESSIONS: Session[] = [
   {
     id: 'portfolio',
     title: 'Running twenty listings without dropping one',
-    summary: 'Refreshes, featuring, expiry and the reports that catch what you missed.',
+    summary: 'Refreshes, expiry and the reports that catch what you missed.',
     minutes: 16,
     presenter: 'V-RENT product team',
     recorded: '2026-08-25',
@@ -245,7 +239,7 @@ export const SUPPORT_AREAS = [
   'Photographs and uploads',
   'Enquiries and viewings',
   'Subscription, billing and receipts',
-  'Featured placement and refreshes',
+  'Automatic refresh',
   'Reports and exports',
   'Something else',
 ];

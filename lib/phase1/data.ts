@@ -122,7 +122,6 @@ export const PLANS: PlanOption[] = [
       { key: 'active_listing_limit', label: 'Active listings', value: '10' },
       { key: 'images_per_listing', label: 'Images per listing', value: '20' },
       { key: 'listing_duration_days', label: 'Listing duration', value: '60 days' },
-      { key: 'featured_slots', label: 'Featured slots', value: 'None' },
     ],
   },
   {
@@ -134,7 +133,6 @@ export const PLANS: PlanOption[] = [
       { key: 'active_listing_limit', label: 'Active listings', value: '30' },
       { key: 'images_per_listing', label: 'Images per listing', value: '30' },
       { key: 'listing_duration_days', label: 'Listing duration', value: '90 days' },
-      { key: 'featured_slots', label: 'Featured slots', value: '2 (Phase 6)' },
     ],
   },
   {
@@ -145,7 +143,6 @@ export const PLANS: PlanOption[] = [
       { key: 'active_listing_limit', label: 'Active listings', value: '100' },
       { key: 'images_per_listing', label: 'Images per listing', value: '40' },
       { key: 'listing_duration_days', label: 'Listing duration', value: '120 days' },
-      { key: 'featured_slots', label: 'Featured slots', value: '6 (Phase 6)' },
     ],
   },
 ];

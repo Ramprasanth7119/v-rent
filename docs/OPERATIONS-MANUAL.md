@@ -27,16 +27,13 @@ The sidebar is grouped by what you are trying to do.
 
 | Group | What is in it |
 | --- | --- |
-| **Workspace** | Agent hub, dashboard, your listings, the map, create and import |
-| **Reach** | Featured placement, automatic refresh, search placement |
+| **Workspace** | Dashboard, your listings, the map, create and import |
+| **Reach** | Automatic refresh |
 | **Clients** | Enquiries, viewings, WhatsApp handover, client shortlists |
-| **Market data** | Transactions, project comparison, floor plans, neighbourhood |
+| **Market data** | Transactions, project comparison, neighbourhood |
 | **Business** | Subscription, performance, reports |
 | **Account** | Profile, public page, QR code, verification, settings |
 | **Help** | Guides, sessions, support |
-
-**Agent hub** lists every tool in the product with a line on what each one does. If you cannot
-remember where something is, start there and search.
 
 ### Putting a property online
 
@@ -96,17 +93,11 @@ client.
 
 ### Staying visible
 
-- **Featured placement** — pay to put one listing at the top of its district and property type for
-  7, 14 or 30 days. Before you commit, the screen forecasts the result from that listing's own
-  traffic, and once it is running it reports views, enquiries and cost per enquiry. Stop it any time
-  and you are billed only for the days used.
 - **Automatic refresh** — keeps a listing near the top of new results without you editing it every
   morning. Every other day is usually enough. One refresh a day per listing, whatever you set.
-- **Search placement** — puts *you* above other agents in the districts you buy. Priced by how
-  contested the district is.
 
-Fix a listing's health score before paying for any of these. Paid traffic to a listing with three
-photographs and no description is traffic that bounces.
+Fix a listing's health score before refreshing it. Traffic to a listing with three photographs and
+no description is traffic that bounces.
 
 ### Knowing what to charge
 

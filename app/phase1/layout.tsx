@@ -4,6 +4,10 @@ import { Phase1Shell } from '../../components/phase1/Shell';
 import { ToastProvider } from '../../components/phase1/Toast';
 import { currentUser } from '../../lib/auth/session';
 import { loadWorkspace } from '../../lib/phase1/workspace-store';
+import { cookies } from 'next/headers';
+import { DEMO_DATA_COOKIE } from '../../lib/phase1/report-data';
+import { DemoDataModeProvider } from '../../lib/phase1/report-data/switch';
+import { usingMongo } from '../../lib/store/driver';
 
 export const metadata = {
   title: 'V-RENT — Agent Platform',
@@ -16,6 +20,8 @@ export default async function Phase1Layout({ children }: { children: React.React
   // rather than a placeholder that is then replaced.
   const user = await currentUser();
   const workspace = user ? await loadWorkspace(user) : null;
+  // The Demo Data switch, read here so the page is rendered in the mode the browser will show it in.
+  const demoOn = (await cookies()).get(DEMO_DATA_COOKIE)?.value === 'on';
 
   return (
     <>
@@ -27,11 +33,13 @@ export default async function Phase1Layout({ children }: { children: React.React
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap"
       />
       <SessionProvider user={user}>
-        <DemoProvider initial={workspace}>
-          <ToastProvider>
-            <Phase1Shell>{children}</Phase1Shell>
-          </ToastProvider>
-        </DemoProvider>
+        <DemoDataModeProvider initial={demoOn}>
+          <DemoProvider initial={workspace} openedAt={new Date().toISOString()}>
+            <ToastProvider>
+              <Phase1Shell backend={usingMongo ? 'mongodb' : 'files'}>{children}</Phase1Shell>
+            </ToastProvider>
+          </DemoProvider>
+        </DemoDataModeProvider>
       </SessionProvider>
     </>
   );

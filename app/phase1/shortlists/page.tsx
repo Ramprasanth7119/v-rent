@@ -150,9 +150,9 @@ export default function ShortlistsPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="In this shortlist" value={picked.length} hint={picked.length ? `${sgd(total)} a month combined` : 'Nothing picked yet'} icon={<Check size={15} />} tone={picked.length ? 'success' : 'default'} />
-        <Metric label="Saved shortlists" value={saved.length} hint="Kept against your workspace" icon={<FolderOpen size={15} />} />
-        <Metric label="Sendable listings" value={sendable.length} hint="Published or paused" icon={<FileText size={15} />} />
+        <Metric label="In this shortlist" value={picked.length} hint={picked.length ? `${sgd(total)} a month combined` : 'Nothing picked yet'} icon={<Check size={15} />} iconTone="success" tone={picked.length ? 'success' : 'default'} />
+        <Metric label="Saved shortlists" value={saved.length} hint="Kept against your workspace" icon={<FolderOpen size={15} />} iconTone="neutral" />
+        <Metric label="Sendable listings" value={sendable.length} hint="Published or paused" icon={<FileText size={15} />} iconTone="neutral" />
       </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -230,7 +230,7 @@ export default function ShortlistsPage() {
                           </span>
                         </span>
                         <span className="shrink-0 text-right">
-                          <span className="block font-p1display text-[16px] font-bold tabular-nums text-p1-text">{priceLabel(l).amount}</span>
+                          <span className="block font-p1display text-[16px] font-bold tabular-nums text-p1-primary">{priceLabel(l).amount}</span>
                           <span className="block text-[12px] text-p1-text-3">{dealOf(l) === 'sale' ? 'asking price' : 'a month'}</span>
                         </span>
                       </button>
@@ -326,9 +326,9 @@ export default function ShortlistsPage() {
           </SectionCard>
 
           <Callout tone="info" title="What goes in the document" icon={<Info size={17} />}>
-            Every unit with its photographs, rent, size, furnishing, availability and nearest station — then your name,
-            CEA registration and agency licence on the last page, which the advertising rules require on anything you
-            send a client.
+            A shortlist overview, a side-by-side comparison and a page or half page per unit, each with its photograph,
+            price, market position and an AI Analysis of the evidence. One unit gets a focused three-page analysis.
+            Your name, CEA registration and agency licence appear on every page, as the advertising rules require.
           </Callout>
         </aside>
       </div>

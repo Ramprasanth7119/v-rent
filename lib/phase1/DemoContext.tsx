@@ -13,6 +13,13 @@
  * write follows; nothing in the workspace is worth blocking an agent on, and a
  * failed write is reported rather than silently rolled back, because the value
  * they typed is still in front of them.
+ *
+ * It is also where the Demo Data switch takes effect, and the only place. With
+ * the switch ON every screen reads the demo account (`demoWorkspace`) through
+ * the same `state`, so no screen needs to know which data it is showing. A
+ * change made while it is ON is applied to the demo account in memory and is
+ * never sent to the server, and the server is not polled; turning it OFF
+ * re-reads the agent's own workspace at once.
  */
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +29,9 @@ import {
   SubscriptionStatus, TODAY, TODAY_ISO, WorkspaceState, planByCode, preferredName,
 } from './workspace';
 import { EMPTY_TOOLS, type ToolsState } from './tools';
+import { demoWorkspace } from './report-data/demo-workspace';
+import { useDemoDataOn } from './report-data/switch';
+import { useSession } from './SessionContext';
 
 export type { Alert, AgentProfile, ApprovalStatus, Enquiry, EnquiryStatus, NotificationPrefs, SubscriptionStatus };
 export { TODAY, TODAY_ISO, preferredName };
@@ -126,7 +136,8 @@ interface DemoContextValue {
   addListing: (l: DemoListing) => void;
   updateListing: (id: string, patch: Partial<DemoListing>) => void;
   setListingStatus: (id: string, status: ListingStatus, reason?: string) => void;
-  setEnquiryStatus: (id: string, status: EnquiryStatus) => void;
+  /** Move an enquiry along; `extra` carries the outcome of a close or the time of a viewing. */
+  setEnquiryStatus: (id: string, status: EnquiryStatus, extra?: Pick<Enquiry, 'outcome' | 'viewingAt'>) => void;
   /** Change one part of the tools bag; the rest is carried through untouched. */
   setTools: (patch: Partial<ToolsState>) => void;
   markAlertsRead: () => void;
@@ -138,6 +149,12 @@ interface DemoContextValue {
   saving: boolean;
   /** Set when the last save did not land, so a screen can say so. */
   saveError: string | null;
+  /** True while the Demo Data switch is ON and `state` is the demo account. */
+  demo: boolean;
+  /** Counts changes made to the demo account, so the frame can say they are not saved. */
+  demoChanges: number;
+  /** The moment this page was opened. The demo account is timed back from it. */
+  openedAt: Date;
 }
 
 const Ctx = createContext<DemoContextValue | null>(null);
@@ -148,14 +165,39 @@ const SAVE_DELAY_MS = 400;
    quick enough that an approval lands while the agent is still looking. */
 const POLL_MS = 15_000;
 
-export function DemoProvider({ initial, children }: { initial?: WorkspaceState | null; children: React.ReactNode }) {
-  const [state, setState] = useState<DemoState>(() => (initial ? fromWorkspace(initial) : SIGNED_OUT));
+export function DemoProvider({ initial, openedAt: openedIso, children }: {
+  initial?: WorkspaceState | null;
+  /** ISO time the server rendered the page, so both renders build the same demo account. */
+  openedAt?: string;
+  children: React.ReactNode;
+}) {
+  /* The agent's own workspace. Named `own` so it cannot be read by accident while the demo account is showing. */
+  const [own, setState] = useState<DemoState>(() => (initial ? fromWorkspace(initial) : SIGNED_OUT));
+  // Only a signed-in agent has an account to swap. A visitor sees the signed-out frame, and staff have no
+  // portfolio — the operations console applies the switch to its own data on the server.
+  const { isAdmin } = useSession();
+  const demoOn = useDemoDataOn() && Boolean(initial) && !isAdmin;
+  const [openedAt] = useState(() => (openedIso ? new Date(openedIso) : new Date()));
+
+  /* The demo account, built around the signed-in identity. Rebuilt only when the identity itself changes. */
+  const identityKey = `${own.profile.fullName}|${own.profile.ceaNumber}|${own.profile.agency}|${own.profile.email}`;
+  const demoSeed = useMemo(
+    () => fromWorkspace(demoWorkspace({ profile: own.profile, notifications: own.notifications, emailVerified: own.emailVerified }, openedAt)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the identity, not on every poll's fresh object
+    [identityKey, openedAt],
+  );
+  /* Changes made to the demo account in this tab. Null until the first one. */
+  const [demoEdits, setDemoEdits] = useState<DemoState | null>(null);
+  const demoLatest = useRef<DemoState | null>(null);
+  const [demoChanges, setDemoChanges] = useState(0);
+
+  const state = demoOn ? (demoEdits ?? demoSeed) : own;
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Mirrors `state` synchronously so two changes in the same tick compose,
   // and so the debounced writer always sends the latest value.
-  const latest = useRef(state);
+  const latest = useRef(own);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Nothing to persist for a visitor: the hub is public, the workspace is not.
   const persists = Boolean(initial);
@@ -184,8 +226,18 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
     timer.current = setTimeout(() => void flush(), SAVE_DELAY_MS);
   };
 
-  /** The one way state changes: compute the next value, show it, then save it. */
+  /**
+   * The one way state changes: compute the next value, show it, then save it.
+   * With Demo Data ON the change goes to the demo account and stops there.
+   */
   const apply = (fn: (s: DemoState) => DemoState) => {
+    if (demoOn) {
+      const next = fn(demoLatest.current ?? demoSeed);
+      demoLatest.current = next;
+      setDemoEdits(next);
+      setDemoChanges((n) => n + 1);
+      return;
+    }
     const next = fn(latest.current);
     latest.current = next;
     setState(next);
@@ -202,6 +254,11 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
 
   /** Reset is server-side: the workspace is seeded again from the account. */
   const reset = () => {
+    if (demoOn) {
+      demoLatest.current = null;
+      setDemoEdits(null);
+      return;
+    }
     if (!persists) {
       latest.current = SIGNED_OUT;
       setState(SIGNED_OUT);
@@ -238,7 +295,8 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
    * older copy from the server.
    */
   useEffect(() => {
-    if (!persists) return;
+    // Nothing to keep in step while the demo account is on screen.
+    if (!persists || demoOn) return;
 
     let stopped = false;
 
@@ -259,6 +317,8 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
       }
     };
 
+    // Back from the demo account: whatever changed meanwhile is read now, not in fifteen seconds.
+    void resync();
     const id = setInterval(resync, POLL_MS);
     window.addEventListener('focus', resync);
     document.addEventListener('visibilitychange', resync);
@@ -268,7 +328,7 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
       window.removeEventListener('focus', resync);
       document.removeEventListener('visibilitychange', resync);
     };
-  }, [persists]);
+  }, [persists, demoOn]);
 
   const skipToActive = () =>
     apply((s) => ({
@@ -305,10 +365,12 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
       : s));
 
   /** Move an enquiry along the queue. The agent's own record, so it saves like the rest. */
-  const setEnquiryStatus = (id: string, status: EnquiryStatus) =>
+  const setEnquiryStatus = (id: string, status: EnquiryStatus, extra?: Pick<Enquiry, 'outcome' | 'viewingAt'>) =>
     apply((s) => ({
       ...s,
-      enquiries: s.enquiries.map((e) => (e.id === id ? { ...e, status } : e)),
+      enquiries: s.enquiries.map((e) => (e.id === id
+        ? { ...e, status, outcome: status === 'closed' ? extra?.outcome : undefined, viewingAt: extra?.viewingAt ?? e.viewingAt, lastActionAt: new Date().toISOString() }
+        : e)),
     }));
 
   const setListingStatus = (id: string, status: ListingStatus, reason?: string) =>
@@ -417,8 +479,11 @@ export function DemoProvider({ initial, children }: { initial?: WorkspaceState |
     listingLimit,
     gate,
     canPublish,
-    saving,
-    saveError,
+    saving: demoOn ? false : saving,
+    saveError: demoOn ? null : saveError,
+    demo: demoOn,
+    demoChanges,
+    openedAt,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

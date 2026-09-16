@@ -113,6 +113,10 @@ export interface Series {
   points: number[];
   /** A `.p1` token name — 'primary', 'accent', 'danger', 'success', 'info'. */
   tone?: 'primary' | 'accent' | 'danger' | 'success' | 'info';
+  /** A comparison line — the period before, say: thin, dashed, neutral, with no fill under it. */
+  ghost?: boolean;
+  /** Any CSS colour, e.g. a `--p1-chart-N` token. Wins over `tone`. */
+  colour?: string;
 }
 
 const TONE_VAR: Record<NonNullable<Series['tone']>, string> = {
@@ -123,26 +127,64 @@ const TONE_VAR: Record<NonNullable<Series['tone']>, string> = {
   info: 'var(--p1-info)',
 };
 
-/** A smooth path through the points, using a monotone cubic so it never overshoots. */
-function smoothPath(pts: { x: number; y: number }[]): string {
-  if (pts.length === 0) return '';
-  if (pts.length < 3) return pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+const colourOf = (s: Series) => s.colour ?? TONE_VAR[s.tone ?? 'primary'];
 
-  let d = `M${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i += 1) {
-    const p0 = pts[i === 0 ? 0 : i - 1];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] ?? p2;
-    // Catmull-Rom converted to a cubic Bézier, tightened so a spike stays a spike.
-    const t = 0.28;
-    const c1x = p1.x + (p2.x - p0.x) * t;
-    const c1y = p1.y + (p2.y - p0.y) * t;
-    const c2x = p2.x - (p3.x - p1.x) * t;
-    const c2y = p2.y - (p3.y - p1.y) * t;
-    d += ` C${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
+/**
+ * A smooth line that never says something the data does not.
+ *
+ * Monotone cubic interpolation (Fritsch–Carlson). This replaced a tightened
+ * Catmull-Rom spline, which bends past its neighbours: next to a sharp spike
+ * it dipped below the baseline, so a chart of API requests drew negative
+ * traffic, and above the peak it ran off the top of the plot and was clipped
+ * flat. Here every segment stays between the two readings it joins, so the
+ * curve never invents a trough or a peak, and a local maximum lands exactly on
+ * its data point — a spike is still a spike.
+ *
+ * Works on screen coordinates as given; the SVG y-flip is linear, so it
+ * preserves monotonicity.
+ */
+export function smoothPath(pts: { x: number; y: number }[]): string {
+  const n = pts.length;
+  if (n === 0) return '';
+  if (n < 3) return pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+
+  // Secant slope of each segment.
+  const d: number[] = [];
+  for (let k = 0; k < n - 1; k += 1) {
+    const dx = pts[k + 1].x - pts[k].x;
+    d.push(dx === 0 ? 0 : (pts[k + 1].y - pts[k].y) / dx);
   }
-  return d;
+
+  // Tangent at each point: the ends take their one secant; an interior point is
+  // flat wherever the line turns, which is what pins a peak to its reading.
+  const m: number[] = new Array(n);
+  m[0] = d[0];
+  m[n - 1] = d[n - 2];
+  for (let k = 1; k < n - 1; k += 1) {
+    m[k] = d[k - 1] * d[k] <= 0 ? 0 : (d[k - 1] + d[k]) / 2;
+  }
+
+  // Fritsch–Carlson: shrink any pair of tangents steep enough to overshoot.
+  for (let k = 0; k < n - 1; k += 1) {
+    if (d[k] === 0) { m[k] = 0; m[k + 1] = 0; continue; }
+    const a = m[k] / d[k];
+    const b = m[k + 1] / d[k];
+    const h = a * a + b * b;
+    if (h > 9) {
+      const tau = 3 / Math.sqrt(h);
+      m[k] = tau * a * d[k];
+      m[k + 1] = tau * b * d[k];
+    }
+  }
+
+  let path = `M${pts[0].x} ${pts[0].y}`;
+  for (let k = 0; k < n - 1; k += 1) {
+    const p1 = pts[k];
+    const p2 = pts[k + 1];
+    const third = (p2.x - p1.x) / 3;
+    path += ` C${p1.x + third} ${p1.y + m[k] * third} ${p2.x - third} ${p2.y - m[k + 1] * third} ${p2.x} ${p2.y}`;
+  }
+  return path;
 }
 
 export function AreaChart({
@@ -153,19 +195,28 @@ export function AreaChart({
   valueLabel = (n: number) => n.toLocaleString('en-SG'),
   showGrid = true,
   baseline = 0,
+  dots = false,
+  markPeak = false,
+  width = 720,
 }: {
   series: Series[];
   labels: string[];
   height?: number;
+  /** Drawing width. Narrower on a phone, so axis text is not scaled down to nothing. */
+  width?: number;
   className?: string;
   valueLabel?: (n: number) => string;
   showGrid?: boolean;
   /** Where the y axis starts. Zero unless the interesting range is higher. */
   baseline?: number;
+  /** Draw a point at every reading. Only legible on a short series. */
+  dots?: boolean;
+  /** Label the highest reading of the first series, until the reader hovers. */
+  markPeak?: boolean;
 }) {
   const [ref, seen] = useInView<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
-  const W = 720;
+  const W = width;
   const H = height;
   const padL = 44;
   const padR = 12;
@@ -189,6 +240,16 @@ export function AreaChart({
     return out;
   }, [min, span]);
 
+  /* The highest reading, so the eye is given the week that worked without
+     having to trace the line back to the axis. */
+  const peak = useMemo(() => {
+    const pts = series[0]?.points ?? [];
+    if (pts.length < 4) return null;
+    let at = 0;
+    pts.forEach((v, i) => { if (v > pts[at]) at = i; });
+    return at;
+  }, [series]);
+
   /* `useId` rather than a random string: a random one differs between the
      server render and the client, which React reports as a hydration
      mismatch and then stops patching the tree. */
@@ -206,8 +267,8 @@ export function AreaChart({
         <defs>
           {series.map((s, si) => (
             <linearGradient key={s.label} id={`${uid}-g${si}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={TONE_VAR[s.tone ?? 'primary']} stopOpacity="0.28" />
-              <stop offset="100%" stopColor={TONE_VAR[s.tone ?? 'primary']} stopOpacity="0" />
+              <stop offset="0%" stopColor={colourOf(s)} stopOpacity="0.28" />
+              <stop offset="100%" stopColor={colourOf(s)} stopOpacity="0" />
             </linearGradient>
           ))}
         </defs>
@@ -229,6 +290,26 @@ export function AreaChart({
           const pts = s.points.map((v, i) => ({ x: x(i), y: y(v) }));
           const line = smoothPath(pts);
           const area = `${line} L${x(s.points.length - 1)} ${y(min)} L${padL} ${y(min)} Z`;
+          if (s.ghost) {
+            return (
+              <g key={s.label}>
+                <path
+                  d={line}
+                  fill="none"
+                  stroke="var(--p1-text-3)"
+                  strokeOpacity="0.55"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 5"
+                  strokeLinecap="round"
+                  className={cx('p1-viz-fade', seen && 'is-in')}
+                  style={{ animationDelay: '320ms' }}
+                />
+                {hover !== null && s.points[hover] !== undefined && (
+                  <circle cx={x(hover)} cy={y(s.points[hover])} r="3" fill="var(--p1-surface)" stroke="var(--p1-text-3)" strokeWidth="1.5" />
+                )}
+              </g>
+            );
+          }
           return (
             <g key={s.label}>
               <path
@@ -240,17 +321,26 @@ export function AreaChart({
               <path
                 d={line}
                 fill="none"
-                stroke={TONE_VAR[s.tone ?? 'primary']}
+                stroke={colourOf(s)}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className={cx('p1-viz-draw', seen && 'is-in')}
                 style={{ animationDelay: `${si * 90}ms` }}
               />
+              {dots && s.points.length <= 24 && s.points.map((v, i) => (
+                <circle
+                  key={i}
+                  cx={x(i)} cy={y(v)} r="3"
+                  fill="var(--p1-surface)" stroke={colourOf(s)} strokeWidth="2"
+                  className={cx('p1-viz-fade', seen && 'is-in')}
+                  style={{ animationDelay: `${420 + i * 18}ms` }}
+                />
+              ))}
               {hover !== null && s.points[hover] !== undefined && (
                 <circle
                   cx={x(hover)} cy={y(s.points[hover])} r="4.5"
-                  fill="var(--p1-surface)" stroke={TONE_VAR[s.tone ?? 'primary']} strokeWidth="2.5"
+                  fill="var(--p1-surface)" stroke={colourOf(s)} strokeWidth="2.5"
                 />
               )}
             </g>
@@ -286,6 +376,15 @@ export function AreaChart({
         ))}
       </svg>
 
+      {markPeak && hover === null && peak !== null && (
+        <div
+          className="p1-in pointer-events-none absolute z-[1] -translate-x-1/2 -translate-y-full rounded-md bg-p1-primary px-2 py-[3px] text-[11.5px] font-semibold tabular-nums text-p1-primary-on shadow-p1-sm"
+          style={{ left: `${(x(peak) / W) * 100}%`, top: `${(y(series[0].points[peak]) / H) * 100}%`, marginTop: -7 }}
+        >
+          {valueLabel(series[0].points[peak])}
+        </div>
+      )}
+
       {hover !== null && (
         <div
           className="pointer-events-none absolute top-2 z-10 min-w-[120px] -translate-x-1/2 rounded-lg border border-p1-border bg-p1-elevated px-3 py-2 shadow-p1-md"
@@ -294,7 +393,7 @@ export function AreaChart({
           <div className="text-[11.5px] font-semibold text-p1-text-3">{labels[hover]}</div>
           {series.map((s) => (
             <div key={s.label} className="mt-1 flex items-center gap-2 text-[12.5px]">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: TONE_VAR[s.tone ?? 'primary'] }} aria-hidden />
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.ghost ? 'var(--p1-text-3)' : colourOf(s) }} aria-hidden />
               <span className="text-p1-text-2">{s.label}</span>
               <span className="ml-auto font-semibold tabular-nums text-p1-text">{valueLabel(s.points[hover] ?? 0)}</span>
             </div>
@@ -306,7 +405,9 @@ export function AreaChart({
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
           {series.map((s) => (
             <span key={s.label} className="inline-flex items-center gap-1.5 text-[12px] text-p1-text-2">
-              <span className="h-2 w-2 rounded-full" style={{ background: TONE_VAR[s.tone ?? 'primary'] }} aria-hidden />
+              {s.ghost
+                ? <span className="h-0 w-3.5 border-t-[1.5px] border-dashed border-p1-text-3" aria-hidden />
+                : <span className="h-2 w-2 rounded-full" style={{ background: colourOf(s) }} aria-hidden />}
               {s.label}
             </span>
           ))}

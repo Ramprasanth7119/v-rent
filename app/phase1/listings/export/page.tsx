@@ -8,12 +8,15 @@
  * comparable properties, market trend, development insights, location and
  * connectivity, competing listings, and a client decision summary.
  *
- * Two editions from one set of sheets:
- *  - **Client report** (default): those pages for a single property. A
- *    shortlist keeps each property to at a glance, price position, location
- *    and the decision summary, after a shortlist overview.
+ * Two editions:
+ *  - **Client report** (default, `client-edition.tsx`): the shortlist a client
+ *    reads. One template that scales with the selection — a focused analysis
+ *    for one property, a comparison for two or three, a summary and landscape
+ *    comparison for more — with an AI Analysis per property. Laid out as
+ *    measured blocks, so pages break where the content allows.
  *  - **Detailed report** (`mode=detailed`): every page for every property,
- *    plus contents, neighbourhood detail, the contracts annex and the method.
+ *    plus contents, neighbourhood detail, the contracts annex and the method,
+ *    one fixed sheet per section.
  *
  * Nothing is laid out until the data has been checked (`lib/phase1/report`).
  * A property whose price contradicts its listing type, or whose market
@@ -25,8 +28,8 @@
  * failed reads "Data unavailable" and never "None nearby".
  *
  * Every figure comes through a data provider (`lib/phase1/report-data`),
- * chosen by the toolbar's Demo Data switch: ON is the property's original
- * data, OFF is illustrative demo data, marked on every sheet. The sheets below
+ * chosen by the toolbar's Demo Data switch: ON is illustrative demo data,
+ * marked on every sheet, and OFF is the property's original data. The sheets below
  * never ask which one they were given.
  */
 
@@ -34,7 +37,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Printer, Check, TriangleAlert, LoaderCircle, Pencil } from 'lucide-react';
-import { Button, EmptyState, Tooltip, cx } from '../../../../components/phase1/kit';
+import { Button, EmptyState, cx } from '../../../../components/phase1/kit';
 import { useDemo, TODAY, preferredName } from '../../../../lib/phase1/DemoContext';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import type { DemoListing } from '../../../../lib/phase1/data';
@@ -54,8 +57,13 @@ import {
   type CompetingResult, type CompetingSet, type HistoryResult, type InsightInput,
 } from '../../../../lib/phase1/report-insights';
 import {
-  DEMO_DATA_TOOLTIP, isDemoDataOn, providerFor, withDemoData, type Around, type ReportDataProvider,
+  providerFor, withDemoData, type Around, type ReportDataProvider,
 } from '../../../../lib/phase1/report-data';
+import { useDemoDataOn } from '../../../../lib/phase1/report-data/switch';
+import { DemoBadge } from '../../../../components/phase1/DemoDataSwitch';
+import { analyseProperty, shortlistInsights, unavailableReason } from '../../../../lib/phase1/property-insight';
+import { ClientEdition, type ClientMeta, type ClientProperty, type NearbyGroup } from './client-edition';
+import type { FlowLayout } from './flow';
 import {
   C, DISPLAY, SANS, VERDICT_INK, Benchmark, DemoMark, Body, Bullets, Callout, Eyebrow, Fine, GroupCard, KV, Legend, LineChart, NearestRows, None, Notice,
   PageFooter, PlaceRows, RateBars, Badge, Photo, Scatter, Section, Sheet, Stats, Table, Title, TrendChart, Unknown, VolumeBars, Wordmark,
@@ -76,16 +84,11 @@ export default function ExportPage() {
  * report, so an answer gathered in one mode can never appear in the other.
  */
 function ReportWithData() {
-  const params = useSearchParams();
-  const [demoDataOn, setDemoDataOn] = useState(() => isDemoDataOn(params));
-  /* The report follows the switch; the address only mirrors it, so a copied
-     link opens in the same mode. Nothing is navigated, reloaded or saved. */
-  const setDemoData = (on: boolean) => {
-    setDemoDataOn(on);
-    const q = withDemoData(window.location.search, on);
-    window.history.replaceState(window.history.state, '', `${window.location.pathname}${q ? `?${q}` : ''}`);
-  };
-  return <Report key={demoDataOn ? 'original' : 'demo'} provider={providerFor(demoDataOn)} demoDataOn={demoDataOn} setDemoData={setDemoData} />;
+  /* The report follows the one Demo Data switch in the application header: it
+     opens in whichever mode the agent chose there (or the address asks for),
+     and says so in the toolbar. It has no switch of its own. */
+  const demoDataOn = useDemoDataOn();
+  return <Report key={demoDataOn ? 'demo' : 'original'} provider={providerFor(demoDataOn)} demoDataOn={demoDataOn} />;
 }
 
 /* ================================================================ config */
@@ -130,6 +133,8 @@ const fullAddress = (l: DemoListing) => {
   const at = street.toLowerCase().lastIndexOf(l.project.toLowerCase());
   if (at > 0) street = `${street.slice(0, at)}${street.slice(at + l.project.length)}`;
   street = street.replace(/\s+/g, ' ').replace(/[\s,]+$/, '').trim();
+  /* "11 Normanton Park Singapore 119003": the road carries the development's name. */
+  if (/^\d+[a-z]?$/i.test(street)) street = `${street} ${l.project}`;
   return `${street || l.address}, Singapore ${l.postalCode}`;
 };
 const districtLine = (l: DemoListing) => {
@@ -253,7 +258,7 @@ function Blocked({ checks }: { checks: ReportCheck[] }) {
 type TocEntry = { label: string; group?: string };
 type SheetDef = { key: string; section: string; toc?: TocEntry; body: React.ReactNode; flush?: boolean };
 
-function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataProvider; demoDataOn: boolean; setDemoData: (on: boolean) => void }) {
+function Report({ provider, demoDataOn }: { provider: ReportDataProvider; demoDataOn: boolean }) {
   const params = useSearchParams();
   const { state } = useDemo();
   const { user } = useSession();
@@ -279,6 +284,9 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
     const history = provider.history(l);
     return { property: toReportProperty(l), market, history, issues: [...validateProperty(l), ...validateMarket(l, market), ...validateHistory(l, history, provider.development(l))] };
   }), [chosen, provider]);
+  /* The client edition prints stations, schools, healthcare and daily needs;
+     places to visit are asked for only by the detailed edition. */
+  const kinds: PlaceKind[] = detailed ? KINDS : ['mrt', 'schools', 'healthcare'];
   const errors = blocking(checks);
   const blocked = errors.length > 0;
   const located = useMemo(() => chosen.filter((l) => isInSingapore(l.lat, l.lng)), [chosen]);
@@ -295,12 +303,20 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), PREPARE_MAX_MS - 500);
 
+    /* Two units in one development share a position: each lookup is asked once
+       per place and the answer shared, so a long shortlist does not repeat it. */
+    const asked = new Map<string, Promise<unknown>>();
+    const once = <T,>(key: string, run: () => Promise<T>) => {
+      if (!asked.has(key)) asked.set(key, run());
+      return asked.get(key) as Promise<T>;
+    };
     for (const l of located) {
-      for (const kind of KINDS) {
-        void provider.places(l, kind, controller.signal)
+      const at = `${l.lat}|${l.lng}|${l.postalCode}`;
+      for (const kind of kinds) {
+        void once(`${kind}|${at}`, () => provider.places(l, kind, controller.signal))
           .then((body) => { if (live) setPlaces((prev) => ({ ...prev, [l.id]: { ...prev[l.id], [kind]: body } })); });
       }
-      void provider.around(l, controller.signal)
+      void once(`around|${at}`, () => provider.around(l, controller.signal))
         .then((value) => { if (live) setAround((prev) => ({ ...prev, [l.id]: value })); });
     }
     for (const l of chosen) {
@@ -309,7 +325,7 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
     }
     return () => { live = false; controller.abort(); clearTimeout(timeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idKey, located.length, blocked]);
+  }, [idKey, located.length, blocked, detailed]);
 
   /* Photographs that fail to load are dropped for the typographic layout. */
   const [broken, setBroken] = useState<Set<string>>(() => new Set());
@@ -335,7 +351,7 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
       key: 'images', label: 'Photographs and maps', source: 'Agent uploads, OneMap',
       state: images ? 'done' : 'loading', detail: images ? `${images.total - images.failed} ready` : '',
     }];
-    for (const kind of KINDS) {
+    for (const kind of kinds) {
       const got = located.map((l) => places[l.id]?.[kind]).filter((x): x is PlacesLookup => Boolean(x));
       const ok = got.filter((g) => g.status === 'ok');
       const settled = got.length === located.length;
@@ -365,13 +381,16 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
       state: 'done', detail: `${checks.filter((c) => c.market.status === 'ok').length} of ${checks.length} compared`,
     });
     return out;
-  }, [images, located, places, around, checks, chosen, competing, provider]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `kinds` follows `detailed`
+  }, [images, located, places, around, checks, chosen, competing, provider, detailed]);
 
   const allSettled = steps.every((s) => s.state !== 'loading');
   const unavailableSources = steps.filter((s) => s.state === 'failed').length;
 
   const [elapsed, setElapsed] = useState(0);
   const [preparedIn, setPreparedIn] = useState<number | null>(null);
+  /* The client edition's pagination, reported by its flow layout. */
+  const [layout, setLayout] = useState<FlowLayout | null>(null);
   const settledRef = useRef(false);
   useEffect(() => { settledRef.current = allSettled; }, [allSettled]);
   useEffect(() => {
@@ -515,12 +534,136 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
     ];
   };
 
+  /* ========================================================= client edition */
+
+  /* Each property worked out once: figures, evidence and the AI Analysis. The
+     client edition only lays these out. */
+  const nearRow = <T extends { name: string; metres: number }>(label: string, ev: Evidence<T>, none: string): NearestRow => {
+    const r = nearestText(ev, none);
+    if (r.kind === 'item') return { label, name: plainName(r.item.name), metres: r.item.metres };
+    return { label, fallback: r.kind === 'none' ? <None>{r.text}</None> : <Unknown>{r.text}</Unknown> };
+  };
+  const placeGroup = (label: string, ev: Evidence<unknown>, rows: NearbyGroup['rows'], none: string): NearbyGroup => (rows.length
+    ? { label, rows }
+    : { label, rows: [], fallback: ev.state === 'verified' ? <None>{none}</None> : <Unknown>{EVIDENCE_TEXT[ev.state]}</Unknown> });
+  const thumbOf = (src: string) => (src.startsWith('/demo/') ? src.replace(/\.jpg$/, '-thumb.jpg') : `${src}${src.includes('?') ? '&' : '?'}size=thumb`);
+  const clientProperties: ClientProperty[] = detailed ? [] : checks.map((c, k) => {
+    const l = c.property.listing;
+    const e = evidenceFor(l);
+    const comp = competingFor(l);
+    const market = c.market.status === 'ok' ? c.market : null;
+    const base = insightFor(c, e, comp);
+    const heldContracts = provider.contracts(l).length;
+    const insight = analyseProperty({
+      ...base,
+      earlier: provider.earlier(l, state.listings),
+      heldContracts,
+      illustrative: !provider.dataset.live,
+      activeSource: provider.activeSource,
+    });
+    const photos = provider.photos(user?.id, l).filter((src) => !broken.has(src));
+    const photo = photos[0];
+    const station = nearRow('MRT / LRT station', e.mrt, 'None within 2 km');
+    const daily = DAILY.map((d) => ({ ...d, ev: e.amenity(d.key) }));
+    const dailyRows = daily.flatMap((d) => d.ev.items.map((a) => ({ name: plainName(a.name), detail: d.label, metres: a.metres }))).sort((a, b) => a.metres - b.metres);
+    const dailyEv = daily.find((d) => d.ev.state === 'verified')?.ev ?? daily[0].ev;
+    return {
+      n: k + 1,
+      listing: l,
+      name: nameOf(l),
+      address: fullAddress(l),
+      districtLine: districtLine(l),
+      deal: c.property.deal,
+      askingRent: c.property.askingRent,
+      salePrice: c.property.salePrice,
+      psf: c.property.psf,
+      market,
+      history: c.history.status === 'ok' ? c.history : null,
+      competing: comp,
+      range: market ? rangePosition(market, l.sizeSqft) : null,
+      insight,
+      notCompared: unavailableReason({ listing: l, market: c.market, heldContracts }),
+      photo,
+      thumb: photo ? thumbOf(photo) : undefined,
+      photos,
+      photoThumbs: photos.map(thumbOf),
+      map: e.isLocated ? `/api/phase1/map?lat=${l.lat}&lng=${l.lng}&w=512&h=384` : undefined,
+      nearbyGroups: [
+        placeGroup('MRT / LRT stations', e.mrt, e.mrt.items.map((s) => ({ name: plainName(s.name), metres: s.metres })), 'No station within 2 km'),
+        placeGroup('Schools', e.schools, e.schools.items.filter((s) => isPrimary(s) || isSecondary(s)).map((s) => ({ name: plainName(s.name), detail: s.detail, metres: s.metres })), 'No school within 2 km'),
+        placeGroup('Healthcare', e.health, e.health.items.map((h) => ({ name: plainName(h.name), detail: h.detail, metres: h.metres })), 'None within 5 km'),
+        placeGroup('Daily needs', dailyEv, dailyRows, 'None within 1 km'),
+      ],
+      development: provider.development(l),
+      floorLevel: floorLevel(l.unitNo),
+      nearby: [
+        station,
+        nearRow('Primary school', e.primaries, 'None within 2 km'),
+        nearRow('Hawker centre', e.amenity('hawker'), 'None within 1 km'),
+        nearRow('Park', e.amenity('parks'), 'None within 1 km'),
+      ],
+      station,
+      primaries: countText(e.primaries, e.primaries.items.filter((s) => s.metres <= 1000).length),
+      /* The comparison's own reason for being unavailable is phrased for the
+         held dataset; the client reads why it is missing in this document. */
+      keyFacts: keyTakeaways(base).slice(0, 3).map((t) => (c.market.status === 'unavailable' && t === c.market.message && c.market.reason === 'no_contracts'
+        ? `${unavailableReason({ listing: l, market: c.market, heldContracts })}, so the asking rent is not compared with lodged contracts.`
+        : t)),
+      positioning: positioning(base),
+      listingStatus: listingStatusText(l),
+    };
+  });
+
+  const onLayout = (next: FlowLayout) => setLayout((prev) => (prev && prev.pages === next.pages && prev.overflow.join() === next.overflow.join() ? prev : next));
+
+  const clientMeta: ClientMeta | null = detailed ? null : (() => {
+    const anyMarket = clientProperties.some((cp) => cp.market);
+    const anyCompeting = clientProperties.some((cp) => cp.competing && cp.competing.sample > 0);
+    const anyPhoto = clientProperties.some((cp) => cp.photo);
+    const today = dayText(TODAY);
+    return {
+      frame: { brandLine, preparedOn, agentLine, notice: provider.notice },
+      forClient,
+      note,
+      preparedOn,
+      agent: {
+        name: agentName, fullName: p.fullName, agency: p.agency, licence, cea: p.ceaNumber,
+        mobile: p.mobile, email: p.email, verified: state.approval === 'approved' && state.ceaValid,
+      },
+      insights: shortlistInsights(clientProperties.map((cp) => ({
+        name: cp.name,
+        listing: cp.listing,
+        market: checks[cp.n - 1].market,
+        history: checks[cp.n - 1].history,
+        insight: cp.insight,
+        station: cp.station.name && cp.station.metres !== undefined ? { name: cp.station.name, metres: cp.station.metres } : null,
+        heldContracts: provider.contracts(cp.listing).length,
+      }))),
+      sources: [
+        { label: 'Property details', value: `Supplied by ${p.fullName}, ${p.agency}` },
+        { label: 'Photographs', value: anyPhoto ? 'Supplied by the agent' : 'None supplied' },
+        { label: 'Price comparison and history', value: anyMarket ? `${provider.dataset.name}${provider.dataset.live ? '' : ' (not live market data)'}` : 'Not available for these properties' },
+        ...(anyCompeting ? [{ label: 'Current listings', value: provider.wording.activeRow(today) }] : []),
+        {
+          label: 'Location',
+          value: !located.length ? 'Addresses not matched to a map position'
+            : provider.notice ? provider.wording.retrieved(today)
+              : `OneMap (SLA), LTA, MOE, SFA and NParks · ${provider.wording.retrieved(today)}`,
+        },
+        { label: 'AI Analysis', value: 'V-RENT analysis of the figures in this document; indicative only' },
+      ],
+      notice: provider.notice,
+      datasetNote: provider.dataset.live ? null : provider.dataset.note,
+      onBroken: markBroken,
+    };
+  })();
+
   /* ================================================================ sheets */
 
   const sheets: SheetDef[] = [];
 
   /* ---------------------------------------------- shortlist overview */
-  if (chosen.length > 1) {
+  if (detailed && chosen.length > 1) {
     sheets.push({
       key: 'overview',
       section: 'Shortlist at a glance',
@@ -589,7 +732,7 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
   }
 
   /* ---------------------------------------------- one chapter per property */
-  checks.forEach((c, i) => {
+  if (detailed) checks.forEach((c, i) => {
     const { listing: l, deal, askingRent, salePrice, psf } = c.property;
     const market = c.market.status === 'ok' ? c.market : null;
     const history = c.history.status === 'ok' ? c.history : null;
@@ -1328,7 +1471,7 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
     ...(detailed ? [['Attractions and museums', provider.credit('STB and NHB, OneMap'), 'Places to visit', kindStatus('attractions')]] as [string, string, string, string][] : []),
   ] : [];
 
-  sheets.push({
+  if (detailed) sheets.push({
     key: 'sources',
     section: 'Sources and important notice',
     toc: { label: 'Sources and important notice' },
@@ -1402,6 +1545,9 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
   const TOTAL = 1 + contentsPages + sheets.length;
   const pageOf = (index: number) => bodyStart + index;
   const frame = { total: TOTAL, brandLine, preparedOn, agentLine, notice: provider.notice };
+  const pageCount = detailed ? TOTAL : layout?.pages ?? null;
+  const overflowPages = detailed ? [] : layout?.overflow ?? [];
+  const laidOut = ready && (detailed || layout !== null);
 
   /* ================================================================ render */
 
@@ -1423,32 +1569,17 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
               </Link>
             ))}
           </div>
-          <Tooltip content={DEMO_DATA_TOOLTIP} side="bottom">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={demoDataOn}
-              aria-label={`Demo Data ${demoDataOn ? 'on' : 'off'}. ${DEMO_DATA_TOOLTIP}`}
-              onClick={() => setDemoData(!demoDataOn)}
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-p1-border bg-p1-surface pl-3 pr-2 text-[13px] font-medium text-p1-text transition-colors hover:bg-p1-subtle focus-visible:shadow-[0_0_0_3px_var(--p1-ring)] focus-visible:outline-none"
-            >
-              Demo Data
-              <span aria-hidden className={cx('relative h-5 w-9 shrink-0 rounded-full transition-colors duration-150', demoDataOn ? 'bg-p1-primary' : 'bg-p1-border-strong')}>
-                <span className={cx('absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-p1-sm transition-transform duration-150', demoDataOn ? 'translate-x-4' : 'translate-x-0')} />
-              </span>
-              <span aria-hidden className="w-7 text-left text-[12px] font-semibold tabular-nums text-p1-text-2">{demoDataOn ? 'ON' : 'OFF'}</span>
-            </button>
-          </Tooltip>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-            {provider.notice && (
-              <span className="inline-flex items-center rounded-full border border-p1-warning-border bg-p1-warning-soft px-2.5 py-0.5 text-[12px] font-semibold text-p1-warning" title={provider.notice}>
-                Demo data
+            {provider.notice && <DemoBadge title={provider.notice} />}
+            {!blocked && pageCount !== null && (
+              <span className="text-[13px] text-p1-text-3">
+                {pageCount} page{pageCount === 1 ? '' : 's'}{ready && preparedIn !== null ? ` · ${(preparedIn / 1000).toFixed(1)}s` : ''}
               </span>
             )}
-            {!blocked && (
-              <span className="text-[13px] text-p1-text-3">
-                {TOTAL} pages{ready && preparedIn !== null ? ` · ${(preparedIn / 1000).toFixed(1)}s` : ''}
+            {!blocked && ready && overflowPages.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-[13px] text-p1-danger" title="Content on this page is cut off when printed">
+                <TriangleAlert size={14} aria-hidden /> Page {overflowPages.join(', ')} too long
               </span>
             )}
             {!blocked && ready && unavailableSources > 0 && (
@@ -1457,24 +1588,25 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
               </span>
             )}
             {absent > 0 && <span className="text-[13px] text-p1-text-3">{absent} listing{absent === 1 ? '' : 's'} no longer available</span>}
-            <Button leftIcon={<Printer size={16} />} disabled={blocked || !ready} onClick={() => window.print()}>
-              {blocked ? 'Resolve issues to print' : ready ? 'Save as PDF' : 'Preparing…'}
+            <Button leftIcon={<Printer size={16} />} disabled={blocked || !laidOut} onClick={() => window.print()}>
+              {blocked ? 'Resolve issues to print' : laidOut ? 'Save as PDF' : 'Preparing…'}
             </Button>
           </div>
         </div>
       </div>
 
       {blocked ? <Blocked checks={checks} /> : (
-        <div className="mx-auto w-full max-w-[860px] px-0 py-6 sm:px-4 print:max-w-none print:p-0">
+        <div className="mx-auto w-full max-w-[1180px] overflow-x-auto px-0 py-6 sm:px-4 print:max-w-none print:overflow-visible print:p-0">
           <article className="vr-doc space-y-4 print:space-y-0" style={{ color: C.ink, fontFamily: SANS }}>
-            <Cover
+            {clientMeta && <ClientEdition properties={clientProperties} meta={clientMeta} onLayout={onLayout} />}
+            {detailed && <Cover
               checks={checks} photoFor={(l) => provider.photos(user?.id, l).filter((s) => !broken.has(s))[0]} onBroken={markBroken} notice={provider.notice}
               forClient={forClient} brandLine={brandLine} preparedOn={preparedOn} agentLine={agentLine} total={TOTAL}
               agent={{ name: p.fullName, agency: p.agency, mobile: p.mobile, email: p.email, cea: p.ceaNumber, licence }}
               rents={rents} districts={districts} detailed={detailed}
               summary={checks.length === 1 ? coverSummary(checks[0]) : []}
               positioning={checks.length === 1 ? positioning(insightFor(checks[0], evidenceFor(checks[0].property.listing), competingFor(checks[0].property.listing))) : ''}
-            />
+            />}
 
             {detailed && (
               <Sheet n={2} section="Contents" {...frame}>
@@ -1503,7 +1635,7 @@ function Report({ provider, demoDataOn, setDemoData }: { provider: ReportDataPro
               </Sheet>
             )}
 
-            {sheets.map((s, index) => (
+            {detailed && sheets.map((s, index) => (
               <Sheet key={s.key} n={pageOf(index)} section={s.section} flush={s.flush} {...frame}>{s.body}</Sheet>
             ))}
           </article>

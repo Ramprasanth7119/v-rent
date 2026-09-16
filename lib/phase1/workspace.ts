@@ -104,6 +104,14 @@ export interface Enquiry {
   status: EnquiryStatus;
   moveIn?: string;
   budget?: number;
+  /** Bedrooms asked for, when the enquirer said. */
+  bedrooms?: number;
+  /** When the agent last moved this enquiry along — the clock a follow-up runs on. */
+  lastActionAt?: string;
+  /** The agreed viewing, once there is one. */
+  viewingAt?: string;
+  /** How a closed enquiry ended. */
+  outcome?: 'let' | 'lost';
 }
 
 /** A notice shown in the bell. Written by the server, read by the agent. */
@@ -318,11 +326,12 @@ export function seedWorkspace(
       ? demoPortfolio(preferredName(name))
       : SEED_LISTINGS.map((l) => asDraft(l, preferredName(name))),
     notifications: { ...DEFAULT_NOTIFICATIONS },
-    // Empty on purpose for a real agent. An enquiry means a real person asked
-    // about a real listing; inventing a few would put words in a stranger's
-    // mouth, and the inbox fills the moment a share link is used. The declared
-    // demo account is the exception — see `demoPortfolio`.
-    enquiries: opts.demo ? demoEnquiries(demoPortfolio(preferredName(name))) : [],
+    // Empty for every account, the demo account included. An enquiry means a
+    // real person asked about a real listing; inventing a few would put words
+    // in a stranger's mouth. Sample enquiries for a walkthrough are generated in
+    // the browser behind the Demo Data switch and never stored — see
+    // `lib/phase1/report-data/demo-enquiries.ts`.
+    enquiries: [],
     alerts: [],
     tools: { ...EMPTY_TOOLS },
   };
@@ -362,7 +371,7 @@ function asDraft(l: DemoListing, agent: string): DemoListing {
 const DEMO_PUBLISHED = 5;
 const DEMO_PAUSED = 1;
 
-function demoPortfolio(agent: string): DemoListing[] {
+export function demoPortfolio(agent: string): DemoListing[] {
   return SEED_LISTINGS.map((l, i) => {
     const draft = asDraft(l, agent);
     if (i < DEMO_PUBLISHED) {
@@ -396,53 +405,6 @@ function demoPortfolio(agent: string): DemoListing[] {
     }
     return draft;
   });
-}
-
-const DEMO_ENQUIRIES: {
-  name: string; contact: string; message: string; daysAgo: number;
-  channel: Enquiry['channel']; status: EnquiryStatus; budget?: number; moveIn?: string;
-}[] = [
-  {
-    name: 'Adeline Koh', contact: '+65 9123 8842', daysAgo: 0, channel: 'V-RENT', status: 'new',
-    message: 'Is this unit still available from the start of next month? I am relocating with my husband and we would like a viewing this weekend if possible.',
-    budget: 5500, moveIn: '2026-10-01',
-  },
-  {
-    name: 'Rahul Menon', contact: '+65 8845 2201', daysAgo: 1, channel: 'WhatsApp', status: 'new',
-    message: 'Hi, saw the listing. Is the rent negotiable for a two-year lease? Also is there a second car park lot.',
-    budget: 6200, moveIn: '2026-09-20',
-  },
-  {
-    name: 'Tan Wei Ling', contact: '+65 9077 3316', daysAgo: 3, channel: 'V-RENT', status: 'replied',
-    message: 'Could you send the floor plan and tell me which direction the bedrooms face? I am comparing two units in the same project.',
-    moveIn: '2026-11-01',
-  },
-  {
-    name: 'James Whitfield', contact: '+65 8332 9014', daysAgo: 6, channel: 'Phone', status: 'viewing',
-    message: 'Booked to view on Saturday. Please confirm whether the unit is tenanted at the moment.',
-    budget: 7000, moveIn: '2026-10-15',
-  },
-  {
-    name: 'Nurul Aisyah', contact: 'nurul.aisyah@example.sg', daysAgo: 9, channel: 'V-RENT', status: 'closed',
-    message: 'Thank you for showing me the unit. We have decided on somewhere closer to my office.',
-  },
-];
-
-function demoEnquiries(listings: DemoListing[]): Enquiry[] {
-  const live = listings.filter((l) => l.status === 'published');
-  if (!live.length) return [];
-  return DEMO_ENQUIRIES.map((e, i) => ({
-    id: `enq-demo-${i + 1}`,
-    listingId: live[i % live.length].id,
-    name: e.name,
-    contact: e.contact,
-    message: e.message,
-    at: new Date(TODAY.getTime() - e.daysAgo * 86_400_000 - i * 3_600_000).toISOString(),
-    channel: e.channel,
-    status: e.status,
-    budget: e.budget,
-    moveIn: e.moveIn,
-  }));
 }
 
 /* -------------------------------------------------------------- validation */
@@ -549,8 +511,20 @@ function cleanEnquiry(raw: unknown): Enquiry | null {
     status: ENQUIRY_STATUSES.includes(e.status as EnquiryStatus) ? (e.status as EnquiryStatus) : 'new',
     moveIn: str(e.moveIn, 24) || undefined,
     budget: typeof e.budget === 'number' ? num(e.budget) : undefined,
+    bedrooms: typeof e.bedrooms === 'number' ? Math.max(0, Math.min(10, Math.round(num(e.bedrooms)))) : undefined,
+    lastActionAt: str(e.lastActionAt, 32) || undefined,
+    viewingAt: str(e.viewingAt, 32) || undefined,
+    outcome: e.outcome === 'let' || e.outcome === 'lost' ? e.outcome : undefined,
   };
 }
+
+/**
+ * Demo records — the demo account's listings, enquiries and alerts — are made in
+ * the browser and never stored. One that arrives here is refused, so a demo
+ * record cannot be saved however it was sent.
+ */
+const isDemoRecord = (raw: unknown) =>
+  !!raw && typeof raw === 'object' && String((raw as Record<string, unknown>).id ?? '').startsWith('demo-');
 
 export function sanitisePatch(raw: unknown): Partial<WorkspaceState> {
   if (!raw || typeof raw !== 'object') return {};
@@ -598,7 +572,7 @@ export function sanitisePatch(raw: unknown): Partial<WorkspaceState> {
   }
   if (Array.isArray(b.alerts)) {
     patch.alerts = b.alerts.slice(0, 100).flatMap((raw) => {
-      if (!raw || typeof raw !== 'object') return [];
+      if (!raw || typeof raw !== 'object' || isDemoRecord(raw)) return [];
       const a = raw as Record<string, unknown>;
       if (typeof a.id !== 'string' || !a.id) return [];
       const tone = ['info', 'success', 'warning', 'danger'].includes(a.tone as string)
@@ -618,12 +592,14 @@ export function sanitisePatch(raw: unknown): Partial<WorkspaceState> {
   }
   if (Array.isArray(b.enquiries)) {
     patch.enquiries = b.enquiries
+      .filter((e) => !isDemoRecord(e))
       .slice(0, MAX_ENQUIRIES)
       .map(cleanEnquiry)
       .filter((e): e is Enquiry => e !== null);
   }
   if (Array.isArray(b.listings)) {
     patch.listings = b.listings
+      .filter((l) => !isDemoRecord(l))
       .slice(0, MAX_LISTINGS)
       .map(cleanListing)
       .filter((l): l is DemoListing => l !== null);
@@ -664,11 +640,9 @@ function cleanTools(raw: unknown): ToolsState {
   if (!b || typeof b !== 'object') return { ...EMPTY_TOOLS };
   const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
   return {
-    featured: arr(b.featured),
     refresh: arr(b.refresh),
     slots: arr(b.slots),
     shortlists: arr(b.shortlists),
-    placements: arr(b.placements),
     tickets: arr(b.tickets),
     publicPage: { ...EMPTY_TOOLS.publicPage, ...(b.publicPage ?? {}) },
     guidesDone: arr<string>(b.guidesDone).filter((g) => typeof g === 'string'),

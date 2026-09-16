@@ -38,7 +38,9 @@ export function Skyline({ className = '' }: { className?: string }) {
         <circle cx="170" cy="206" r="6" fill={front} />
         {Array.from({ length: 12 }).map((_, i) => {
           const a = (i * Math.PI) / 6;
-          return <line key={i} x1="170" y1="206" x2={170 + Math.cos(a) * 78} y2={206 + Math.sin(a) * 78} strokeWidth="1.2" />;
+          // Rounded: the last digits of cos and sin differ between engines, and
+          // a client render of this drawing must match the server's exactly.
+          return <line key={i} x1="170" y1="206" x2={(170 + Math.cos(a) * 78).toFixed(2)} y2={(206 + Math.sin(a) * 78).toFixed(2)} strokeWidth="1.2" />;
         })}
         <path d="M170 206 L136 320 M170 206 L204 320" strokeWidth="5" />
       </g>

@@ -7,10 +7,11 @@
  */
 
 import { opsSnapshot } from '../../../lib/phase1/admin-insight';
+import { demoDataOnServer } from '../../../lib/phase1/report-data/server';
 import OverviewView from './OverviewView';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminOverviewPage() {
-  return <OverviewView snapshot={await opsSnapshot()} />;
+  return <OverviewView snapshot={await opsSnapshot({ demo: await demoDataOnServer() })} />;
 }

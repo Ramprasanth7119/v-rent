@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Profile QR code.
+ * QR code.
  *
  * The use is physical: a name card, a viewing sign in a lift lobby, a slide at
  * an agency briefing. So the screen is about producing a file that survives
@@ -11,227 +11,310 @@
  *
  * The code is generated in the browser. There is no call to a QR service,
  * which matters because those services log every URL they are asked to encode.
+ *
+ * What it encodes comes from `destination.ts`: a page this application serves
+ * with Demo Data OFF, a sample address with it ON. The listings and profile
+ * come from the workspace provider, like every other screen.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import QRCode from 'qrcode';
-import { QrCode, Download, Link2, Check, Copy, Info, Printer } from 'lucide-react';
+import { Building2, Globe, Link2, Palette, UserRound } from 'lucide-react';
 import {
-  Button, Card, SectionCard, PageHeader, Callout, SelectInput, TextInput,
-  LinkButton, Segmented, cx,
+  Avatar, LinkButton, PageHeader, Segmented, SelectInput, TextInput,
 } from '../../../components/phase1/kit';
+import { useToast } from '../../../components/phase1/Toast';
+import { ListingPicker } from '../../../components/phase1/qr/ListingPicker';
+import { QrPreview, type QrStatus } from '../../../components/phase1/qr/QrPreview';
+import { destinationFor, fileName, type Target } from '../../../components/phase1/qr/destination';
 import { useDemo } from '../../../lib/phase1/DemoContext';
+import { useSession } from '../../../lib/phase1/SessionContext';
 import { districtName } from '../../../lib/phase1/performance';
-import { agentSlug } from '../../../lib/phase1/tools';
 
-type Target = 'profile' | 'listing' | 'custom';
-type Style = 'ink' | 'brand';
+type Ink = 'ink' | 'brand';
 
 const SIZES = [
-  { value: '512', label: 'Name card — 512px' },
-  { value: '1024', label: 'Poster — 1024px' },
-  { value: '2048', label: 'Large sign — 2048px' },
+  { value: '512', label: 'Name card · 512 px' },
+  { value: '1024', label: 'Poster · 1024 px' },
+  { value: '2048', label: 'Large sign · 2048 px' },
 ];
 
-export default function QrPage() {
-  const { state } = useDemo();
-  const p = state.profile;
+const INK: Record<Ink, string> = { ink: '#000000', brand: '#0E2124' };
 
-  const [target, setTarget] = useState<Target>('profile');
-  const [listingId, setListingId] = useState('');
-  const [custom, setCustom] = useState('');
-  const [size, setSize] = useState('1024');
-  const [style, setStyle] = useState<Style>('ink');
-  const [png, setPng] = useState('');
-  const [svg, setSvg] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState('');
+/* The address this page is served from. Empty on the server, so the first render matches. */
+const noSubscribe = () => () => {};
+const useOrigin = () => useSyncExternalStore(noSubscribe, () => window.location.origin, () => '');
+
+function Step({ n, icon, title, hint, children }: { n: number; icon: React.ReactNode; title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section aria-labelledby={`qr-step-${n}`} className="rounded-2xl border border-p1-border bg-p1-surface p-5 shadow-p1-sm sm:p-6">
+      <div className="mb-4 flex items-start gap-3">
+        <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2">{icon}</span>
+        <div className="min-w-0">
+          <h2 id={`qr-step-${n}`} className="text-[15px] font-semibold tracking-[-0.01em] text-p1-text">
+            <span className="mr-1.5 text-p1-text-3">{n}.</span>{title}
+          </h2>
+          {hint && <p className="mt-0.5 text-[12.5px] text-p1-text-3">{hint}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export default function QrPage() {
+  const { state, demo } = useDemo();
+  const { user } = useSession();
+  const { push } = useToast();
+  const origin = useOrigin();
+  const p = state.profile;
 
   const live = useMemo(
     () => state.listings.filter((l) => !l.archived && (l.status === 'published' || l.status === 'paused')),
     [state.listings],
   );
 
-  const slug = state.tools.publicPage.slug || agentSlug(p.fullName, p.ceaNumber);
+  const [target, setTarget] = useState<Target>(() => (live.length ? 'listing' : 'profile'));
+  const [listingId, setListingId] = useState<string | null>(null);
+  const [custom, setCustom] = useState('');
+  const [touched, setTouched] = useState(false);
+  const [size, setSize] = useState('1024');
+  const [ink, setInk] = useState<Ink>('ink');
+  const [nonce, setNonce] = useState(0);
+  const [code, setCode] = useState<{ key: string; png: string; svg: string } | { key: string; failed: true } | null>(null);
+  const [busy, setBusy] = useState<'png' | 'svg' | 'share' | null>(null);
+
+  // A choice that is no longer on screen (Demo Data turned, a listing unpublished) falls back to the first one.
   const chosen = live.find((l) => l.id === listingId) ?? live[0] ?? null;
+  const dest = destinationFor({ target, demo, origin, ownerId: user?.id, listing: chosen, custom });
+  const name = p.fullName.replace(/\s*\(.*\)\s*$/, '') || 'Your public page';
 
-  const url = target === 'custom'
-    ? (custom.trim() || 'https://vrent.sg')
-    : target === 'listing'
-      ? `https://vrent.sg/p/${chosen?.reference?.toLowerCase() ?? 'listing'}`
-      : `https://vrent.sg/a/${slug}`;
+  const title = target === 'listing'
+    ? (chosen ? `${chosen.project} ${chosen.unitNo}` : 'Listing')
+    : target === 'profile' ? name : 'Custom address';
+  const subtitle = target === 'listing'
+    ? (chosen ? `D${String(chosen.district).padStart(2, '0')} ${districtName(chosen.district)} · ${chosen.reference}` : 'No listing chosen')
+    : target === 'profile' ? [p.agency, p.ceaNumber && `CEA ${p.ceaNumber}`].filter(Boolean).join(' · ') || 'Public profile'
+      : 'Opens the address you entered';
 
-  const caption = target === 'listing' && chosen
-    ? `${chosen.project} ${chosen.unitNo} · D${String(chosen.district).padStart(2, '0')} ${districtName(chosen.district)}`
-    : target === 'custom'
-      ? 'Custom address'
-      : `${p.fullName.replace(/\s*\(.*\)\s*$/, '')} · CEA ${p.ceaNumber}`;
-
-  const dark = style === 'brand' ? '#0E2124' : '#000000';
+  const url = dest.ok ? dest.url : '';
+  const key = `${url}|${size}|${ink}|${nonce}`;
+  /* The regenerate that is waiting to be announced, so its toast lands with the new code rather than before it. */
+  const announce = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!url) return;
     let cancelled = false;
     const opts = {
       // 'H' tolerates about 30% of the code being obscured — a logo, a fold in a
       // name card, a thumb on a sign.
       errorCorrectionLevel: 'H' as const,
       margin: 2,
-      color: { dark, light: '#FFFFFF' },
+      color: { dark: INK[ink], light: '#FFFFFF' },
     };
-    (async () => {
-      try {
-        const [asPng, asSvg] = await Promise.all([
-          QRCode.toDataURL(url, { ...opts, width: Number(size) }),
-          QRCode.toString(url, { ...opts, type: 'svg', width: 512 }),
-        ]);
+    Promise.all([
+      QRCode.toDataURL(url, { ...opts, width: Number(size) }),
+      QRCode.toString(url, { ...opts, type: 'svg', width: 512 }),
+    ])
+      .then(([png, svg]) => {
         if (cancelled) return;
-        setPng(asPng);
-        setSvg(asSvg);
-        setFailed('');
-      } catch {
-        if (!cancelled) setFailed('That address could not be encoded. Check it and try again.');
-      }
-    })();
+        setCode({ key, png, svg });
+        if (announce.current === nonce) push({ tone: 'success', title: 'QR code regenerated' });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCode({ key, failed: true });
+        if (announce.current === nonce) push({ tone: 'error', title: 'The code could not be regenerated', body: 'Try again in a moment.' });
+      })
+      .finally(() => { if (!cancelled && announce.current === nonce) announce.current = null; });
     return () => { cancelled = true; };
-  }, [url, size, dark]);
+  }, [url, size, ink, key, nonce, push]);
 
-  const save = (kind: 'png' | 'svg') => {
-    const name = `v-rent-qr-${target}-${size}.${kind}`;
-    const href = kind === 'png' ? png : URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    const a = document.createElement('a');
-    a.href = href;
-    a.download = name;
-    a.click();
-    if (kind === 'svg') URL.revokeObjectURL(href);
-  };
+  const current = code && code.key === key ? code : null;
+  const status: QrStatus = !dest.ok ? 'blocked' : !current ? 'generating' : 'failed' in current ? 'failed' : 'ready';
+  const png = current && !('failed' in current) ? current.png : '';
+  const svg = current && !('failed' in current) ? current.svg : '';
 
-  const copy = async () => {
+  const download = useCallback((kind: 'png' | 'svg') => {
+    if (busy || !png) return;
+    setBusy(kind);
+    let href = '';
+    try {
+      href = kind === 'png' ? png : URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = fileName(title, size, kind);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      push({ tone: 'success', title: kind === 'png' ? 'PNG downloaded' : 'SVG downloaded', body: kind === 'svg' ? 'Send this one to a printer. It stays sharp at any size.' : undefined });
+    } catch {
+      push({ tone: 'error', title: 'The download did not start', body: 'Check that downloads are allowed for this site, then try again.' });
+    } finally {
+      // Revoked a moment later: some browsers read the file after `click` returns.
+      if (kind === 'svg' && href) setTimeout(() => URL.revokeObjectURL(href), 1500);
+      setTimeout(() => setBusy(null), 400);
+    }
+  }, [busy, png, svg, title, size, push]);
+
+  const copy = useCallback(async (quiet = false) => {
+    if (!url) return false;
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      if (!quiet) push({ tone: 'success', title: 'Link copied' });
+      return true;
     } catch {
-      setCopied(false);
+      if (!quiet) push({ tone: 'error', title: 'The link could not be copied', body: 'Your browser blocked the clipboard. Select the address and copy it instead.' });
+      return false;
     }
+  }, [url, push]);
+
+  const share = useCallback(async () => {
+    if (busy || !url) return;
+    setBusy('share');
+    try {
+      if (typeof navigator.share === 'function') {
+        try {
+          const file = png ? new File([await (await fetch(png)).blob()], fileName(title, size, 'png'), { type: 'image/png' }) : null;
+          const withFile = file && navigator.canShare?.({ files: [file] });
+          await navigator.share({ title: `${title} — V-RENT`, url, ...(withFile ? { files: [file] } : {}) });
+          push({ tone: 'success', title: 'Shared' });
+        } catch (e) {
+          // Closing the share sheet is a choice, not a failure.
+          if ((e as DOMException)?.name !== 'AbortError') push({ tone: 'error', title: 'Sharing did not complete', body: 'Try again, or copy the link instead.' });
+        }
+      } else if (await copy(true)) {
+        push({ tone: 'info', title: 'Link copied instead', body: 'This browser cannot open a share sheet. Paste the link wherever you want to share it.' });
+      } else {
+        push({ tone: 'error', title: 'Sharing is not available here', body: 'Select the address and copy it instead.' });
+      }
+    } finally {
+      setBusy(null);
+    }
+  }, [busy, url, png, title, size, copy, push]);
+
+  const regenerate = () => {
+    announce.current = nonce + 1;
+    setNonce(nonce + 1);
   };
+
+  const customError = target === 'custom' && touched && dest.ok === false && dest.reason === 'invalid-address'
+    ? 'Enter a web address, such as example.com/page.'
+    : undefined;
 
   return (
     <>
-      <PageHeader
-        eyebrow="Profile and reputation"
-        title="Profile QR code"
-        description="A code for a name card, a viewing sign or a slide. It opens your public page — or one listing — and it is generated here rather than by an outside service."
-        actions={<LinkButton href="/phase1/agent" variant="outline">Your public page</LinkButton>}
-      />
+      <div data-print-hide>
+        <PageHeader
+          eyebrow="Marketing"
+          title="QR code"
+          description="Make a code for a listing or your public page, for name cards, viewing signs and slides. It is generated on this device."
+          actions={<LinkButton href="/phase1/agent" variant="outline" leftIcon={<Globe size={15} />}>Your public page</LinkButton>}
+        />
+      </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <SectionCard title="What it opens" icon={<Link2 size={16} />}>
-          <div className="grid gap-5">
-            <Segmented
-              label="Destination"
-              value={target}
-              onChange={setTarget}
-              options={[
-                { key: 'profile', label: 'My public page' },
-                { key: 'listing', label: 'One listing' },
-                { key: 'custom', label: 'Another address' },
-              ]}
-            />
-
-            {target === 'listing' && (
-              live.length > 0 ? (
-                <SelectInput
-                  label="Listing"
-                  value={chosen?.id ?? ''}
-                  onChange={(e) => setListingId(e.target.value)}
-                  options={live.map((l) => ({
-                    value: l.id,
-                    label: `${l.project} ${l.unitNo} — ${l.reference}`,
-                  }))}
-                />
-              ) : (
-                <Callout tone="warning" compact>
-                  You have no live listings to point a code at. The code falls back to your public page.
-                </Callout>
-              )
-            )}
-
-            {target === 'custom' && (
-              <TextInput
-                label="Address"
-                value={custom}
-                onChange={(e) => setCustom(e.target.value)}
-                placeholder="https://"
-                hint="Anything you want the code to open — a booking link, a floor plan, a form."
-              />
-            )}
-
-            <div className="flex items-center gap-2 rounded-lg border border-p1-border bg-p1-subtle px-3.5 py-2.5">
-              <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-p1-text">{url}</span>
-              <Button size="sm" variant="ghost" onClick={copy} leftIcon={copied ? <Check size={14} /> : <Copy size={14} />}>
-                {copied ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectInput
-                label="Size"
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                hint="Only affects the PNG. The SVG scales to anything."
-                options={SIZES}
-              />
-              <div>
-                <span className="mb-2 block text-[13.5px] font-semibold text-p1-text">Colour</span>
-                <Segmented
-                  label="Colour"
-                  value={style}
-                  onChange={setStyle}
+      {/* Phones read top to bottom, so the preview follows the choice it previews; from lg it sits beside both steps. */}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
+        {/* One column from lg; below it the wrapper dissolves so `order` can put the preview after step 1. */}
+        <div className="contents lg:col-start-1 lg:row-start-1 lg:grid lg:min-w-0 lg:gap-5" data-print-hide>
+          <div className="order-1 min-w-0 lg:order-none">
+            <Step n={1} icon={<Link2 size={15} />} title="What the code opens">
+              <div className="grid gap-4">
+                <Segmented<Target>
+                  label="Destination"
+                  value={target}
+                  onChange={setTarget}
+                  className="justify-self-start [&>button]:whitespace-nowrap"
                   options={[
-                    { key: 'ink', label: 'Black' },
-                    { key: 'brand', label: 'V-RENT charcoal' },
+                    { key: 'listing', label: 'Listing', icon: <Building2 size={14} /> },
+                    { key: 'profile', label: 'Profile', icon: <UserRound size={14} /> },
+                    { key: 'custom', label: 'Other link', icon: <Link2 size={14} /> },
                   ]}
                 />
-                <p className="mt-2 text-[12.5px] text-p1-text-3">
-                  Black scans most reliably on a photocopier. Petrol is for anything printed properly.
-                </p>
+
+                {target === 'listing' && (
+                  <ListingPicker listings={live} value={chosen?.id ?? null} onChange={setListingId} ownerId={user?.id} />
+                )}
+
+                {target === 'profile' && (
+                  <div className="flex items-center gap-3 rounded-xl border border-p1-border bg-p1-subtle/50 p-3">
+                    <Avatar name={name} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-semibold text-p1-text">{name}</p>
+                      <p className="truncate text-[12.5px] text-p1-text-3">{subtitle}</p>
+                    </div>
+                    <span className="hidden shrink-0 text-[12.5px] text-p1-text-3 sm:inline">
+                      Your public page and live listings
+                    </span>
+                  </div>
+                )}
+
+                {target === 'custom' && (
+                  <TextInput
+                    label="Web address"
+                    inputMode="url"
+                    autoComplete="url"
+                    spellCheck={false}
+                    value={custom}
+                    onChange={(e) => setCustom(e.target.value)}
+                    onBlur={() => setTouched(true)}
+                    placeholder="example.com/floor-plan"
+                    error={customError}
+                    hint={customError ? undefined : 'A booking form, a floor plan, a video tour. Web addresses only.'}
+                  />
+                )}
               </div>
-            </div>
-
-            {failed && <Callout tone="danger" compact>{failed}</Callout>}
+            </Step>
           </div>
-        </SectionCard>
 
-        <aside className="grid min-w-0 content-start gap-4 [&>*]:min-w-0">
-          <Card padding="lg" className="text-center">
-            <div className={cx('mx-auto flex aspect-square w-full max-w-[280px] items-center justify-center rounded-xl border border-p1-border bg-white p-4')}>
-              {png ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={png} alt={`QR code opening ${url}`} className="h-full w-full object-contain" />
-              ) : (
-                <QrCode size={48} className="text-p1-text-3" aria-hidden />
-              )}
-            </div>
-            <div className="mt-4 font-p1display text-[15px] font-bold text-p1-text">Scan for V-RENT</div>
-            <div className="mt-0.5 text-[12.5px] text-p1-text-3">{caption}</div>
+          <div className="order-3 min-w-0 lg:order-none" data-print-hide>
+            <Step n={2} icon={<Palette size={15} />} title="Format" hint="Both files are made from the same code.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SelectInput
+                  label="PNG size"
+                  value={size}
+                  onChange={(e) => setSize(e.target.value)}
+                  hint="The SVG scales to any size."
+                  options={SIZES}
+                />
+                <div>
+                  <span id="qr-ink-label" className="mb-2 block text-[13.5px] font-semibold text-p1-text">Colour</span>
+                  <Segmented<Ink>
+                    label="Colour"
+                    value={ink}
+                    onChange={setInk}
+                    options={[
+                      { key: 'ink', label: 'Black', icon: <span className="block h-3 w-3 rounded-full bg-black ring-1 ring-p1-border" /> },
+                      { key: 'brand', label: 'Charcoal', icon: <span className="block h-3 w-3 rounded-full ring-1 ring-p1-border" style={{ background: INK.brand }} /> },
+                    ]}
+                  />
+                  <p className="mt-2 text-[12.5px] text-p1-text-3">Black scans best from a photocopy.</p>
+                </div>
+              </div>
+            </Step>
+          </div>
 
-            <div className="mt-5 grid gap-2">
-              <Button variant="primary" block disabled={!png} onClick={() => save('png')} leftIcon={<Download size={16} />}>
-                Download PNG
-              </Button>
-              <Button variant="outline" block disabled={!svg} onClick={() => save('svg')} leftIcon={<Download size={16} />}>
-                Download SVG — for print
-              </Button>
-              <Button variant="ghost" block disabled={!png} onClick={() => window.print()} leftIcon={<Printer size={16} />}>
-                Print this sheet
-              </Button>
-            </div>
-          </Card>
+          <div className="order-4 min-w-0 lg:order-none" data-print-hide>
+            <p className="px-1 text-[12.5px] leading-5 text-p1-text-3">
+              For print, keep the code at least 25 mm wide on a name card and 100 mm on a sign, and leave the white border around it.
+            </p>
+          </div>
+        </div>
 
-          <Callout tone="info" title="Printing it" icon={<Info size={17} />}>
-            Send the SVG to a printer — it stays sharp at any size. Keep the code at least 25mm across on a name card
-            and 100mm on a lift-lobby sign, and leave the white border alone: a scanner needs it to find the code.
-          </Callout>
+        <aside className="order-2 min-w-0 self-start lg:sticky lg:top-24 lg:order-none lg:col-start-2 lg:row-start-1" aria-label="QR code preview">
+          <QrPreview
+            dest={dest}
+            status={status}
+            png={png}
+            title={title}
+            subtitle={subtitle}
+            busy={busy}
+            onDownload={download}
+            onCopy={() => void copy()}
+            onShare={() => void share()}
+            onPrint={() => window.print()}
+            onRegenerate={regenerate}
+          />
         </aside>
       </div>
     </>

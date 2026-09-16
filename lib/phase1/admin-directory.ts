@@ -5,8 +5,9 @@
  * actually registered on this instance are read from the account store and
  * their own workspace — that is the row a client finds themselves in after
  * signing up, with the registration the CEA register returned. The sample
- * roster stays alongside it so the console has enough volume to look like a
- * working desk, and every sample row says so.
+ * roster is demo data: it is added only while the Demo Data switch is ON, so
+ * the console has enough volume to look like a working desk, and every sample
+ * row says so. With the switch OFF only real accounts are listed.
  *
  * Server only: it reads the account store.
  */
@@ -83,8 +84,12 @@ export async function realAgents(): Promise<DirectoryAgent[]> {
   );
 }
 
-/** Real accounts first, then the sample roster. */
-export async function agentDirectory(): Promise<DirectoryAgent[]> {
+/**
+ * Real accounts, and — only while Demo Data is ON — the sample roster after
+ * them. With the switch OFF the console lists nobody who does not exist.
+ */
+export async function agentDirectory(opts: { demo?: boolean } = {}): Promise<DirectoryAgent[]> {
+  if (!opts.demo) return realAgents();
   const samples: DirectoryAgent[] = AGENTS.map((a) => {
     const ls = listingsForAgent(a.name);
     return {
@@ -102,14 +107,15 @@ export interface AgentDetail {
   listings: DemoListing[];
 }
 
-/** One agent, real or sample, with the listings that belong to them. */
-export async function agentDetail(id: string): Promise<AgentDetail | null> {
+/** One agent, real or (with Demo Data ON) sample, with the listings that belong to them. */
+export async function agentDetail(id: string, opts: { demo?: boolean } = {}): Promise<AgentDetail | null> {
   const real = (await realAgents()).find((a) => a.id === id);
   if (real) {
     const w = await readWorkspace(id);
     return { agent: real, listings: (w?.listings ?? []).filter((l) => !l.archived) };
   }
 
+  if (!opts.demo) return null;
   const sample = AGENTS.find((a) => a.id === id);
   if (!sample) return null;
   const listings = listingsForAgent(sample.name);

@@ -48,12 +48,6 @@ const COMMON: { q: string; a: string; href?: string; linkLabel?: string }[] = [
     href: '/phase1/checkout',
     linkLabel: 'Subscription and receipts',
   },
-  {
-    q: 'How do I stop a featured run early?',
-    a: 'Featured placement lists every run with a Stop button. Stopping ends the placement immediately and bills only the days used, not the days committed.',
-    href: '/phase1/featured',
-    linkLabel: 'Featured placement',
-  },
 ];
 
 /** What the team commits to, by how much the problem is costing the agent. */
@@ -105,9 +99,9 @@ export default function SupportPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Open tickets" value={openTickets.length} hint={openTickets.length ? 'Somebody is on it' : 'Nothing outstanding'} icon={<MessageSquare size={15} />} tone={openTickets.length ? 'warning' : 'success'} />
-        <Metric label="Support hours" value="9–7" hint="Monday to Saturday, Singapore time" icon={<Clock size={15} />} />
-        <Metric label="Your plan" value={state.plan?.name ?? 'None'} hint={state.plan ? 'Support included' : 'Support is included on every plan'} icon={<LifeBuoy size={15} />} />
+        <Metric label="Open tickets" value={openTickets.length} hint={openTickets.length ? 'Somebody is on it' : 'Nothing outstanding'} icon={<MessageSquare size={15} />} iconTone="success" tone={openTickets.length ? 'warning' : 'success'} />
+        <Metric label="Support hours" value="9–7" hint="Monday to Saturday, Singapore time" icon={<Clock size={15} />} iconTone="accent" />
+        <Metric label="Your plan" value={state.plan?.name ?? 'None'} hint={state.plan ? 'Support included' : 'Support is included on every plan'} icon={<LifeBuoy size={15} />} iconTone="info" />
       </MetricStrip>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">

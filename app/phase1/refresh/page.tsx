@@ -93,9 +93,9 @@ export default function RefreshPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Listings on a schedule" value={on.length} hint={`${eligible.length} eligible`} icon={<RefreshCw size={15} />} />
-        <Metric label="Lifts a week" value={liftsPerWeek} hint="Across every scheduled listing" icon={<Zap size={15} />} tone={liftsPerWeek ? 'success' : 'default'} />
-        <Metric label="Refreshes run" value={rules.reduce((n, r) => n + r.runs, 0)} hint="Since you turned this on" icon={<Clock size={15} />} />
+        <Metric label="Listings on a schedule" value={on.length} hint={`${eligible.length} eligible`} icon={<RefreshCw size={15} />} iconTone="info" />
+        <Metric label="Lifts a week" value={liftsPerWeek} hint="Across every scheduled listing" icon={<Zap size={15} />} iconTone="info" tone={liftsPerWeek ? 'success' : 'default'} />
+        <Metric label="Refreshes run" value={rules.reduce((n, r) => n + r.runs, 0)} hint="Since you turned this on" icon={<Clock size={15} />} iconTone="accent" />
       </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">

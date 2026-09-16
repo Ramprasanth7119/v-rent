@@ -11,15 +11,19 @@ import { cx, Button } from './primitives';
 import { EmptyState } from './feedback';
 import { INPUT_BASE } from './form';
 
-export function FilterChips<T extends string>({ options, value, onChange, label = 'Filter', size = 'md', scroll = false }: { options: { key: T; label: string; count?: number }[]; value: T; onChange: (k: T) => void; label?: string; size?: 'sm' | 'md'; scroll?: boolean }) {
+export function FilterChips<T extends string>({ options, value, onChange, label = 'Filter', size = 'md', scroll = false, className = '' }: { options: { key: T; label: string; count?: number }[]; value: T; onChange: (k: T) => void; label?: string; size?: 'sm' | 'md'; scroll?: boolean; className?: string }) {
   return (
-    <div role="group" aria-label={label} className={cx('flex gap-1.5', scroll ? 'p1-noscrollbar -mx-1 overflow-x-auto px-1' : 'flex-wrap')}>
+    <div role="group" aria-label={label} className={cx('flex gap-1.5', scroll ? 'p1-noscrollbar -mx-1 overflow-x-auto px-1' : 'flex-wrap', className)}>
       {options.map((o) => {
         const on = o.key === value;
         return (
           <button key={o.key} type="button" aria-pressed={on} onClick={() => onChange(o.key)}
             className={cx('inline-flex shrink-0 items-center gap-1.5 rounded-full border font-medium transition-[background-color,border-color,color] duration-150 cursor-pointer', size === 'sm' ? 'h-8 px-3 text-[12.5px]' : 'h-9 px-3.5 text-[13px]',
-              on ? 'border-p1-text bg-p1-text text-p1-bg' : 'border-p1-border bg-p1-surface text-p1-text-2 hover:border-p1-border-strong hover:text-p1-text')}>
+              /* Selected is the product's one blue, not near-black. Across the
+                 reference set every selected control — chip, nav item, primary
+                 button — is the same colour, and that is most of what makes
+                 them read as one product rather than one page. */
+              on ? 'border-p1-primary bg-p1-primary text-p1-primary-on' : 'border-p1-border bg-p1-surface text-p1-text-2 hover:border-p1-border-strong hover:text-p1-text')}>
             {o.label}
             {typeof o.count === 'number' && <span className={cx('text-[12px] tabular-nums', on ? 'opacity-70' : 'text-p1-text-3')}>{o.count}</span>}
           </button>

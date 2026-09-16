@@ -1,5 +1,5 @@
 /**
- * The V-RENT agent hub catalogue.
+ * The V-RENT tool catalogue, shown to signed-out agents on the front door.
  *
  * One place that answers "what can this platform actually do for me", grouped
  * the way an agent thinks about their week: get listings out, handle the people
@@ -12,9 +12,9 @@
  */
 
 import {
-  Plus, Upload, Building2, MapPinned, Rocket, RefreshCw, Share2, FileText,
-  MessageSquare, CalendarClock, Phone, Timer, IdCard, QrCode, Star, Award,
-  LineChart, GitCompareArrows, LayoutPanelTop, Trees, BookOpen, Video, LifeBuoy,
+  Plus, Upload, Building2, MapPinned, RefreshCw, Share2, FileText,
+  MessageSquare, CalendarClock, Phone, Timer, IdCard, QrCode, Star,
+  LineChart, GitCompareArrows, Trees, BookOpen, Video, LifeBuoy,
   ShieldCheck, CreditCard, Bell, type LucideIcon,
 } from 'lucide-react';
 
@@ -116,23 +116,6 @@ export const HUB_CATEGORIES: HubCategory[] = [
           'Filter to a district or a price band',
         ],
         keywords: ['map', 'district', 'mrt', 'location'],
-      },
-      {
-        id: 'featured',
-        name: 'Featured placement',
-        blurb: 'Pay to lift one listing above the ordinary results for a set period.',
-        icon: Rocket,
-        status: 'live',
-        href: '/phase1/featured',
-        detail: 'A paid slot that puts a chosen listing at the top of its district and property-type results for a fixed number of days, with the spend and the resulting views reported against it.',
-        points: [
-          'Feature a listing for 7, 14 or 30 days',
-          'Priced per day, charged to the card or PayNow mandate on file',
-          'Views, enquiries and cost per enquiry reported for the period',
-          'Automatic stop and receipt when the period ends',
-        ],
-        needs: 'Depends on the public tenant site and the search ranking that ranks against, both of which sit in the later phase.',
-        keywords: ['boost', 'promote', 'top', 'advert', 'sponsored'],
       },
       {
         id: 'refresh',
@@ -328,22 +311,6 @@ export const HUB_CATEGORIES: HubCategory[] = [
         needs: 'Follows the public agent page.',
         keywords: ['qr', 'code', 'name card', 'print', 'scan'],
       },
-      {
-        id: 'placement',
-        name: 'Search placement',
-        blurb: 'Appear above other agents in your districts for a daily fee.',
-        icon: Award,
-        status: 'live',
-        href: '/phase1/placement',
-        detail: 'A paid position in the agent results for chosen districts and property types, priced per day and reported against the enquiries it produced.',
-        points: [
-          'Choose districts and property types',
-          'Priced per day, with a ceiling you set',
-          'Enquiries and cost per enquiry reported for the period',
-        ],
-        needs: 'Depends on the public agent directory and its ranking.',
-        keywords: ['ranking', 'advert', 'promote', 'placement'],
-      },
     ],
   },
 
@@ -360,7 +327,7 @@ export const HUB_CATEGORIES: HubCategory[] = [
         icon: LineChart,
         status: 'live',
         href: '/phase1/market/transactions',
-        detail: 'Published rental transactions, filtered to the project and unit size in front of you, so a proposed rent can be defended with a figure rather than an opinion.',
+        detail: 'Rental contracts in the URA format, filtered to the project and unit size in front of you. Illustrative until the URA feed is connected, and labelled so on every screen.',
         points: [
           'Filter by project, size band, district and month',
           'Median and range for the period, not just the headline',
@@ -379,27 +346,11 @@ export const HUB_CATEGORIES: HubCategory[] = [
         detail: 'The conversation a tenant deciding between two condominiums actually has, answered on one screen instead of three browser tabs.',
         points: [
           'Compare rent per square foot, unit mix, age and tenure',
-          'Distance to MRT and schools for each',
-          'Shareable as a single page for the client',
+          'Walk to the nearest MRT station for each',
+          'Printable as a single page for the client',
         ],
         needs: 'Follows the transaction data ingest.',
         keywords: ['compare', 'project', 'condo', 'versus'],
-      },
-      {
-        id: 'floorplans',
-        name: 'Floor plan library',
-        blurb: 'Stack and unit plans to attach to a listing or send to a client.',
-        icon: LayoutPanelTop,
-        status: 'live',
-        href: '/phase1/floorplans',
-        detail: 'A searchable library of unit plans by project and unit type, attachable to a listing in one step so every listing has the plan a serious tenant asks for.',
-        points: [
-          'Search by project and unit type',
-          'Attach to a listing, or download to send',
-          'Watermarked with your details when shared',
-        ],
-        needs: 'Licensing of the plan source and storage of the files.',
-        keywords: ['floor plan', 'layout', 'stack', 'plan'],
       },
       {
         id: 'amenities',
@@ -531,14 +482,3 @@ export const HUB_CATEGORIES: HubCategory[] = [
   },
 ];
 
-export const ALL_TOOLS: HubTool[] = HUB_CATEGORIES.flatMap((c) => c.tools);
-
-export const LIVE_TOOL_COUNT = ALL_TOOLS.filter((t) => t.status === 'live').length;
-
-/** Case-insensitive match across name, blurb and the extra search terms. */
-export function matchesTool(tool: HubTool, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const hay = [tool.name, tool.blurb, tool.detail, ...(tool.keywords ?? [])].join(' ').toLowerCase();
-  return q.split(/\s+/).every((word) => hay.includes(word));
-}

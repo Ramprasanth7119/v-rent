@@ -66,3 +66,49 @@ describe('application shell', () => {
     expect(shell).not.toMatch(/\btext-white\/\d+/);
   });
 });
+
+/**
+ * The categorical chart ramp.
+ *
+ * Two properties are worth a test rather than a convention, because both are
+ * easy to undo by accident and neither is visible in a screenshot. The first
+ * is that every step clears 3:1 against the surface it is drawn on, in both
+ * themes — a donut segment nobody can match to its legend entry is not a
+ * chart. The second is that the ramp and the status colours stay disjoint: the
+ * moment a chart step *is* `--p1-success`, a distribution starts reading as a
+ * verdict, which is the bug the ramp was added to fix.
+ */
+describe('categorical chart ramp', () => {
+  const STEPS = ['--p1-chart-1', '--p1-chart-2', '--p1-chart-3', '--p1-chart-4', '--p1-chart-5'];
+
+  it('declares every step in both themes', () => {
+    for (const key of STEPS) {
+      expect(light[key], `light ${key}`).toMatch(/^#[0-9a-fA-F]{6}$/);
+      expect(dark[key], `dark ${key}`).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+  });
+
+  it('keeps every step legible against its own surface', () => {
+    for (const [name, t] of [['light', light], ['dark', dark]] as const) {
+      for (const key of STEPS) {
+        expect(contrast(t[key], t['--p1-surface']), `${name} ${key}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it('chooses each theme separately rather than lightening one ramp', () => {
+    // Not a single step may be shared, or the dark set is the light set reused.
+    const shared = STEPS.filter((k) => light[k].toLowerCase() === dark[k].toLowerCase());
+    expect(shared, 'steps identical in both themes').toEqual([]);
+  });
+
+  it('never reuses a status colour as a category', () => {
+    const status = ['--p1-success', '--p1-warning', '--p1-danger', '--p1-info'];
+    for (const [name, t] of [['light', light], ['dark', dark]] as const) {
+      const reserved = new Set(status.map((k) => t[k].toLowerCase()));
+      for (const key of STEPS) {
+        expect(reserved.has(t[key].toLowerCase()), `${name} ${key} is a status colour`).toBe(false);
+      }
+    }
+  });
+});

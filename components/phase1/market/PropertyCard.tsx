@@ -87,7 +87,7 @@ export function PropertyCard({
           <PropertyImage seed={l.reference + l.project} src={item.thumbs[0]} alt="" rounded="rounded-lg" className="aspect-[4/3] h-full w-full" />
         </Link>
         <div className="min-w-0 flex-1 py-0.5 pr-8">
-          <div className="text-[17px] font-semibold tracking-[-0.015em] tabular-nums text-p1-text">{p.amount}<span className="text-[13px] font-normal text-p1-text-3">{p.unit}</span></div>
+          <div className="font-p1display text-[17px] font-bold tracking-[-0.015em] tabular-nums text-p1-primary">{p.amount}<span className="text-[13px] font-medium text-p1-text-3">{p.unit}</span></div>
           <div className="mt-0.5 text-[13px] text-p1-text-2">{facts(l)}</div>
           <Link href={href} className="mt-1.5 block truncate text-[14px] font-medium text-p1-text after:absolute after:inset-0">{l.project}</Link>
           <div className="truncate text-[12.5px] text-p1-text-3">{place(l)}</div>
@@ -122,8 +122,11 @@ export function PropertyCard({
 
       <div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
         <div className="flex items-start justify-between gap-2">
-          <div className="text-[20px] font-semibold leading-7 tracking-[-0.02em] tabular-nums text-p1-text">
-            {p.amount}<span className="ml-0.5 text-[13.5px] font-normal text-p1-text-3">{p.unit}</span>
+          {/* The product's blue, as on the agent's own cards. A tenant and an
+              agent looking at the same flat should see the same price in the
+              same colour. */}
+          <div className="font-p1display text-[20px] font-bold leading-7 tracking-[-0.02em] tabular-nums text-p1-primary">
+            {p.amount}<span className="ml-0.5 text-[13.5px] font-medium text-p1-text-3">{p.unit}</span>
           </div>
           {item.agent.verified && (
             <Tooltip content="Listed by a CEA-verified agent">

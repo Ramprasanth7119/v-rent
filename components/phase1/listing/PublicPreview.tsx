@@ -60,7 +60,7 @@ export function PublicPreview({
             <p className="mt-1 flex items-center gap-1.5 text-[13.5px] text-p1-text-2"><MapPin size={14} className="shrink-0 text-p1-text-3" aria-hidden />{l.address}, Singapore {l.postalCode} · D{String(l.district).padStart(2, '0')} {districtName(l.district)}</p>
           </div>
           <div className="text-right">
-            <div className={cx('font-p1display font-bold tracking-[-0.02em] tabular-nums text-p1-text', compact ? 'text-[21px]' : 'text-[30px]')}>{priceLabel(l).amount}<span className="text-[13.5px] font-medium text-p1-text-3">{priceLabel(l).suffix && ` ${priceLabel(l).suffix}`}</span></div>
+            <div className={cx('font-p1display font-bold tracking-[-0.02em] tabular-nums text-p1-primary', compact ? 'text-[21px]' : 'text-[30px]')}>{priceLabel(l).amount}<span className="text-[13.5px] font-medium text-p1-text-3">{priceLabel(l).suffix && ` ${priceLabel(l).suffix}`}</span></div>
             <div className="text-[12.5px] text-p1-text-3">{psf(l)}{deal === 'rent' && ` · min ${l.minLeaseMonths} months`}</div>
           </div>
         </div>

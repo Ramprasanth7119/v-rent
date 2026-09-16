@@ -3,53 +3,163 @@
 ## Purpose
 
 A printable A4 report an agent sends a client about one property or a
-shortlist. Each page answers one client question, from "what am I looking at?"
-to "is the asking rent reasonable?", and shows the data behind the answer.
-A page appears only when there is data to answer its question. Anything that
-could not be checked is marked, never shown as zero.
+shortlist. The client should be able to answer, within a few minutes:
+what is this property, how is it priced, how has it performed, how does it
+compare, what does the evidence suggest about its future, and what to pay
+attention to. Anything that could not be checked is marked, never shown as zero.
 
 Open it from **Client shortlists** or **Listings**, then choose **Save as PDF**.
 
 ## Report Editions
 
-- **Client Report** (default). For a single property: about 12 pages for a
-  rental with full data, 8 for a rental without photographs, history or
-  competing listings, and about 5 for a sale. For a shortlist, each property gets
-  at a glance, price position, location and the decision summary, after a
-  shortlist overview.
-- **Detailed Report**. Every page for every property, plus contents,
-  neighbourhood detail (schools, healthcare, daily needs, places to visit),
-  more comparable contracts, the contracts annex and the calculation method.
-  About 15 pages for a rental with full data.
+- **Client Report** (default). The shortlist a client reads: one template that
+  scales with the number of properties, with an **AI Analysis** for each
+  property. Described below.
+- **Detailed Report**. The agent's full edition: every page for every property,
+  plus contents, neighbourhood detail (schools, healthcare, daily needs, places
+  to visit), more comparable contracts, the contracts annex and the calculation
+  method. About 15 pages for a rental with full data. Described under
+  "Detailed Report, Page by Page".
 
 Switch between them with the toggle at the top of the report.
 
 ## Demo Data
 
-The **Demo Data** switch in the report toolbar chooses where every figure comes from:
+The one **Demo Data** switch in the application header chooses where every
+figure comes from. The report has no switch of its own; the toolbar shows a
+Demo data chip while it is on, and `demo=on` in the address opens it that way.
 
-- **ON** (default) uses the property's original data: the listing as saved, its
-  uploaded photographs, the held contract dataset and the live neighbourhood and
-  competing-listing lookups. A lookup that fails still reads "Data unavailable"
-  or "Unable to verify"; nothing is filled in.
-- **OFF** uses illustrative demo data generated around the property, so every
-  page can be shown populated: a year of contracts, history, trend, comparables,
-  competing listings, schools, transport and daily needs. Names of developments,
-  schools and places are fictional. No photographs are used (the cover is
-  typographic), because no approved sample images are held.
+- **ON** uses the demo account and illustrative data generated around each
+  property: a year of contracts, history, comparables, competing listings,
+  schools, transport and daily needs. Names of developments, schools and places
+  are fictional. Demo listings show the demo account's own sample photographs.
+- **OFF** uses the signed-in agent's own records: the listing as saved (MongoDB
+  on a deployment), its uploaded photographs, the held contract dataset and the
+  live neighbourhood and competing-listing lookups. Until the URA contract feed
+  is connected no contracts are held, so the report says **Verified contract
+  records not connected** instead of showing a comparison. A lookup that fails
+  reads "Data unavailable" or "Unable to verify"; nothing is filled in, and demo
+  figures are never used in its place.
 
 While demo data is shown, every sheet carries a **Demo data** mark in the header
-and "Illustrative data for demonstration purposes" in the footer, the toolbar
-shows a Demo data chip, evidence badges read **Demo data**, and the sources page
-says so. The saved PDF title ends in "Demo data".
+and "Illustrative data for demonstration purposes" in the footer, and the
+sources note says so. The saved PDF title ends in "Demo data".
 
 Demo data is generated in the browser (`lib/phase1/report-data/demo.ts`). It is
-never requested from or returned by an API, never saved to the store and never
-written to a listing, and it passes the same consistency checks as the original
-data before a page is printed. The switch is kept in the address (`demo=off`),
-so a copied link opens in the same mode.
+never requested from or returned by an API, never saved and never written to a
+listing, and it passes the same consistency checks as the original data.
 
-## Page by Page
+## Client Report
+
+`app/phase1/listings/export/client-edition.tsx`. The number of properties
+decides the structure; the template is the same.
+
+| Selection | Pages (typical) | Structure |
+|-----------|-----------------|-----------|
+| 1 property | 3–4 | Property overview · Photographs and location · Price and market position · AI Analysis with the sources note |
+| 2–3 properties | 4–5 | Shortlist overview with insights · Side-by-side comparison · one page per property (the last also carries the sources note) |
+| 4+ properties | 5 for five, 10 for ten | Summary table (with insights for up to six) · landscape comparison · compact snapshots, two to a page · sources note |
+
+### One property
+1. **Property overview**: who it is prepared for, the name, address and
+   district, the photograph (or a plain "No photograph supplied" frame), the
+   key figures (asking rent or price, per sq ft, layout, floor area,
+   availability), the property and listing details, what is nearby, and **Why
+   this property matters** (a factual positioning line and up to three measured
+   facts, then the agent's description and note).
+2. **Photographs and location**: every further photograph the agent supplied,
+   then the OneMap map of the address beside what is nearby — MRT/LRT
+   stations, schools, healthcare and daily needs, nearest first, with
+   distances. Bus stops are not included: no bus-stop dataset is connected.
+3. **Price and market position**, only when there is evidence: asking against
+   the comparable median, the position on the observed range, a benchmark
+   chart, the 12-month price history chart of the development (or district),
+   and the six most relevant contracts. With current listings only, a short
+   listings comparison instead, and the analysis continues on the same page.
+   With neither, this page is left out.
+4. **AI Analysis**, then the sources note.
+
+### Two or three properties
+1. **Shortlist overview**: property cards (photograph, name, price, size,
+   layout), an at-a-glance table (property, type, location, size, asking,
+   PSF, status), the agent's note and the **Shortlist insights**.
+2. **Comparison**: the properties side by side (asking, per sq ft, floor area,
+   layout, type, location, tenure and completion, nearest MRT, comparable
+   median, market position, 12-month movement, price history, evidence,
+   availability) and **Where each asking rate sits**.
+3. **One page per property**: photograph with the further photographs as a
+   strip, facts, the map with the nearest stations, schools, healthcare and
+   daily needs, then a short AI Analysis
+   (past five years, current position, forward outlook, up to four
+   considerations).
+
+### Four or more properties
+1. **Summary**: a table with a small photograph per property. Long lists
+   continue on further pages with the header repeated. Up to six properties,
+   the shortlist insights follow on the same page.
+2. **Comparison** on a landscape sheet: every property as a row (type, layout,
+   size, asking, PSF, median PSF, position, 12-month movement, nearest MRT,
+   evidence), split every 10–13 rows with the header repeated; then **Where
+   each asking rate sits** and, for more than six properties, the insights.
+3. **Snapshots**, two to a page: photograph (further photographs as a strip),
+   map, facts including the nearest station and other nearby places, and a one-line AI Analysis
+   per question with up to four considerations.
+
+### AI Analysis
+Produced by `lib/phase1/property-insight.ts` from the figures already in the
+document, using fixed rules, so the same data always gives the same words and
+the analysis can be tested. It uses nothing outside the document. The report
+describes it as indicative analysis, not a valuation, advice or a forecast.
+
+1. **Past 5 years**. Contract records cover 12 months, so the section states
+   the window it used ("Five-year records are not held; the verified window is
+   the 12 months from … to …") and describes the development's (or district's)
+   median rent per sq ft across the first and second half of it. An earlier
+   V-RENT listing of the unit is mentioned as an asking figure. Without records
+   it says **Insufficient verified history** and why.
+2. **Current position**. Within, above or below the observed comparable range,
+   the difference from the comparable median per sq ft, the range, and the
+   comparison with listings currently advertised.
+3. **Forward outlook**. A direction (firm, broadly stable or softer) read from
+   the 12-month movement of comparable rents and the contract activity, with
+   the factors that could affect future rents (station distance, competing
+   listings, development age or tenure). Labelled **Indicative AI Outlook — not
+   a valuation or guaranteed forecast.** It never states a future price, rent,
+   yield or return. Without a readable trend, or for a sale, it reads
+   **Insufficient verified historical/market data for a reliable forward
+   estimate.**
+4. **Key considerations**. Three to five property-specific points, one per
+   topic (pricing position, recent movement, connectivity, competition, size,
+   schools, tenure, data limits), marked positive, attention or neutral.
+
+Each analysis carries an **Evidence** level: *Moderate* (a local sample of 20
+or more contracts), *Limited* (a small or non-local sample) or *Insufficient
+data* (no comparison), and its limitations.
+
+**Shortlist insights** state factual differences: the price and per-sq-ft
+spread, which properties sit within, above or below their ranges, which have no
+comparable evidence and why, where comparable rents moved most, which have a
+price history, station distance and size. They never pick a winner or rank the
+properties.
+
+### Page breaks
+Every sheet is a fixed A4 page, and content that does not fit would be cut
+off. The client edition is therefore laid out as blocks (a heading with its
+text, a table with its header, a photograph with its facts). Each block is
+measured at the printed width and packed onto pages
+(`lib/phase1/paginate.ts`): a block is never split, a heading stays with what
+follows it, long tables are split into runs that repeat their header, and a
+landscape sheet is used only for the wide comparison. From tablet width the
+sheet on screen is the printed page, and the toolbar warns **Page N too long**
+if anything still overflows.
+
+### Performance
+Each property's figures and analysis are worked out once per render. The client
+edition asks only for the neighbourhood data it prints (stations, schools,
+healthcare, daily needs), and two units at one address share each lookup, so a ten-unit
+shortlist does not repeat requests.
+
+## Detailed Report, Page by Page
 
 | # | Page | Client question | Shown when |
 |---|------|-----------------|------------|
@@ -112,7 +222,7 @@ so a copied link opens in the same mode.
 - If needed: *Local sample insufficient · Nearby districts comparable sample used*
 - **Chart:** floor area against monthly rent, one dot per contract, this property marked
 - Table: month, development, match (same development / street / district,
-  nearby, other), bedrooms, size, rent, PSF. Client report shows 12, detailed 20.
+  nearby, other), bedrooms, size, rent, PSF. The first 20 are shown; the rest are in the annex.
 
 ### 6. Market Trend
 - Twelve-month median, change over period, latest month, indicative figure
@@ -172,6 +282,24 @@ so a copied link opens in the same mode.
 - Platform data: V-RENT development reference, listings live on V-RENT
 
 ## Graphs
+
+### Client report
+Charts appear only when the data behind them exists; otherwise the report says
+what is missing instead of drawing an empty chart.
+
+| Graph | Where | Answers |
+|-------|-------|---------|
+| Benchmark bar (range, quartiles, median, asking) | One property, price and market position | Where does the asking rate sit? |
+| 12-month price history (development or district median per sq ft) | One property, price and market position | Has this building's rent moved? |
+| Where each asking rate sits (one strip per property on its own range) | Two or more properties, comparison | How do the properties sit against their own markets? |
+
+Removed from the client report, and kept in the detailed report: the floor
+area scatter (repeats the contracts table), the trend chart with a projected
+three months (a numerical projection), the monthly contract volume bars, the
+asking-rate bars across properties (compares different markets directly) and
+the neighbourhood distance bars.
+
+### Detailed report
 
 | Graph | Page | Answers |
 |-------|------|---------|

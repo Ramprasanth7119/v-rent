@@ -269,10 +269,10 @@ export default function ApiActivity({ rows, now }: { rows: RequestRow[]; now: st
 
       {/* ---------------------------------------------------------------- KPIs */}
       <section aria-label="API at a glance" className="vr-stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KPI label="Calls" value={stats.total} compact icon={<Activity size={16} />} sub={windowLabel} spark={trend.all.some(Boolean) ? { data: trend.all } : undefined} className="max-sm:[&>div:last-child>svg]:hidden" />
-        <KPI label="Error rate" value={stats.errorRate} decimals={1} suffix="%" icon={<TriangleAlert size={16} />} tone={stats.failed ? 'danger' : 'default'} sub={stats.failed ? `${stats.failed} failed on our side` : 'Nothing broke'} spark={stats.failed ? { data: trend.bad, tone: 'danger' } : undefined} className="max-sm:[&>div:last-child>svg]:hidden" />
-        <KPI label="Median latency" value={stats.p50} suffix=" ms" icon={<Zap size={16} />} sub={`p95 ${stats.p95.toLocaleString('en-SG')} ms`} />
-        <KPI label="Slow calls" value={stats.slow} icon={<Timer size={16} />} tone={stats.slow ? 'warning' : 'default'} sub={`Over ${SLOW_MS} ms · ${stats.external} external`} />
+        <KPI label="Calls" value={stats.total} compact icon={<Activity size={16} />} iconTone="primary" sub={windowLabel} spark={trend.all.some(Boolean) ? { data: trend.all } : undefined} className="max-sm:[&>div:last-child>svg]:hidden" />
+        <KPI label="Error rate" value={stats.errorRate} decimals={1} suffix="%" icon={<TriangleAlert size={16} />} iconTone="danger" tone={stats.failed ? 'danger' : 'default'} sub={stats.failed ? `${stats.failed} failed on our side` : 'Nothing broke'} spark={stats.failed ? { data: trend.bad, tone: 'danger' } : undefined} className="max-sm:[&>div:last-child>svg]:hidden" />
+        <KPI label="Median latency" value={stats.p50} suffix=" ms" icon={<Zap size={16} />} iconTone="info" sub={`p95 ${stats.p95.toLocaleString('en-SG')} ms`} />
+        <KPI label="Slow calls" value={stats.slow} icon={<Timer size={16} />} iconTone="accent" tone={stats.slow ? 'warning' : 'default'} sub={`Over ${SLOW_MS} ms · ${stats.external} external`} />
       </section>
 
       {/* -------------------------------------------------------------- charts */}

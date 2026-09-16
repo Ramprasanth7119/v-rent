@@ -16,6 +16,10 @@ import type { Project, Transaction } from '../market';
 import type { MarketResult } from '../market-position';
 import type { DealType } from '../pricing';
 import type { CompetingResult, HistoryResult, UnitListing } from '../report-insights';
+import type { Enquiry } from '../workspace';
+import type { EnquirySet } from './demo-enquiries';
+
+export type { EnquirySet } from './demo-enquiries';
 
 export type ReportDataMode = 'original' | 'demo';
 
@@ -68,6 +72,13 @@ export interface ReportDataProvider {
   history(l: DemoListing): HistoryResult;
   earlier(l: DemoListing, all: DemoListing[]): UnitListing[];
   photos(ownerId: string | undefined, l: DemoListing): string[];
+
+  /**
+   * The enquiry inbox. Original: the agent's own records, as stored. Demo:
+   * sample enquiries about the agent's own live listings. The one source for
+   * the inbox, the dashboard and the sidebar count, so they always agree.
+   */
+  enquiries(own: { listings: DemoListing[]; enquiries: Enquiry[] }, now: Date): EnquirySet;
 
   places(l: DemoListing, kind: PlaceKind, signal?: AbortSignal): Promise<PlacesLookup>;
   around(l: DemoListing, signal?: AbortSignal): Promise<Around | null>;

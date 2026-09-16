@@ -48,9 +48,9 @@ export default function LearnPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Finished" value={`${done.length} of ${GUIDES.length}`} hint={pct ? `${pct}% through` : 'Start anywhere'} icon={<Check size={15} />} tone={pct === 100 ? 'success' : 'default'} />
-        <Metric label="Left to read" value={minutes ? `${minutes} min` : 'Nothing'} hint="Across the guides you have not marked done" icon={<Clock size={15} />} />
-        <Metric label="Guides" value={GUIDES.length} hint="Registration through to visibility" icon={<BookOpen size={15} />} />
+        <Metric label="Finished" value={`${done.length} of ${GUIDES.length}`} hint={pct ? `${pct}% through` : 'Start anywhere'} icon={<Check size={15} />} iconTone="success" tone={pct === 100 ? 'success' : 'default'} />
+        <Metric label="Left to read" value={minutes ? `${minutes} min` : 'Nothing'} hint="Across the guides you have not marked done" icon={<Clock size={15} />} iconTone="accent" />
+        <Metric label="Guides" value={GUIDES.length} hint="Registration through to visibility" icon={<BookOpen size={15} />} iconTone="neutral" />
       </MetricStrip>
 
       {done.length > 0 && done.length < GUIDES.length && (

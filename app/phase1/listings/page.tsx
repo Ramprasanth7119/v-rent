@@ -17,7 +17,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  Button, Callout, Card, Column, DataTable, EmptyState, LinkButton, Menu, Pagination, SearchInput, Segmented, SkeletonPage, SortButton, Tabs, cx, usePagination,
+  Button, Callout, Card, Column, DataTable, EmptyState, FilterChips, LinkButton, Menu, Pagination, SearchInput, Segmented, SkeletonPage, SortButton, cx, usePagination,
 } from '../../../components/phase1/kit';
 import { StatusBadge } from '../../../components/phase1/status';
 import { useListingActions, ListingActionDialogs } from '../../../components/phase1/listing/actions';
@@ -26,8 +26,9 @@ import { PropertyImage } from '../../../components/phase1/PropertyImage';
 import { coverPhoto } from '../../../lib/phase1/photos';
 import { useSession } from '../../../lib/phase1/SessionContext';
 import { useDemo, TODAY } from '../../../lib/phase1/DemoContext';
+import { useEnquiries } from '../../../lib/phase1/useEnquiries';
 import { DemoListing, ListingStatus } from '../../../lib/phase1/data';
-import { listingStats } from '../../../lib/phase1/performance';
+import { isMeasured, listingStats } from '../../../lib/phase1/performance';
 import { districtCode } from '../../../lib/phase1/districts';
 import { comparablePrice, priceLabel } from '../../../lib/phase1/pricing';
 import { EMPTY_FILTERS, ListingFilters, activeChips, activeCount, matches as matchesFilters } from '../../../components/phase1/listing/filters';
@@ -61,6 +62,7 @@ export default function ListingsPage() {
 function ListingsBody() {
   const params = useSearchParams();
   const { state } = useDemo();
+  const inbox = useEnquiries();
   const { user } = useSession();
   const a = useListingActions();
 
@@ -68,7 +70,11 @@ function ListingsBody() {
   const [filter, setFilter] = useState<FilterKey>(
     statusParam && TABS.some((f) => f.key === statusParam) ? (statusParam as FilterKey) : 'all',
   );
-  const [view, setView] = useState<View>('table');
+  /* Cards first. A table of a property portfolio is a table of addresses; the
+     photograph is the thing an agent recognises their own listing by, and
+     every reference board that shows listings shows them as cards. The table
+     stays one click away and the choice is remembered. */
+  const [view, setView] = useState<View>('grid');
   const [q, setQ] = useState(params.get('q') ?? '');
   const [sort, setSort] = useState<Sort>('updated');
   const [filters, setFilters] = useState<ListingFilters>(() => ({
@@ -96,15 +102,15 @@ function ListingsBody() {
   const stations = useMemo(() => Array.from(new Set(state.listings.filter((l) => !l.archived && l.nearestMrt).map((l) => l.nearestMrt as string))).sort(), [state.listings]);
   const types = useMemo(() => Array.from(new Set(state.listings.filter((l) => !l.archived).map((l) => l.propertyType))).sort(), [state.listings]);
 
-  /** Enquiries actually received, per listing. */
+  /** Enquiries per listing, from the same inbox the enquiries screen shows. */
   const leads = useMemo(() => {
     const m = new Map<string, { total: number; fresh: number }>();
-    for (const e of state.enquiries) {
+    for (const e of inbox.enquiries) {
       const cur = m.get(e.listingId) ?? { total: 0, fresh: 0 };
       m.set(e.listingId, { total: cur.total + 1, fresh: cur.fresh + (e.status === 'new' ? 1 : 0) });
     }
     return m;
-  }, [state.enquiries]);
+  }, [inbox.enquiries]);
 
   const counts = (k: FilterKey) => (k === 'all' ? all.length : all.filter((l) => l.status === k).length);
 
@@ -135,7 +141,8 @@ function ListingsBody() {
   const exportHref = `/phase1/listings/export?ids=${rows.slice(0, 20).map((l) => l.id).join(',')}`;
   const clearAll = () => { setQ(''); setFilter('all'); setFilters(EMPTY_FILTERS); pg.setPage(1); };
 
-  const traffic = (l: DemoListing) => l.status === 'published' || l.status === 'paused' || l.status === 'expired';
+  /* Views exist only where something counted them — the demo account, until the tenant site is live. */
+  const traffic = (l: DemoListing) => isMeasured(l) && (l.status === 'published' || l.status === 'paused' || l.status === 'expired');
 
   const columns: Column<DemoListing>[] = [
     {
@@ -229,11 +236,18 @@ function ListingsBody() {
         <>
           {/* ------------------------------------------------------ toolbar */}
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <Tabs<FilterKey>
+            {/* Chips, not tabs. A tab switches to a different view; this
+                narrows one set that stays on screen, and it announced itself
+                as a tablist with no tabpanel to control. The count inside each
+                chip is the point of the control — it says whether the filter
+                is worth pressing before you press it. */}
+            <FilterChips<FilterKey>
               label="Filter by status"
               value={filter}
               onChange={(k) => { setFilter(k); pg.setPage(1); }}
-              items={TABS.map((f) => ({ key: f.key, label: f.label, count: counts(f.key) })).filter((f) => f.key === 'all' || f.key === filter || f.count > 0)}
+              options={TABS.map((f) => ({ key: f.key, label: f.label, count: counts(f.key) })).filter((f) => f.key === 'all' || f.key === filter || f.count > 0)}
+              size="sm"
+              scroll
               className="min-w-0 md:flex-1"
             />
             <div className="flex items-center gap-2 md:pb-1.5">
@@ -310,7 +324,13 @@ function ListingsBody() {
                           <Link href={`/phase1/listings/${l.id}`} className="min-w-0 truncate text-[14px] font-medium text-p1-text">{l.project}</Link>
                           <div className="-mr-1 -mt-1"><Menu items={a.menuFor(l, { includeView: true })} label={`Actions for ${l.project}`} /></div>
                         </div>
-                        <div className="-mt-1 text-[12.5px] text-p1-text-3">{p.amount}{p.suffix} · {l.bedrooms} bed · {districtCode(l.district)}</div>
+                        {/* The price carries the accent here too. A card grid
+                            where the figure is blue and a phone list where it
+                            is grey are two designs, and the phone is where an
+                            agent scans fastest. */}
+                        <div className="-mt-1 text-[12.5px] text-p1-text-3">
+                          <span className="font-semibold text-p1-primary">{p.amount}</span>{p.suffix} · {l.bedrooms} bed · {districtCode(l.district)}
+                        </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-p1-text-3">
                           <StatusBadge kind="listing" value={l.status} size="sm" />
                           {traffic(l) && <span className="tabular-nums">{listingStats(l).views7d} views</span>}

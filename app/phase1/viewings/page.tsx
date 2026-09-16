@@ -134,9 +134,9 @@ export default function ViewingsPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Slots published" value={upcoming.length} hint="From today onwards" icon={<CalendarClock size={15} />} />
-        <Metric label="Booked" value={booked.length} hint={booked.length ? 'Ring them to confirm' : 'Nothing taken yet'} icon={<UserCheck size={15} />} tone={booked.length ? 'success' : 'default'} />
-        <Metric label="Still open" value={upcoming.length - booked.length} hint="Available to tenants" icon={<CalendarDays size={15} />} />
+        <Metric label="Slots published" value={upcoming.length} hint="From today onwards" icon={<CalendarClock size={15} />} iconTone="accent" />
+        <Metric label="Booked" value={booked.length} hint={booked.length ? 'Ring them to confirm' : 'Nothing taken yet'} icon={<UserCheck size={15} />} iconTone="success" tone={booked.length ? 'success' : 'default'} />
+        <Metric label="Still open" value={upcoming.length - booked.length} hint="Available to tenants" icon={<CalendarDays size={15} />} iconTone="accent" />
       </MetricStrip>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">

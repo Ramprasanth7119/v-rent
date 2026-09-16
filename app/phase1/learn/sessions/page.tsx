@@ -48,9 +48,9 @@ export default function SessionsPage() {
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Sessions" value={SESSIONS.length} hint={`${totalMinutes} minutes in total`} icon={<Video size={15} />} />
-        <Metric label="Watched" value={`${watched.length} of ${SESSIONS.length}`} hint={watched.length ? 'Marked by you' : 'None yet'} icon={<Check size={15} />} tone={watched.length === SESSIONS.length ? 'success' : 'default'} />
-        <Metric label="Chapters" value={SESSIONS.reduce((n, s) => n + s.chapters.length, 0)} hint="Every one is a jump point" icon={<ListTree size={15} />} />
+        <Metric label="Sessions" value={SESSIONS.length} hint={`${totalMinutes} minutes in total`} icon={<Video size={15} />} iconTone="neutral" />
+        <Metric label="Watched" value={`${watched.length} of ${SESSIONS.length}`} hint={watched.length ? 'Marked by you' : 'None yet'} icon={<Check size={15} />} iconTone="success" tone={watched.length === SESSIONS.length ? 'success' : 'default'} />
+        <Metric label="Chapters" value={SESSIONS.reduce((n, s) => n + s.chapters.length, 0)} hint="Every one is a jump point" icon={<ListTree size={15} />} iconTone="neutral" />
       </MetricStrip>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">

@@ -78,9 +78,16 @@ export interface FrameProps {
  * The browser's print margins are zero (see globals.css), which is also what
  * keeps the browser from stamping the page address and title on the paper.
  */
-export function Sheet({ n, total, section, brandLine, preparedOn, agentLine, notice, children, flush = false }: FrameProps & { children: React.ReactNode; flush?: boolean }) {
+export function Sheet({ n, total, section, brandLine, preparedOn, agentLine, notice, children, flush = false, landscape = false, overflow = false }: FrameProps & {
+  children: React.ReactNode; flush?: boolean;
+  /** A4 landscape, for a table too wide for portrait. Printed on its own named page. */
+  landscape?: boolean;
+  /** Marks a sheet whose content is taller than the page, so it can be found before printing. */
+  overflow?: boolean;
+}) {
   return (
-    <section className="vr-page vr-break flex flex-col bg-white px-8 py-7 sm:px-12" style={{ color: C.ink, fontFamily: SANS }}>
+    <section className={cx('vr-page vr-break flex flex-col bg-white px-8 py-7 sm:px-12', landscape && 'vr-landscape')} data-overflow={overflow || undefined}
+      style={{ color: C.ink, fontFamily: SANS }}>
       <header className="flex shrink-0 items-center justify-between gap-6 pb-2.5 text-[9px]" style={{ borderBottom: `1px solid ${C.rule}` }}>
         <span className="flex min-w-0 items-center gap-2.5">
           <Wordmark size={10.5} />
@@ -90,7 +97,7 @@ export function Sheet({ n, total, section, brandLine, preparedOn, agentLine, not
         <span className="min-w-0 truncate text-right font-semibold" style={{ color: C.brand }}>{section}</span>
       </header>
 
-      <div className={cx('min-h-0 flex-1', flush ? 'pt-5' : 'pt-7')}>{children}</div>
+      <div data-sheet-body className={cx('@container min-h-0 flex-1', flush ? 'pt-5' : 'pt-7')}>{children}</div>
 
       <PageFooter n={n} total={total} preparedOn={preparedOn} agentLine={agentLine} brandLine={brandLine} notice={notice} />
     </section>
@@ -272,8 +279,10 @@ export function Notice({ title, children, tone = 'neutral' }: { title: React.Rea
 
 export type Col = { head: string; align?: 'right'; width?: string };
 
-export function Table({ cols, rows, size = 9.5, highlight, dense = false }: {
+export function Table({ cols, rows, size = 9.5, highlight, dense = false, wrap = false }: {
   cols: Col[]; rows: React.ReactNode[][]; size?: number; highlight?: (i: number) => boolean; dense?: boolean;
+  /** Let cells wrap instead of truncating, for names that must be read in full. Rows align to the top. */
+  wrap?: boolean;
 }) {
   return (
     <div className="vr-wide">
@@ -291,7 +300,7 @@ export function Table({ cols, rows, size = 9.5, highlight, dense = false }: {
           {rows.map((r, i) => (
             <tr key={i} style={{ borderBottom: `1px solid ${C.hair}`, background: highlight?.(i) ? C.brandSoft : undefined }}>
               {r.map((cell, j) => (
-                <td key={j} className={cx('truncate pr-3 align-middle first:pl-2 last:pr-2', dense ? 'py-[4px]' : 'py-[6px]', cols[j]?.align === 'right' && 'text-right tabular-nums')} style={{ color: C.ink }}>
+                <td key={j} className={cx('pr-3 first:pl-2 last:pr-2', wrap ? 'break-words align-top leading-[1.4]' : 'truncate align-middle', dense ? 'py-[4px]' : 'py-[6px]', cols[j]?.align === 'right' && 'text-right tabular-nums')} style={{ color: C.ink }}>
                   {cell}
                 </td>
               ))}

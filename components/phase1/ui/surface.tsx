@@ -8,6 +8,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ChevronRight, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { cx } from './primitives';
+import { IconTile, type TileTone } from './display';
 import { Tone, TONE_CLASS } from '../status';
 
 /* -------------------------------------------------------------------- card */
@@ -154,23 +155,44 @@ export function MetricStrip({ children, className = '', cols }: { children: Reac
 }
 
 export function Metric({
-  label, value, hint, tone = 'default', href, delta, icon, className = '', emphasis = false,
+  label, value, hint, tone = 'default', href, delta, icon, iconTone, className = '', emphasis = false,
 }: {
   label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: Tone | 'default'; href?: string;
-  delta?: { value: string; good?: boolean; label?: string }; icon?: React.ReactNode; className?: string; emphasis?: boolean;
+  delta?: { value: string; good?: boolean; label?: string }; icon?: React.ReactNode;
+  /**
+   * Set `icon` in a soft tile to the left of the figure instead of a grey
+   * glyph in the corner. The reference boards put the tile beside the number
+   * on every KPI row they have; the cornered glyph stays the default for the
+   * strips that are too narrow to give it the room.
+   */
+  iconTone?: TileTone;
+  className?: string; emphasis?: boolean;
 }) {
-  const body = (
+  const figure = (
+    <div className="flex items-baseline gap-2">
+      <span className={cx('font-p1display font-bold leading-none tracking-[-0.02em] tabular-nums', emphasis ? 'text-[28px]' : 'text-[24px]', VALUE_TONE[tone])}>{value}</span>
+      {delta && (
+        <span className={cx('text-[12px] font-semibold tabular-nums', delta.good === false ? 'text-p1-danger' : delta.good ? 'text-p1-success' : 'text-p1-text-3')} title={delta.label}>{delta.value}</span>
+      )}
+    </div>
+  );
+
+  const body = iconTone ? (
+    <div className="flex items-start gap-3">
+      <IconTile tone={iconTone} size="md" className="mt-0.5">{icon}</IconTile>
+      <div className="min-w-0 flex-1">
+        {figure}
+        <div className="mt-1.5 truncate text-[12.5px] font-medium text-p1-text-3">{label}</div>
+        {hint && <div className="mt-1 truncate text-[12px] text-p1-text-3">{hint}</div>}
+      </div>
+    </div>
+  ) : (
     <>
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[12.5px] font-medium text-p1-text-3">{label}</span>
         {icon && <span className="shrink-0 text-p1-text-3" aria-hidden>{icon}</span>}
       </div>
-      <div className="mt-1.5 flex items-baseline gap-2">
-        <span className={cx('text-[24px] font-semibold leading-none tracking-[-0.02em] tabular-nums', emphasis ? 'text-[28px]' : '', VALUE_TONE[tone])}>{value}</span>
-        {delta && (
-          <span className={cx('text-[12px] font-semibold tabular-nums', delta.good === false ? 'text-p1-danger' : delta.good ? 'text-p1-success' : 'text-p1-text-3')} title={delta.label}>{delta.value}</span>
-        )}
-      </div>
+      <div className="mt-1.5">{figure}</div>
       {hint && <div className="mt-1.5 truncate text-[12.5px] text-p1-text-3">{hint}</div>}
     </>
   );

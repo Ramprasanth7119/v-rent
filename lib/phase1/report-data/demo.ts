@@ -1,7 +1,7 @@
 /**
  * Demo data for the property report.
  *
- * With the Demo Data switch off, every figure the report draws on — contracts,
+ * With the Demo Data switch on, every figure the report draws on — contracts,
  * history, trend, comparables, competing listings, nearby places — comes from
  * here instead, generated around the selected property so that every page of
  * the report can be shown populated. The figures exist for that and nothing
@@ -18,8 +18,8 @@
  * Seeded by the listing, so one property shows the same demo report on every
  * machine and in every screenshot. Developments, schools and places are given
  * fictional names; a station is named from the development reference or the
- * listing when either records one. No photographs: the repository holds no
- * approved sample images, so the report uses its typographic cover.
+ * listing when either records one. Photographs are the demo account's own
+ * (`photos.ts`), shown only for a demo listing.
  */
 
 import type { DemoListing } from '../data';
@@ -31,6 +31,8 @@ import { dealOf } from '../pricing';
 import {
   areaName, competingSet, developmentOf, marketHistory, type ActiveListing, type CompetingResult, type UnitListing,
 } from '../report-insights';
+import { demoEnquirySet } from './demo-enquiries';
+import { listingPhotos } from '../photos';
 import type { Around, ReportDataProvider } from './types';
 
 export const DEMO_NOTICE = 'Illustrative data for demonstration purposes';
@@ -355,7 +357,8 @@ export const demoDataProvider: ReportDataProvider = {
   position: (l) => marketPosition(l, demoContracts(l)),
   history: (l) => marketHistory(l, demoContracts(l), demoDevelopment(l)),
   earlier: (l) => demoEarlier(l),
-  photos: () => [],
+  photos: (_owner, l) => listingPhotos(undefined, l),
+  enquiries: (own, now) => demoEnquirySet(own.listings, now, DEMO_ID_PREFIX),
 
   places: async (l, kind) => demoPlaces(l, kind),
   around: async (l) => demoAround(l),

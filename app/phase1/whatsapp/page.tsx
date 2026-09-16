@@ -11,20 +11,38 @@
  *
  * The templates carry the listing facts and the agent's CEA registration,
  * because an advertisement sent by an agent has to identify them either way.
+ *
+ * The records come from the workspace the Demo Data switch selects (`useDemo`).
+ * With the switch OFF they are the agent's own and the handover is real: a
+ * wa.me link to the tenant's number, and the enquiry marked replied through the
+ * workspace, which saves it. With the switch ON they are the demo account's,
+ * whose numbers are masked, and the handover is a preview: no link is built,
+ * WhatsApp is not opened, and the status change stays in this tab — the
+ * provider keeps demo edits in memory and the workspace route refuses demo
+ * records besides.
  */
 
 import { useMemo, useState } from 'react';
-import { Phone, MessageSquare, Copy, Check, Send, Info, ExternalLink } from 'lucide-react';
+import {
+  Phone, MessageSquare, Copy, Check, Send, Info, ExternalLink, Eye, CheckCheck, ShieldCheck,
+} from 'lucide-react';
 import {
   Button, Card, SectionCard, PageHeader, Callout, MetricStrip, Metric,
   EmptyState, TextArea, LinkButton, FilterChips, cx,
 } from '../../../components/phase1/kit';
-import { Pill } from '../../../components/phase1/status';
+import { DemoBadge } from '../../../components/phase1/DemoDataSwitch';
+import { PropertyImage } from '../../../components/phase1/PropertyImage';
+import { Channel, NextAction, StagePill } from '../../../components/phase1/enquiries/parts';
+import { useToast } from '../../../components/phase1/Toast';
 import { useDemo } from '../../../lib/phase1/DemoContext';
+import { useSession } from '../../../lib/phase1/SessionContext';
 import { sgd } from '../../../lib/phase1/data';
-import { districtName, ENQUIRY_STATUS } from '../../../lib/phase1/performance';
+import { districtName } from '../../../lib/phase1/performance';
 import type { Enquiry } from '../../../lib/phase1/workspace';
-import { sgDateLong } from '../../../lib/phase1/format';
+import { sgDateLong, sgRelative } from '../../../lib/phase1/format';
+import { enquiryTime, isMaskedPhone, isSeededSample, readStage } from '../../../lib/phase1/enquiries';
+import { coverPhoto } from '../../../lib/phase1/photos';
+import { DEMO_NOTICE, isDemoId } from '../../../lib/phase1/report-data';
 
 type TemplateId = 'reply' | 'viewing' | 'details' | 'gone';
 
@@ -45,27 +63,34 @@ const waNumber = (contact: string) => {
 const looksLikePhone = (contact: string) => /\d{8}/.test(contact.replace(/\D/g, ''));
 
 export default function WhatsAppPage() {
-  const { state, setEnquiryStatus } = useDemo();
+  const { state, setEnquiryStatus, demo, openedAt } = useDemo();
+  const { user } = useSession();
+  const { push } = useToast();
   const [selectedId, setSelectedId] = useState<string>('');
   const [template, setTemplate] = useState<TemplateId>('reply');
   const [body, setBody] = useState('');
   const [edited, setEdited] = useState(false);
   const [copied, setCopied] = useState(false);
+  /** Enquiries handed over in the demo preview this visit. */
+  const [previewed, setPreviewed] = useState<string[]>([]);
 
   const byId = useMemo(() => new Map(state.listings.map((l) => [l.id, l])), [state.listings]);
 
   /* Only enquiries you can actually reach on WhatsApp. An email address in the
      contact field is not a handover this screen can perform, and offering the
-     button anyway would produce a dead link. */
+     button anyway would produce a dead link. The demo account's numbers are
+     masked, so there the test is the mask — and only the demo account's own
+     records qualify. */
   const reachable = useMemo(
     () => state.enquiries
-      .filter((e) => e.status !== 'closed' && looksLikePhone(e.contact))
-      .sort((a, b) => b.at.localeCompare(a.at)),
-    [state.enquiries],
+      .filter((e) => e.status !== 'closed' && (demo ? isDemoId(e.id) && isMaskedPhone(e.contact) : looksLikePhone(e.contact)))
+      .sort((a, b) => enquiryTime(b) - enquiryTime(a)),
+    [state.enquiries, demo],
   );
 
   const selected = reachable.find((e) => e.id === selectedId) ?? reachable[0] ?? null;
   const listing = selected ? byId.get(selected.listingId) ?? null : null;
+  const stage = selected ? readStage(selected, openedAt) : null;
 
   const compose = (t: TemplateId, e: Enquiry | null): string => {
     if (!e) return '';
@@ -110,13 +135,31 @@ export default function WhatsAppPage() {
     setBody('');
   };
 
-  const waLink = selected ? `https://wa.me/${waNumber(selected.contact)}?text=${encodeURIComponent(text)}` : '';
+  /* Built only for a real record. A demo record never gets a wa.me address,
+     so there is nothing that could reach a real number; nor does a sample an
+     older version seeded into this workspace, whose made-up number may be
+     somebody's. */
+  const seeded = Boolean(selected && isSeededSample(selected.id));
+  const waLink = selected && !demo && !seeded ? `https://wa.me/${waNumber(selected.contact)}?text=${encodeURIComponent(text)}` : '';
 
   const handover = () => {
     if (!selected) return;
     /* The point of the screen: the enquiry does not go quiet because the
        conversation moved. */
     if (selected.status === 'new') setEnquiryStatus(selected.id, 'replied');
+  };
+
+  const previewHandover = () => {
+    if (!selected || !demo) return;
+    handover();
+    setPreviewed((p) => (p.includes(selected.id) ? p : [...p, selected.id]));
+    push({
+      tone: 'info',
+      title: 'Handover previewed',
+      body: selected.status === 'new'
+        ? `${selected.name} is marked contacted in this tab. WhatsApp was not opened and nothing was sent.`
+        : 'WhatsApp was not opened and nothing was sent.',
+    });
   };
 
   const copy = async () => {
@@ -130,6 +173,7 @@ export default function WhatsAppPage() {
   };
 
   const open = state.enquiries.filter((e) => e.status === 'new').length;
+  const wasPreviewed = selected ? previewed.includes(selected.id) : false;
 
   return (
     <>
@@ -137,13 +181,14 @@ export default function WhatsAppPage() {
         eyebrow="Enquiries and viewings"
         title="WhatsApp handover"
         description="Move the conversation to WhatsApp without losing the enquiry. Compose here, open WhatsApp with the message already written, and the record stays against the listing."
-        actions={<LinkButton href="/phase1/performance" variant="outline">Enquiry inbox</LinkButton>}
+        meta={demo ? <DemoBadge title={DEMO_NOTICE} /> : undefined}
+        actions={<LinkButton href="/phase1/enquiries" variant="outline">Enquiry inbox</LinkButton>}
       />
 
       <MetricStrip className="mb-6" cols={3}>
-        <Metric label="Reachable on WhatsApp" value={reachable.length} hint="Enquiries that left a mobile number" icon={<Phone size={15} />} />
-        <Metric label="Waiting on a reply" value={open} hint={open ? 'Answer the oldest first' : 'Nothing outstanding'} icon={<MessageSquare size={15} />} tone={open ? 'warning' : 'success'} />
-        <Metric label="Templates" value={TEMPLATES.length} hint="Each carries your CEA registration" icon={<Send size={15} />} />
+        <Metric label="Reachable on WhatsApp" value={reachable.length} hint="Enquiries that left a mobile number" icon={<Phone size={15} />} iconTone="primary" />
+        <Metric label="Waiting on a reply" value={open} hint={open ? 'Answer the oldest first' : 'Nothing outstanding'} icon={<MessageSquare size={15} />} iconTone="success" tone={open ? 'warning' : 'success'} />
+        <Metric label="Templates" value={TEMPLATES.length} hint="Each carries your CEA registration" icon={<Send size={15} />} iconTone="primary" />
       </MetricStrip>
 
       {reachable.length === 0 ? (
@@ -152,13 +197,13 @@ export default function WhatsAppPage() {
             icon={<MessageSquare size={22} />}
             title="No open enquiry with a mobile number"
             description="A handover needs a number to hand over to. Enquiries that left an email address are answered from the inbox instead."
-            action={<LinkButton href="/phase1/performance" size="sm">Open the enquiry inbox</LinkButton>}
+            action={<LinkButton href="/phase1/enquiries" size="sm">Open the enquiry inbox</LinkButton>}
           />
         </SectionCard>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <SectionCard title="Open enquiries" description="Newest first." icon={<MessageSquare size={16} />} padding="none" className="self-start">
-            <ul className="max-h-[560px] divide-y divide-p1-border overflow-y-auto">
+            <ul className="max-h-[320px] divide-y divide-p1-border overflow-y-auto lg:max-h-[640px]">
               {reachable.map((e) => {
                 const l = byId.get(e.listingId);
                 const active = selected?.id === e.id;
@@ -167,6 +212,7 @@ export default function WhatsAppPage() {
                     <button
                       type="button"
                       onClick={() => selectEnquiry(e.id)}
+                      aria-current={active ? 'true' : undefined}
                       className={cx(
                         'w-full cursor-pointer px-4 py-3.5 text-left transition-colors',
                         active ? 'bg-p1-primary-soft/60' : 'hover:bg-p1-subtle/60',
@@ -174,10 +220,10 @@ export default function WhatsAppPage() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-[14px] font-semibold text-p1-text">{e.name}</span>
-                        <Pill tone={ENQUIRY_STATUS[e.status].tone}>{ENQUIRY_STATUS[e.status].label}</Pill>
+                        <StagePill r={readStage(e, openedAt)} />
                       </div>
                       <div className="mt-0.5 truncate text-[12.5px] text-p1-text-3">
-                        {l ? `${l.project} ${l.unitNo}` : 'Listing removed'} · {e.contact}
+                        {l ? `${l.project} ${l.unitNo}` : 'Listing removed'} · <span className="tabular-nums">{e.contact}</span>
                       </div>
                       <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-p1-text-2">{e.message}</p>
                     </button>
@@ -188,6 +234,60 @@ export default function WhatsAppPage() {
           </SectionCard>
 
           <div className="grid min-w-0 gap-6 [&>*]:min-w-0">
+            {/* ------------------------------------------------ who and what */}
+            {selected && stage && (
+              <Card padding="none" as="section" aria-labelledby="handover-h">
+                <div className="grid gap-px overflow-hidden rounded-xl bg-p1-border sm:grid-cols-2">
+                  <div className="bg-p1-surface p-5">
+                    <div className="text-[12.5px] font-medium text-p1-text-3">Recipient</div>
+                    <h2 id="handover-h" className="mt-1 truncate text-[17px] font-semibold text-p1-text">{selected.name}</h2>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-p1-text-2">
+                      <span className="inline-flex items-center gap-1.5 tabular-nums"><Phone size={13} aria-hidden className="text-p1-text-3" />{selected.contact}</span>
+                      <span aria-hidden className="text-p1-text-3">·</span>
+                      <Channel channel={selected.channel} />
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <StagePill r={stage} />
+                      <NextAction r={stage} small />
+                    </div>
+                    <p className="mt-2 text-[12.5px] leading-5 text-p1-text-3">
+                      {selected.status === 'new'
+                        ? demo ? 'Previewing the handover marks it contacted in this tab only.' : 'Opening WhatsApp marks it contacted.'
+                        : 'Already moved along — handing over does not change its stage.'}
+                      {' '}Received <span suppressHydrationWarning>{sgRelative(new Date(enquiryTime(selected)), openedAt)}</span>.
+                    </p>
+                  </div>
+
+                  <div className="bg-p1-surface p-5">
+                    <div className="text-[12.5px] font-medium text-p1-text-3">About</div>
+                    {listing ? (
+                      <div className="mt-2 flex items-start gap-3">
+                        <PropertyImage
+                          seed={listing.reference + listing.project}
+                          src={coverPhoto(user?.id, listing, 'thumb')}
+                          alt=""
+                          rounded="rounded-lg"
+                          className="h-16 w-20 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="truncate text-[15px] font-semibold text-p1-text">{listing.project} {listing.unitNo}</div>
+                          <div className="mt-0.5 text-[13px] text-p1-text-2">
+                            {sgd(listing.monthlyRent)}/mo · {listing.bedrooms} bed · {listing.sizeSqft.toLocaleString('en-SG')} sqft
+                          </div>
+                          <div className="mt-0.5 truncate text-[12.5px] text-p1-text-3">
+                            D{String(listing.district).padStart(2, '0')} {districtName(listing.district)} · {listing.address}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[13px] text-p1-text-3">This listing is no longer in your workspace.</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* ------------------------------------------------------ compose */}
             <SectionCard
               title="Compose"
               description={selected ? `To ${selected.name} at ${selected.contact}` : undefined}
@@ -205,24 +305,57 @@ export default function WhatsAppPage() {
               <p className="mb-3 text-[13px] text-p1-text-3">
                 {TEMPLATES.find((t) => t.id === template)?.hint}
               </p>
-              <TextArea
-                label="Message"
-                rows={12}
-                value={text}
-                onChange={(e) => { setEdited(true); setBody(e.target.value); }}
-                hint={`${text.length} characters. Edit it — the template is a starting point, not a script.`}
-              />
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
+                <TextArea
+                  label="Message"
+                  rows={12}
+                  value={text}
+                  onChange={(e) => { setEdited(true); setBody(e.target.value); }}
+                  hint={`${text.length} characters. Edit it — the template is a starting point, not a script.`}
+                />
+
+                {/* What the tenant will see. */}
+                <div>
+                  <div className="mb-1.5 text-[13.5px] font-medium text-p1-text">Preview</div>
+                  <div className="rounded-xl border border-p1-border bg-[#E9E4DC] p-3 dark:bg-[#0E1A17]" aria-label="Message preview">
+                    <div className="ml-auto max-w-[92%] rounded-lg rounded-tr-sm bg-[#D9FDD3] px-3 py-2 text-[13px] leading-5 text-[#111B21] shadow-sm dark:bg-[#1F4B3E] dark:text-[#E9EDEF]">
+                      <p className="whitespace-pre-wrap break-words">{text}</p>
+                      <div className="mt-1 flex items-center justify-end gap-1 text-[10.5px] text-[#667781] dark:text-[#9BB0A8]">
+                        {demo ? 'not sent' : 'draft'}
+                        {wasPreviewed && <CheckCheck size={13} aria-hidden />}
+                      </div>
+                    </div>
+                  </div>
+                  {demo && (
+                    <p className="mt-2 flex items-start gap-1.5 text-[12px] leading-5 text-p1-text-3">
+                      <ShieldCheck size={13} aria-hidden className="mt-0.5 shrink-0 text-p1-success" />
+                      Sample enquiry with a masked number. This preview cannot open WhatsApp or reach anyone.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={handover}
-                  className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-full bg-p1-primary px-5 text-[14.5px] font-semibold text-white transition-colors hover:bg-p1-primary-hover"
-                >
-                  <ExternalLink size={16} aria-hidden />
-                  Open in WhatsApp
-                </a>
+                {demo ? (
+                  <Button onClick={previewHandover} leftIcon={<Eye size={16} />} className="rounded-full">
+                    {wasPreviewed ? 'Handover previewed' : 'Preview the handover'}
+                  </Button>
+                ) : seeded ? (
+                  <Button disabled leftIcon={<ExternalLink size={16} />} className="rounded-full" title="Sample enquiry — WhatsApp is not opened">
+                    Open in WhatsApp
+                  </Button>
+                ) : (
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={handover}
+                    className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-full bg-p1-primary px-5 text-[14.5px] font-semibold text-p1-primary-on transition-colors hover:bg-p1-primary-hover"
+                  >
+                    <ExternalLink size={16} aria-hidden />
+                    Open in WhatsApp
+                  </a>
+                )}
                 <Button variant="outline" onClick={copy} leftIcon={copied ? <Check size={16} /> : <Copy size={16} />}>
                   {copied ? 'Copied' : 'Copy the message'}
                 </Button>
@@ -232,28 +365,26 @@ export default function WhatsAppPage() {
                   </Button>
                 )}
               </div>
+              {seeded && (
+                <Callout tone="warning" compact className="mt-4" title="Sample enquiry">
+                  An earlier version of V-RENT added this enquiry to your workspace as an example. Its number was made
+                  up and may belong to someone real, so WhatsApp is not opened for it.
+                </Callout>
+              )}
             </SectionCard>
 
-            {listing && (
-              <Card padding="md">
-                <div className="text-[13px] font-semibold text-p1-text-3">The listing this is about</div>
-                <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="font-p1display text-[17px] font-bold text-p1-text">{listing.project} {listing.unitNo}</span>
-                  <span className="text-[14px] text-p1-text-2">
-                    {sgd(listing.monthlyRent)}/mo · {listing.bedrooms} bed · {listing.sizeSqft.toLocaleString('en-SG')} sqft
-                  </span>
-                </div>
-                <div className="mt-1 text-[13px] text-p1-text-3">
-                  D{String(listing.district).padStart(2, '0')} {districtName(listing.district)} · {listing.address}
-                </div>
-              </Card>
+            {demo ? (
+              <Callout tone="info" title="Demo handover" icon={<Info size={17} />}>
+                These are the demo account&apos;s enquiries. Numbers are masked, no WhatsApp link is built, and a status
+                you change here lasts only until you reload. Turn Demo Data off to hand over your own enquiries.
+              </Callout>
+            ) : (
+              <Callout tone="info" title="What is real here" icon={<Info size={17} />}>
+                The templates, the composed message and the WhatsApp link are working — the link opens WhatsApp with the
+                text already in it. Reading replies back into the enquiry needs the WhatsApp Business API, which is part
+                of the production build.
+              </Callout>
             )}
-
-            <Callout tone="info" title="What is real here" icon={<Info size={17} />}>
-              The templates, the composed message and the WhatsApp link are working — the link opens WhatsApp with the
-              text already in it. Reading replies back into the enquiry needs the WhatsApp Business API, which is part
-              of the production build.
-            </Callout>
           </div>
         </div>
       )}

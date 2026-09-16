@@ -80,7 +80,7 @@ function Countdown({ expiresAt }: { expiresAt: number }) {
 
 export default function PaymentPage() {
   const router = useRouter();
-  const { state, set } = useDemo();
+  const { state, set, demo } = useDemo();
   const { push } = useToast();
 
   const plan = state.plan ?? PLANS[1];
@@ -130,6 +130,12 @@ export default function PaymentPage() {
   const { polling } = usePaymentStatus(pollRef, onSettled);
 
   const begin = useCallback(async () => {
+    // The demo account has nothing to pay for: no payment is created, the plan is shown as active on screen only.
+    if (demo) {
+      set({ subscription: 'active', paymentMethod: method === 'paynow' ? 'PayNow' : 'Card' });
+      push({ tone: 'info', title: 'Shown with demo data', body: 'No payment was taken. Turn Demo data off to pay for your own plan.' });
+      return;
+    }
     const created = await start({
       provider: method,
       planCode: plan.code,
@@ -139,7 +145,7 @@ export default function PaymentPage() {
     });
     // A hosted provider hands back a URL. PayNow hands back a QR and stays here.
     if (created?.redirectUrl) window.location.href = created.redirectUrl;
-  }, [method, plan.code, start, state.profile]);
+  }, [demo, method, plan.code, push, set, start, state.profile]);
 
   const feeLine = useMemo(() => METHODS.find((m) => m.id === method)?.costLine ?? '', [method]);
 

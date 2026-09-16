@@ -96,7 +96,7 @@ function ListingWizard() {
   const params = useSearchParams();
   const { push } = useToast();
   const { user } = useSession();
-  const { gate, canPublish, addListing, updateListing, state, activeListings, listingLimit } = useDemo();
+  const { gate, canPublish, addListing, updateListing, state, activeListings, listingLimit, demo } = useDemo();
 
   const editId = params.get('edit');
   const [editing] = useState<DemoListing | null>(
@@ -311,7 +311,8 @@ function ListingWizard() {
 
   const onPhotos = async (nextShots: Shot[], added: File[]) => {
     setShots(nextShots);
-    if (!editing) return;
+    // The demo account is never written to the server, photographs included; they stay as previews.
+    if (!editing || demo) return;
     if (added.length > 0) {
       setUploading(true);
       try {
@@ -347,7 +348,7 @@ function ListingWizard() {
 
   const commitPhotos = async (listingId: string) => {
     const files = pendingFiles(shots);
-    if (files.length === 0) return;
+    if (files.length === 0 || demo) return;
     const result = await uploadPhotos(listingId, files);
     if (result.failed.length) {
       push({

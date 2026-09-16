@@ -8,10 +8,11 @@
  */
 
 import { agentDirectory } from '../../../../lib/phase1/admin-directory';
+import { demoDataOnServer } from '../../../../lib/phase1/report-data/server';
 import AgentsTable from './AgentsTable';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AgentsPage() {
-  return <AgentsTable agents={await agentDirectory()} />;
+  return <AgentsTable agents={await agentDirectory({ demo: await demoDataOnServer() })} />;
 }

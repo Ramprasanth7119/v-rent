@@ -7,10 +7,12 @@
  * the plans and a straight comparison against incumbent pricing. Every count,
  * price and card is read from live listings.
  *
- * Signed in, it is the agent hub: the agent's own position and every tool.
+ * Signed in, there is nothing here for the visitor: an agent goes straight to
+ * the dashboard and an administrator to the operations console, as after login.
  */
 
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   ArrowRight, BadgeCheck, Building, Building2, Castle, Check, Home, Hotel, MapPinned, MessageSquareText, Search, ShieldCheck, Warehouse,
 } from 'lucide-react';
@@ -18,7 +20,6 @@ import { currentUser } from '../../lib/auth/session';
 import { marketAgents, marketListings } from '../../lib/phase1/marketplace';
 import { DISTRICTS, districtCode } from '../../lib/phase1/districts';
 import { INCUMBENT_PRICING, PLANS, sgd } from '../../lib/phase1/data';
-import { AgentHub } from '../../components/phase1/hub/AgentHub';
 import { Skyline } from '../../components/phase1/landing/Skyline';
 import { PortalSearch } from '../../components/phase1/landing/PortalSearch';
 import { ListingRail } from '../../components/phase1/landing/ListingRail';
@@ -53,7 +54,7 @@ const median = (values: number[]) => {
 
 export default async function FrontDoor() {
   const user = await currentUser();
-  if (user) return <AgentHub />;
+  if (user) redirect(user.role === 'admin' ? '/phase1/admin' : '/phase1/dashboard');
 
   const [listings, agents] = await Promise.all([marketListings(), marketAgents()]);
   const rentals = listings.filter((m) => !isSale(m.listing));

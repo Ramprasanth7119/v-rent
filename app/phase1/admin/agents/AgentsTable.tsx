@@ -120,10 +120,10 @@ export default function AgentsTable({ agents }: { agents: DirectoryAgent[] }) {
 
       {/* -------------------------------------------------------------- KPIs */}
       <section aria-label="Directory at a glance" className="vr-stagger mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KPI label="Total agents" value={agents.length} icon={<Users size={16} />} sub={`${registered} registered here`} />
-        <KPI label="Verified" value={approved} icon={<ShieldCheck size={16} />} tone={approved ? 'success' : 'default'} sub={`${agents.length ? Math.round((approved / agents.length) * 100) : 0}% of the directory`} />
-        <KPI label="Under review" value={review} icon={<Clock size={16} />} tone={review ? 'warning' : 'default'} href={review ? '/phase1/admin/verification' : undefined} sub={review ? 'Waiting on an officer' : 'Queue is clear'} />
-        <KPI label="CEA lapsed" value={lapsed} icon={<CalendarX size={16} />} tone={lapsed ? 'danger' : 'default'} sub={`${expiringSoon} expiring within 60 days`} />
+        <KPI label="Total agents" value={agents.length} icon={<Users size={16} />} iconTone="primary" sub={`${registered} registered here`} />
+        <KPI label="Verified" value={approved} icon={<ShieldCheck size={16} />} iconTone="success" tone={approved ? 'success' : 'default'} sub={`${agents.length ? Math.round((approved / agents.length) * 100) : 0}% of the directory`} />
+        <KPI label="Under review" value={review} icon={<Clock size={16} />} iconTone="accent" tone={review ? 'warning' : 'default'} href={review ? '/phase1/admin/verification' : undefined} sub={review ? 'Waiting on an officer' : 'Queue is clear'} />
+        <KPI label="CEA lapsed" value={lapsed} icon={<CalendarX size={16} />} iconTone="danger" tone={lapsed ? 'danger' : 'default'} sub={`${expiringSoon} expiring within 60 days`} />
       </section>
 
       {/* ------------------------------------------------------ table card */}

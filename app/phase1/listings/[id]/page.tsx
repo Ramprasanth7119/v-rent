@@ -23,14 +23,20 @@ import { PublicPreview } from '../../../../components/phase1/listing/PublicPrevi
 import { listingPhotos } from '../../../../lib/phase1/photos';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo } from '../../../../lib/phase1/DemoContext';
+import { useEnquiries } from '../../../../lib/phase1/useEnquiries';
+import { enquiryTime, readStage } from '../../../../lib/phase1/enquiries';
+import { StagePill } from '../../../../components/phase1/enquiries/parts';
+import { DemoBadge } from '../../../../components/phase1/DemoDataSwitch';
 import { sgd } from '../../../../lib/phase1/data';
 import { dealOf, psf as psfLabel } from '../../../../lib/phase1/pricing';
-import { LISTING_ACTIVITY, DEFAULT_ACTIVITY, AMENITIES } from '../../../../lib/phase1/agents';
-import { listingStats, enquiriesFor, ENQUIRY_STATUS, districtName } from '../../../../lib/phase1/performance';
+import { AMENITIES } from '../../../../lib/phase1/agents';
+import { isDemoId } from '../../../../lib/phase1/report-data';
+import type { DemoListing } from '../../../../lib/phase1/data';
+import { listingStats, enquiriesFor, districtName } from '../../../../lib/phase1/performance';
 import {
   ArrowLeft, Bed, Bath, Maximize, Sofa, Pencil, Eye, Lock, Check, X, ShieldCheck, Building2, Send, Play, Pause,
   RotateCcw, Eye as EyeIcon, MessageSquare, Bookmark, TrendingUp, CalendarDays, TrainFront, MapPin, Percent } from 'lucide-react';
-import { sgDate } from '../../../../lib/phase1/format';
+import { sgDate, sgDateTime } from '../../../../lib/phase1/format';
 
 const fmtDate = (d: string) => sgDate(d);
 const district = (n: number) => `D${String(n).padStart(2, '0')}`;
@@ -50,6 +56,7 @@ function ListingDetailBody() {
   const { id } = useParams<{ id: string }>();
   const params = useSearchParams();
   const { state, gate, canPublish } = useDemo();
+  const inbox = useEnquiries();
   const { user } = useSession();
   const a = useListingActions();
 
@@ -85,10 +92,11 @@ function ListingDetailBody() {
 
   const l = listing;
   const stats = listingStats(l);
-  const enquiries = enquiriesFor(state.enquiries, l.id);
+  const enquiries = enquiriesFor(inbox.enquiries, l.id);
   const newEnquiries = enquiries.filter((e) => e.status === 'new').length;
-  const activity = LISTING_ACTIVITY[l.reference] ?? DEFAULT_ACTIVITY;
-  const amenities = l.amenities?.length ? l.amenities : AMENITIES.slice(0, 4 + (l.sizeSqft % 4));
+  const activity = listingTimeline(l);
+  // Only what the listing records. A sample list is shown for the demo account alone, never for a real unit.
+  const amenities = l.amenities?.length ? l.amenities : isDemoId(l.id) ? AMENITIES.slice(0, 4 + (l.sizeSqft % 4)) : [];
   const isSale = dealOf(l) === 'sale';
   const isLive = l.status === 'published' || l.status === 'paused' || l.status === 'expired';
   const editHref = `/phase1/listings/new?edit=${l.id}`;
@@ -143,7 +151,12 @@ function ListingDetailBody() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-p1display text-[34px] font-medium leading-none tabular-nums text-p1-text">{sgd(isSale ? l.salePriceSgd ?? 0 : l.monthlyRent)}</span>
+                  {/* Blue and bold, as on every card that links here. The
+                      price was the one figure the reference boards let the
+                      accent colour carry, and a detail page that renders it
+                      grey after a grid that renders it blue reads as a
+                      different product. */}
+                  <span className="font-p1display text-[34px] font-bold leading-none tracking-[-0.02em] tabular-nums text-p1-primary">{sgd(isSale ? l.salePriceSgd ?? 0 : l.monthlyRent)}</span>
                   <span className="text-[15px] text-p1-text-2">{isSale ? 'asking price' : 'per month'}</span>
                 </div>
                 <div className="mt-2 text-[14px] text-p1-text-2">{psfLabel(l) ?? 'Floor area not stated'} · {isSale ? 'available to view' : `minimum ${l.minLeaseMonths}-month lease · available`} from {fmtDate(l.availableFrom)}</div>
@@ -209,7 +222,9 @@ function ListingDetailBody() {
                     <Field label="Photos" value={`${l.images}`} />
                   </FieldGrid>
                   <h2 className="mt-6 text-[14px] font-semibold text-p1-text">Amenities</h2>
-                  <div className="mt-2 flex flex-wrap gap-2">{amenities.map((x) => <Pill key={x}>{x}</Pill>)}</div>
+                  {amenities.length
+                    ? <div className="mt-2 flex flex-wrap gap-2">{amenities.map((x) => <Pill key={x}>{x}</Pill>)}</div>
+                    : <p className="mt-2 text-[13.5px] text-p1-text-3">No amenities recorded. Add them from Edit.</p>}
                 </>
               )}
 
@@ -217,11 +232,11 @@ function ListingDetailBody() {
                 isLive && stats.views30d > 0 ? (
                   <>
                     <MetricStrip cols={4}>
-                      <Metric label="Views" value={stats.views30d.toLocaleString()} icon={<EyeIcon size={15} />} hint="Last 30 days" />
-                      <Metric label="Enquiries" value={stats.enquiries30d} icon={<MessageSquare size={15} />} hint="Last 30 days"
+                      <Metric label="Views" value={stats.views30d.toLocaleString()} icon={<EyeIcon size={15} />} iconTone="primary" hint="Last 30 days" />
+                      <Metric label="Enquiries" value={stats.enquiries30d} icon={<MessageSquare size={15} />} iconTone="success" hint="Last 30 days"
                         delta={{ value: `${stats.trendPct > 0 ? '+' : ''}${stats.trendPct}%`, good: stats.trendPct >= 0, label: 'week on week' }} />
-                      <Metric label="Saves" value={stats.saves} icon={<Bookmark size={15} />} hint="Shortlisted by a tenant" />
-                      <Metric label="Enquiry rate" value={`${stats.conversion}%`} icon={<Percent size={15} />}
+                      <Metric label="Saves" value={stats.saves} icon={<Bookmark size={15} />} iconTone="accent" hint="Shortlisted by a tenant" />
+                      <Metric label="Enquiry rate" value={`${stats.conversion}%`} icon={<Percent size={15} />} iconTone="info"
                         tone={stats.conversion >= 5 ? 'success' : stats.conversion >= 3 ? 'default' : 'warning'} hint="Per 100 views" />
                     </MetricStrip>
                     <h2 className="mt-6 text-[14px] font-semibold text-p1-text">Daily views, last 14 days</h2>
@@ -232,6 +247,12 @@ function ListingDetailBody() {
                       here is the report an agent gets, and where it sits.
                     </Callout>
                   </>
+                ) : isLive && !stats.measured ? (
+                  <EmptyState
+                    icon={<TrendingUp size={22} />}
+                    title="Not measured yet"
+                    description="Views, saves and enquiry trends are counted once the tenant site is live. Enquiries this listing receives are in the Enquiries tab. To preview this report, turn on Demo Data in the header."
+                  />
                 ) : (
                   <EmptyState
                     icon={<TrendingUp size={22} />}
@@ -254,16 +275,18 @@ function ListingDetailBody() {
                     description="Enquiries from the share link and the tenant site land here, with the tenant's budget and move-in date."
                   />
                 ) : (
+                  <>
+                  {inbox.demo && <p className="mb-3 flex items-center gap-2 text-[12.5px] text-p1-text-3"><DemoBadge title={inbox.notice} /> Sample enquiries — Demo Data is on.</p>}
                   <ul className="divide-y divide-p1-border">
                     {enquiries.map((e) => (
                       <li key={e.id} className={cx('flex gap-3 py-4 first:pt-0 last:pb-0', e.status === 'new' && '-mx-3 rounded-lg bg-p1-info-soft/25 px-3')}>
                         <span className="mt-1 h-2 w-2 shrink-0 rounded-full" aria-hidden style={{ background: e.status === 'new' ? 'var(--p1-info)' : 'var(--p1-border-strong)' }} />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                            <span className="text-[14px] font-semibold text-p1-text">{e.name}</span>
-                            <Pill tone={ENQUIRY_STATUS[e.status].tone}>{ENQUIRY_STATUS[e.status].label}</Pill>
+                            <Link href={`/phase1/enquiries?enquiry=${encodeURIComponent(e.id)}`} className="text-[14px] font-semibold text-p1-text hover:underline underline-offset-4">{e.name}</Link>
+                            <StagePill r={readStage(e, inbox.now)} />
                             <span className="text-[12.5px] text-p1-text-3">via {e.channel}</span>
-                            <time className="ml-auto text-[12.5px] tabular-nums text-p1-text-3">{e.at}</time>
+                            <time suppressHydrationWarning className="ml-auto text-[12.5px] tabular-nums text-p1-text-3">{sgDateTime(new Date(enquiryTime(e)))}</time>
                           </div>
                           <p className="mt-1 text-[14px] leading-6 text-p1-text">{e.message}</p>
                           {(e.budget || e.moveIn) && (
@@ -276,6 +299,7 @@ function ListingDetailBody() {
                       </li>
                     ))}
                   </ul>
+                  </>
                 )
               )}
 
@@ -310,12 +334,12 @@ function ListingDetailBody() {
                   {activity.map((x, i) => (
                     <li key={i} className="flex gap-3">
                       <div className="flex flex-col items-center">
-                        <span className={cx('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', x.actor === 'system' ? 'bg-p1-text-3' : 'bg-p1-primary')} aria-hidden />
+                        <span className={cx('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', x.actor === 'You' ? 'bg-p1-primary' : 'bg-p1-text-3')} aria-hidden />
                         {i < activity.length - 1 && <span className="mt-1 w-px flex-1 bg-p1-border" aria-hidden />}
                       </div>
                       <div className="min-w-0 pb-1">
                         <div className="text-[14px] text-p1-text">{x.what}</div>
-                        <div className="mt-0.5 text-[13px] text-p1-text-3">{x.at} · {x.actor === 'system' ? 'System' : x.actor}</div>
+                        <div className="mt-0.5 text-[13px] text-p1-text-3">{x.at} · {x.actor}</div>
                       </div>
                     </li>
                   ))}
@@ -389,4 +413,25 @@ function ListingDetailBody() {
 
     </>
   );
+}
+
+/**
+ * What has happened to the listing, read from the listing itself — created,
+ * reviewed, published, rejected, last edited — newest first. Nothing is added
+ * that the record does not show.
+ */
+function listingTimeline(l: DemoListing): { at: string; actor: string; what: string }[] {
+  const stamp = (iso: string) => iso.slice(0, 16).replace('T', ' ');
+  const rows: { at: string; actor: string; what: string }[] = [
+    { at: l.createdAt, actor: 'You', what: 'Draft created' },
+  ];
+  if (l.reviewedAt && l.status === 'rejected') rows.push({ at: l.reviewedAt, actor: 'Moderation', what: `Rejected${l.rejectionReason ? ` — ${l.rejectionReason}` : ''}` });
+  else if (l.reviewedAt) rows.push({ at: l.reviewedAt, actor: 'Moderation', what: 'Approved in moderation' });
+  if (l.publishedAt) rows.push({ at: l.publishedAt, actor: 'V-RENT', what: 'Published — the publish gate passed' });
+  if (l.status === 'paused') rows.push({ at: l.updatedAt ?? l.publishedAt ?? l.createdAt, actor: 'You', what: 'Paused' });
+  else if (l.updatedAt && l.updatedAt !== l.createdAt) rows.push({ at: l.updatedAt, actor: 'You', what: 'Last edited' });
+  return rows
+    .filter((r) => r.at)
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .map((r) => ({ ...r, at: stamp(r.at) }));
 }

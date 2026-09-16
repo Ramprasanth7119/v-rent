@@ -8,7 +8,15 @@
 import React, { useId } from 'react';
 import { cx } from './primitives';
 
-export function Sparkline({ data, width = 120, height = 32, className = '', tone = 'primary', fill = true, label }: { data: number[]; width?: number; height?: number; className?: string; tone?: 'primary' | 'success' | 'danger' | 'neutral' | 'accent'; fill?: boolean; label?: string }) {
+export function Sparkline({ data, width = 120, height = 32, className = '', tone = 'primary', fill = true, label, stretch = false }: { data: number[]; width?: number; height?: number; className?: string; tone?: 'primary' | 'success' | 'danger' | 'neutral' | 'accent'; fill?: boolean; label?: string;
+  /**
+   * Fill the container's width rather than keeping the drawing's own ratio.
+   * The default keeps the aspect, which centres the figure and leaves a gap
+   * either side once the container is wider than `width`; a sparkline used as
+   * a full-width band wants the opposite. Strokes are held at their own
+   * thickness so the line does not fatten as it is pulled out.
+   */
+  stretch?: boolean }) {
   const id = useId();
   const max = Math.max(1, ...data);
   const min = Math.min(...data);
@@ -18,7 +26,7 @@ export function Sparkline({ data, width = 120, height = 32, className = '', tone
   const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const stroke = { primary: 'var(--p1-primary)', success: 'var(--p1-success)', danger: 'var(--p1-danger)', neutral: 'var(--p1-text-3)', accent: 'var(--p1-accent)' }[tone];
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className={cx('shrink-0 overflow-visible', className)} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio={stretch ? 'none' : undefined} className={cx('shrink-0 overflow-visible', className)} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={stroke} stopOpacity="0.22" />
@@ -26,8 +34,12 @@ export function Sparkline({ data, width = 120, height = 32, className = '', tone
         </linearGradient>
       </defs>
       {fill && pts.length > 1 && <path d={`${d} L${width},${height} L0,${height} Z`} fill={`url(#${id})`} />}
-      <path d={d} fill="none" stroke={stroke} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.length > 0 && <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="2.25" fill={stroke} />}
+      <path d={d} fill="none" stroke={stroke} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" vectorEffect={stretch ? 'non-scaling-stroke' : undefined} />
+      {pts.length > 0 && (stretch
+        /* A round cap on a zero-length line is a circle that the stretch
+           cannot turn into an ellipse. */
+        ? <line x1={pts[pts.length - 1][0]} y1={pts[pts.length - 1][1]} x2={pts[pts.length - 1][0]} y2={pts[pts.length - 1][1]} stroke={stroke} strokeWidth="4.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        : <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="2.25" fill={stroke} />)}
     </svg>
   );
 }

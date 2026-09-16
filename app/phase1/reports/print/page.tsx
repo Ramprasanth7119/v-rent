@@ -25,7 +25,7 @@ import { sgd } from '../../../../lib/phase1/data';
 import { dealOf } from '../../../../lib/phase1/pricing';
 import { listingStats } from '../../../../lib/phase1/performance';
 import {
-  KIND_LABEL, buildTable, describeFilters, filtersFromQuery, reportWindow,
+  KIND_LABEL, NOT_MEASURED, buildTable, describeFilters, filtersFromQuery, reportWindow,
   selectEnquiries, selectListings,
 } from '../../../../lib/phase1/reporting';
 import { sgDateLong } from '../../../../lib/phase1/format';
@@ -43,7 +43,7 @@ const fmtDate = (d: Date) =>
 
 function Document() {
   const params = useSearchParams();
-  const { state } = useDemo();
+  const { state, demo } = useDemo();
   const [ready, setReady] = useState(false);
 
   const f = useMemo(() => filtersFromQuery(params, TODAY), [params]);
@@ -72,12 +72,13 @@ function Document() {
       ];
     }
     if (f.kind === 'performance') {
+      const measured = listings.some((l) => listingStats(l).measured);
       const views = listings.reduce((n, l) => n + listingStats(l).views30d, 0);
       const enq = listings.reduce((n, l) => n + listingStats(l).enquiries30d, 0);
       return [
         { label: 'Listings', value: String(listings.length) },
-        { label: 'Views, 30 days', value: views.toLocaleString('en-SG') },
-        { label: 'Enquiries, 30 days', value: String(enq) },
+        { label: 'Views, 30 days', value: measured ? views.toLocaleString('en-SG') : NOT_MEASURED },
+        { label: 'Enquiries, 30 days', value: measured ? String(enq) : NOT_MEASURED },
       ];
     }
     const rents = listings.filter((l) => dealOf(l) === 'rent');
@@ -141,6 +142,11 @@ function Document() {
               <p className="mt-1 text-[13.5px] text-[#4B5563]">
                 {win ? `${win.from} to ${win.to}` : 'All time'} · prepared {printedOn}
               </p>
+              {demo && (
+                <p className="mt-2 inline-block rounded border border-[#F2C27B] bg-[#FFF6E6] px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-[#8A4B00]">
+                  Demo / Illustrative — prepared from demo data, not from real records
+                </p>
+              )}
             </div>
             <div className="text-right text-[13px] leading-6">
               <div className="text-[15px] font-semibold">{preferredName(p.fullName)}</div>

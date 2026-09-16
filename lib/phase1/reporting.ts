@@ -14,6 +14,8 @@ import { dealOf } from './pricing';
 import { districtName, listingStats, ENQUIRY_STATUS } from './performance';
 import { listingHealth } from './health';
 
+export const NOT_MEASURED = 'Not measured';
+
 export type ReportKind = 'inventory' | 'enquiries' | 'performance' | 'compliance';
 
 export interface ReportFilters {
@@ -287,9 +289,11 @@ export function buildTable(
       numeric: [4, 5, 6, 7, 8, 9],
       rows: listings.map((l) => {
         const s = listingStats(l);
+        // Nothing counts traffic on the agent's own listings yet; the cell says so instead of printing a zero.
+        const m = (v: number) => (s.measured ? v : NOT_MEASURED);
         return [
-          l.reference, l.project, l.unitNo, l.status, s.views30d, s.views7d,
-          s.enquiries30d, s.saves, Number(s.conversion.toFixed(1)), listingHealth(l).score,
+          l.reference, l.project, l.unitNo, l.status, m(s.views30d), m(s.views7d),
+          m(s.enquiries30d), m(s.saves), m(Number(s.conversion.toFixed(1))), listingHealth(l).score,
         ];
       }),
     };

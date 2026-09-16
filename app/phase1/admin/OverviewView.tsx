@@ -204,6 +204,7 @@ export default function OverviewView({ snapshot }: { snapshot: OpsSnapshot }) {
           label="Needs a person"
           value={needsAPerson}
           icon={<Users size={16} />}
+          iconTone={breached > 0 ? 'danger' : 'primary'}
           tone={breached > 0 ? 'danger' : 'default'}
           sub={breached > 0 ? `${breached} past promise` : 'All inside promise'}
           href={worst?.href}
@@ -212,6 +213,7 @@ export default function OverviewView({ snapshot }: { snapshot: OpsSnapshot }) {
           label="Decisions today"
           value={decisions.today}
           icon={<GaugeIcon size={16} />}
+          iconTone="info"
           sub={`${decisions.week} in 7 days`}
           spark={decisions.trend.values.some((v) => v > 0) ? { data: decisions.trend.values, tone: 'primary' } : undefined}
         />
@@ -221,6 +223,7 @@ export default function OverviewView({ snapshot }: { snapshot: OpsSnapshot }) {
           decimals={1}
           suffix="%"
           icon={<TriangleAlert size={16} />}
+          iconTone={api.errorRate > 5 ? 'accent' : 'neutral'}
           tone={api.errorRate > 5 ? 'warning' : 'default'}
           sub={`${api.errors.toLocaleString('en-SG')} of ${api.total.toLocaleString('en-SG')} calls`}
           spark={api.errorTrend.values.some((v) => v > 0) ? { data: api.errorTrend.values, tone: 'danger' } : undefined}
@@ -231,6 +234,7 @@ export default function OverviewView({ snapshot }: { snapshot: OpsSnapshot }) {
           value={revenue.arrSgd}
           prefix="S$"
           icon={<Wallet size={16} />}
+          iconTone="success"
           sub={`${sgd(revenue.mrrSgd)}/mo · ${revenue.activeCount} active`}
           href="/phase1/admin/subscriptions"
         />

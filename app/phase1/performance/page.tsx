@@ -1,5 +1,4 @@
-/** How the live listings are doing. The enquiry side of the same data lives at
- *  /phase1/enquiries, which is the same view opened on its other tab. */
+/** How the live listings are doing. Enquiries have their own screen at /phase1/enquiries. */
 
 import PerformanceView from './PerformanceView';
 

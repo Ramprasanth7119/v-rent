@@ -18,15 +18,10 @@ decided by the account, not by a setting:
 
 ## Workspace
 
-### Agent hub
-The front door. Every tool the platform offers, grouped the way an agent's week
-is organised, with a search across all of them. Signed in, the top of the page
-shows their own position — verification standing, plan, inventory, unanswered
-enquiries. Signed out, it makes the case for registering; the catalogue below is
-identical either way.
-
-Tools not built in this prototype say so on the card and explain what they would
-do when opened, rather than pretending or dead-ending.
+### Front door
+Signed out, `/phase1` makes the case for registering, with the catalogue of
+every tool. Signed in, there is no page there: an agent is taken straight to the
+dashboard and an administrator to the operations console.
 
 ### Dashboard
 The working day in one screen, ordered by consequence rather than by category.
@@ -87,62 +82,7 @@ a Singapore sector.
 
 ## Reach
 
-Three paid tools, all of them optional, all sold by the day, and all reported
-against what they actually produced rather than what they promised. They answer
-three different questions: *this one listing needs attention*, *this listing
-keeps sinking down the results*, and *I want to be the agent people find in this
-district*.
-
-| | What it promotes | Priced by | Typical cost |
-| --- | --- | --- | --- |
-| Featured placement | One listing | Length of run | S$84 – S$240 |
-| Automatic refresh | One listing, repeatedly | No separate charge | — |
-| Search placement | The agent | District | S$7 – S$18 a day |
-
----
-
-### Featured placement
-
-Puts **one listing** at the top of its district and property type for a fixed
-run. It is the tool for a unit that is good but is not being seen — a
-well-photographed flat in a district with four hundred competing listings.
-
-**How it is priced.** Per day, and the rate falls the longer the commitment:
-
-| Run | Rate | Total |
-| --- | --- | --- |
-| 7 days | S$12 a day | S$84 |
-| 14 days | S$10 a day | S$140 |
-| 30 days | S$8 a day | S$240 |
-
-**What it forecasts.** Before committing, the screen shows a range of additional
-views, not a single number — a single figure would be a promise the product
-cannot keep. The range is derived from that listing's own traffic over the last
-thirty days, so the agent can check it against what they already know.
-
-**What it reports.** Once a run is going, it is listed against what it produced:
-views and enquiries, beside the spend. A run can be stopped early.
-
-#### Example — featuring a Tiong Bahru flat for a fortnight
-
-1. Open **Reach → Featured placement**.
-2. Under *Start a featured run*, choose the listing. Only listings that can
-   actually be featured are offered — the listing must be **published** (a
-   draft, a paused or an expired listing is not), and a listing already in a
-   run cannot be entered into a second one.
-3. Choose the length. Picking **14 days** shows *S$10/day · S$140 total*, and
-   the forecast updates — if the listing has been getting about 8 views a day,
-   it projects roughly **240 to 380 additional views** over the run.
-4. Confirm. The run appears under *Runs* with its end date.
-5. Come back during the run. The row now reads, for example, *14 days at
-   S$10/day · 310 views · 6 enquiries* — the spend and the result side by side.
-6. To stop early, open the run and confirm. The remaining days are not charged.
-
-**What to point out in a demo:** the forecast is a range and the product says
-why. And the result is reported against the spend, which is the number an agent
-actually wants and the number portals are usually vaguest about.
-
----
+One tool, with no separate charge: automatic refresh.
 
 ### Automatic refresh
 
@@ -187,53 +127,6 @@ alter an advertisement.
 **What to point out in a demo:** "Every other day" is the default advice rather
 than daily, and the screen says why — a listing that reappears every single
 morning reads as automated to anyone watching the results.
-
----
-
-### Search placement
-
-Promotes **the agent**, not a listing. It puts them above other agents in the
-results for the districts they work, which is what matters for an agent building
-a name in one area rather than pushing a single unit.
-
-**How it is priced.** By district, and by how contested that district is:
-
-| Tier | Districts | Rate |
-| --- | --- | --- |
-| Core Central | D01, D02, D04, D06, D09, D10, D11 | S$18 a day |
-| City fringe | D03, D05, D07, D08, D12, D13, D14, D15 | S$12 a day |
-| Outside central | D16 – D28 | S$7 a day |
-
-An agent can hold several districts at once, and each is stopped on its own.
-
-#### Example — holding two districts for a month
-
-1. Open **Reach → Search placement**.
-2. *Districts* lists all 28 with their tier and daily rate. Search to narrow it.
-3. Take **D15 (East Coast)** at S$12 a day and **D19 (Hougang)** at S$7 a day.
-4. The running total is S$19 a day — about **S$570 for a thirty-day month**.
-5. Each district shows *Held since* its start date, and can be released on its
-   own. Dropping D15 leaves D19 running.
-
-**What to point out in a demo:** the price is set by the district, not by an
-auction, so an agent can budget it. The tiers are the real Singapore districts,
-so a Singaporean agent recognises the pricing as sensible without it being
-explained — D09, D10 and D11 costing most is exactly what they would expect.
-
----
-
-### How the three fit together
-
-A rough guide for the demo, if someone asks which they would use:
-
-- **One listing is not getting seen** → Featured placement, for a fixed run.
-- **Listings sink down the results over time** → Automatic refresh, set once and
-  left running.
-- **The agent wants to be found in a district** → Search placement, by the day.
-
-Featured placement and automatic refresh both promote a listing and can run on
-the same one at the same time. Search placement is the only one of the three
-that promotes the person.
 
 ## Clients
 
@@ -641,7 +534,7 @@ Worth being straight about when a developer asks:
 | --- | --- |
 | CEA register lookup (data.gov.sg) | Lease transaction history |
 | OneMap address search, maps, amenity datasets | Views, enquiries and conversion figures |
-| Accounts, sessions, workspaces, photographs (MongoDB) | Featured placement and search placement runs |
+| Accounts, sessions, workspaces, photographs (MongoDB) | Automatic refresh runs |
 | Verification and moderation decisions, audit trail | Payments — sandbox mode, no money moves |
 | API activity log | Email delivery — written to an outbox |
 

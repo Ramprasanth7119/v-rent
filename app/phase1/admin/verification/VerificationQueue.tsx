@@ -19,6 +19,8 @@ import {
 } from '../../../../components/phase1/kit';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
+import { useDemoDataOn } from '../../../../lib/phase1/report-data/switch';
+import { DEMO_LIVE_ACTION_BLOCKED } from '../../../../lib/phase1/report-data';
 import type { Application, MatchOutcome } from '../../../../lib/phase1/admin-verification';
 import type { VerificationPolicy } from '../../../../lib/phase1/verification-policy';
 import { sgDate } from '../../../../lib/phase1/format';
@@ -67,6 +69,7 @@ export default function VerificationQueue({
 }) {
   const router = useRouter();
   const { push } = useToast();
+  const demoOn = useDemoDataOn();
   const [rejecting, setRejecting] = useState<Application | null>(null);
   const [reason, setReason] = useState(REJECT_REASONS[0]);
   const [note, setNote] = useState('');
@@ -78,6 +81,11 @@ export default function VerificationQueue({
   const selected = applications.find((a) => a.accountId === selectedId) ?? applications[0] ?? null;
 
   const decide = async (app: Application, action: 'approve' | 'reject', why?: string) => {
+    // Applications are live accounts; Demo Data never changes them.
+    if (demoOn) {
+      push(DEMO_LIVE_ACTION_BLOCKED);
+      return;
+    }
     setBusy(app.accountId);
     try {
       const res = await fetch('/api/phase1/admin/verification', {

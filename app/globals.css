@@ -261,6 +261,49 @@ body {
   --p1-info: #0284C7;
   --p1-info-soft: #F0F9FF;
   --p1-info-border: #BAE6FD;
+  /* Demo data: a presentation mode, not a warning. A quiet iris that sits
+     apart from the status ramp so it never reads as caution or error. */
+  --p1-demo: #5B5BD6;
+  --p1-demo-soft: #F5F5FF;
+  --p1-demo-border: #DDDDF8;
+
+  /* Categorical chart ramp — for telling series apart, never for saying one is
+     good and another bad. Status colours stay out of it: a donut of Active /
+     Under review / Rejected / Expired painted green-to-red reads as a verdict
+     when it is only a distribution, which is the bug this ramp exists to fix.
+
+     These five are the first five steps of the palette validated for the
+     Insights module (declared again on `.p1-ins` further down, which is a
+     scoped container and cannot be inherited from here — hence the second
+     copy). Each set was checked for an OKLCH lightness band, a chroma floor,
+     adjacent-pair separation under deuteranopia, protanopia and tritanopia,
+     and 3:1 against its own surface. Two things are load-bearing:
+
+       - The ORDER is part of the validation. Separation is checked on adjacent
+         pairs only, so teal beside magenta is unsafe and is only fine here
+         because violet sits between them. Take a prefix, never a reordering.
+       - Dark is not light lightened. Both sets were chosen separately against
+         their own surface; the dark amber is mid-tone on purpose.
+
+     Re-validate with the dataviz skill's script if a step ever moves:
+       node scripts/validate_palette.js "<hex,...>" --mode dark --surface "#111827"
+
+     For a soft fill, mix against the surface it actually sits on rather than
+     reaching for a `-soft` token — color-mix(in srgb, var(--p1-chart-N) 12%,
+     var(--p1-surface)) stays correct on every surface. */
+  --p1-chart-1: #2563EB;
+  /* Not #D97706. That is exactly `--p1-warning`, and a plan segment painted in
+     the warning colour is the confusion this ramp exists to prevent. Re-stepped
+     to #C2620A and re-run through the validator: every check still passes and
+     the worst adjacent pair improves from ΔE 12.5 to 14.3 under deuteranopia. */
+  --p1-chart-2: #C2620A;
+  --p1-chart-3: #0D9488;
+  --p1-chart-4: #7C3AED;
+  --p1-chart-5: #DB2777;
+
+  /* Behind text laid over a photograph. One definition, so a status chip on a
+     property card is the same weight everywhere it appears. */
+  --p1-scrim: rgba(3, 7, 18, 0.55);
 
   /* deep feature panel (promotional cards, sign-in art). Never navigation
      chrome: the sidebar and header follow the theme's surface tokens. */
@@ -334,6 +377,17 @@ body {
   --p1-info: #38BDF8;
   --p1-info-soft: #0C2233;
   --p1-info-border: #14506F;
+  --p1-demo: #A4A6F9;
+  --p1-demo-soft: #191B33;
+  --p1-demo-border: #33365E;
+  /* Chosen against #111827, not lightened from the light ramp. See the note
+     on `.p1`; the order is part of what was validated. */
+  --p1-chart-1: #4A90F7;
+  --p1-chart-2: #BE811B;
+  --p1-chart-3: #0FA093;
+  --p1-chart-4: #9068F0;
+  --p1-chart-5: #DA5490;
+  --p1-scrim: rgba(3, 7, 18, 0.68);
   --p1-sidebar: #0A101C;
   --p1-sidebar-2: #0A101C;
   --p1-sidebar-line: #1E293B;
@@ -367,6 +421,11 @@ body {
   --color-p1-highlight: var(--p1-highlight);
   --color-p1-highlight-soft: var(--p1-highlight-soft);
   --color-p1-highlight-border: var(--p1-highlight-border);
+  --color-p1-chart-1: var(--p1-chart-1);
+  --color-p1-chart-2: var(--p1-chart-2);
+  --color-p1-chart-3: var(--p1-chart-3);
+  --color-p1-chart-4: var(--p1-chart-4);
+  --color-p1-chart-5: var(--p1-chart-5);
   --color-p1-success: var(--p1-success);
   --color-p1-success-soft: var(--p1-success-soft);
   --color-p1-success-border: var(--p1-success-border);
@@ -379,6 +438,9 @@ body {
   --color-p1-info: var(--p1-info);
   --color-p1-info-soft: var(--p1-info-soft);
   --color-p1-info-border: var(--p1-info-border);
+  --color-p1-demo: var(--p1-demo);
+  --color-p1-demo-soft: var(--p1-demo-soft);
+  --color-p1-demo-border: var(--p1-demo-border);
   --color-p1-sidebar: var(--p1-sidebar);
   --color-p1-sidebar-2: var(--p1-sidebar-2);
   --color-p1-sidebar-line: var(--p1-sidebar-line);
@@ -387,6 +449,25 @@ body {
   --shadow-p1-sm: var(--p1-shadow-sm);
   --shadow-p1-md: var(--p1-shadow-md);
   --shadow-p1-lg: var(--p1-shadow-lg);
+
+  /* Insights module. The values themselves are declared on `.p1-ins` at the
+     foot of this file, so a screen outside Insights never picks them up. */
+  --color-ins-canvas: var(--ins-canvas);
+  --color-ins-panel: var(--ins-panel);
+  --color-ins-raised: var(--ins-raised);
+  --color-ins-inset: var(--ins-inset);
+  --color-ins-line: var(--ins-line);
+  --color-ins-line-strong: var(--ins-line-strong);
+  --color-ins-grid: var(--ins-grid);
+  --color-ins-axis: var(--ins-axis);
+  --color-ins-s1: var(--ins-s1);
+  --color-ins-s2: var(--ins-s2);
+  --color-ins-s3: var(--ins-s3);
+  --color-ins-s4: var(--ins-s4);
+  --color-ins-s5: var(--ins-s5);
+  --color-ins-s6: var(--ins-s6);
+  --shadow-ins: var(--ins-shadow);
+  --shadow-ins-raised: var(--ins-shadow-raised);
 }
 
 /* Focus ring — one rule, every interactive element. */
@@ -419,11 +500,19 @@ body {
 @keyframes p1-drawer-in { from { transform: translateX(100%) } to { transform: none } }
 @keyframes p1-drawer-in-left { from { transform: translateX(-100%) } to { transform: none } }
 @keyframes p1-sheet-in { from { transform: translateY(100%) } to { transform: none } }
-.p1-overlay { animation: p1-overlay var(--p1-normal) ease both; }
-.p1-panel { animation: p1-panel-in var(--p1-normal) var(--p1-ease) both; transform-origin: top center; }
-.p1-drawer { animation: p1-drawer-in var(--p1-slow) var(--p1-ease) both; }
-.p1-drawer-left { animation: p1-drawer-in-left var(--p1-slow) var(--p1-ease) both; }
-.p1-sheet { animation: p1-sheet-in var(--p1-slow) var(--p1-ease) both; }
+/* `backwards`, not `both`, for the same reason as `vr-rise` above. Each of
+   these ends at the element's natural state, so keeping the last frame buys
+   nothing — and a retained `transform: none` is still a transform, which makes
+   an open drawer the containing block for every `position: fixed` element
+   inside it. Menus and tooltips portal to the body and escape that today;
+   anything added later that does not would open in the wrong place with no
+   error to say why. `backwards` keeps the from-frame before the start, so there
+   is still no flash of the panel in its final place. */
+.p1-overlay { animation: p1-overlay var(--p1-normal) ease backwards; }
+.p1-panel { animation: p1-panel-in var(--p1-normal) var(--p1-ease) backwards; transform-origin: top center; }
+.p1-drawer { animation: p1-drawer-in var(--p1-slow) var(--p1-ease) backwards; }
+.p1-drawer-left { animation: p1-drawer-in-left var(--p1-slow) var(--p1-ease) backwards; }
+.p1-sheet { animation: p1-sheet-in var(--p1-slow) var(--p1-ease) backwards; }
 @media (min-width: 640px) { .p1-sheet { animation: p1-panel-in var(--p1-normal) var(--p1-ease) both; } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -626,7 +715,50 @@ body {
   .vr-facts, .vr-cards4, .vr-grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* From tablet width the sheet on screen is the printed page: the same A4 box,
+   the same margins, the same clipping. What the agent checks is what prints,
+   and a sheet that is too long shows here instead of losing its last lines on
+   paper. Narrower screens keep the fluid reading layout. */
+@media screen and (min-width: 860px) {
+  .vr-page {
+    width: 210mm;
+    height: 297mm;
+    padding: 11mm 15mm 9mm !important;
+    overflow: hidden;
+    margin-inline: auto;
+  }
+  .vr-page.vr-landscape { width: 297mm; height: 210mm; }
+  .vr-page.vr-cover { padding: 0 !important; }
+}
+/* The measuring frame the shortlist uses to find how much fits on a page. */
+.vr-probe {
+  position: absolute;
+  left: -20000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.vr-probe .vr-page {
+  width: 210mm !important;
+  height: 297mm !important;
+  padding: 11mm 15mm 9mm !important;
+  overflow: hidden;
+}
+.vr-probe .vr-page.vr-landscape { width: 297mm !important; height: 210mm !important; }
+
 @media print {
+  /* A wide comparison table prints on its own landscape sheet. */
+  @page landscape {
+    size: A4 landscape;
+    margin: 0;
+  }
+  .vr-page.vr-landscape {
+    page: landscape;
+    width: 297mm;
+    height: 210mm;
+  }
+  .vr-probe { display: none !important; }
+
   /* Zero page margins. The sheet draws its own margins, header and footer;
      any margin left here is where the browser prints the page address, the
      document title and its own page count, which a client must never see. */
@@ -660,7 +792,7 @@ body {
   }
   .vr-page.vr-cover { padding: 0 !important; }
   .vr-break { break-before: page; page-break-before: always; }
-  .vr-doc > .vr-page:first-child { break-before: auto; page-break-before: auto; }
+  .vr-doc > .vr-page:first-of-type { break-before: auto; page-break-before: auto; }
   .vr-block { break-inside: avoid; page-break-inside: avoid; }
   img { break-inside: avoid; }
 }
@@ -793,3 +925,212 @@ body {
 
 /* Tap highlight on iOS is replaced by our own pressed states. */
 .p1 :where(a, button, [role='button'], [role='option'], summary) { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+/* ============================================================
+   V-RENT Insights — the intelligence module's own layer
+
+   Insights is a product inside the product: five screens that
+   answer market questions rather than manage inventory. It is
+   given its own surface treatment and its own chart palette so
+   that it reads as one instrument, and it is built on the same
+   `.p1` tokens underneath, so the theme switch, the focus ring
+   and the type scale are the ones the rest of the workspace
+   already uses.
+
+   The light theme is designed rather than inverted. Its canvas
+   carries a faint cool cast and its panels sit a clear step
+   above it, which is what gives a dense page of figures
+   somewhere to sit; the dark theme puts the same panels a step
+   above deep navy. Both were built to the same hierarchy —
+   canvas below panel below raised — instead of one being the
+   other with the lightness flipped.
+
+   The six chart hues are a fixed categorical order. They are
+   never cycled and never reassigned by rank, so a project keeps
+   its colour when a filter removes the one beside it. Each set
+   was validated against its own surface for the OKLCH lightness
+   band, a chroma floor, adjacent-pair separation under
+   deuteranopia, protanopia and tritanopia, and 3:1 contrast.
+   Light and dark are separate steps chosen against their own
+   background, not one ramp lightened.
+   ============================================================ */
+
+.p1-ins {
+  /* surfaces, canvas upward */
+  --ins-canvas: #F5F7FA;
+  --ins-panel: #FFFFFF;
+  --ins-raised: #FFFFFF;
+  --ins-inset: #F2F5F9;
+  --ins-line: #E4E8EF;
+  --ins-line-strong: #CFD6E1;
+
+  /* plot furniture — recessive by construction */
+  --ins-grid: #E9EDF4;
+  --ins-axis: #8A94A6;
+
+  /* categorical series, fixed order.
+
+     s2 is not the amber the rest of the product uses. `--p1-warning` is
+     #D97706, and the first cut of this ramp took the same value — which put
+     the "Illustrative, not market evidence" chip in every Insights header in
+     exactly the colour that, further down Compare, is the whole of the second
+     development’s identity: its bar, its name dot, its seven range markers,
+     its trend line. One pixel value, two unrelated meanings, one screen, and
+     the meaning being diluted is the warning. Status colours are reserved and
+     a series never borrows one. #C2620A is the nearest step that is not a
+     status token; the six-slot ramp still passes every check, and the
+     teal↔amber pair improves from ΔE 12.5 to 14.3 under deuteranopia.
+
+     s1 does match `--p1-primary`, deliberately. Brand and action are not
+     status, nothing reads a plotted line as clickable, and the first series
+     being the product’s own blue is what makes it read as the primary one. */
+  --ins-s1: #2563EB;
+  --ins-s2: #C2620A;
+  --ins-s3: #0D9488;
+  --ins-s4: #7C3AED;
+  --ins-s5: #DB2777;
+  --ins-s6: #65A30D;
+
+  /* the same hues at fill weight, for chips and legends */
+  --ins-s1-soft: #E8EFFE;
+  --ins-s2-soft: #FDF1DF;
+  --ins-s3-soft: #DEF3F1;
+  --ins-s4-soft: #EFE8FD;
+  --ins-s5-soft: #FCE7F1;
+  --ins-s6-soft: #EDF5DE;
+
+  /* elevation tuned for a page of panels rather than one card */
+  --ins-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(16, 24, 40, 0.14);
+  --ins-shadow-raised: 0 2px 4px rgba(16, 24, 40, 0.05), 0 18px 40px -16px rgba(16, 24, 40, 0.2);
+}
+
+.dark .p1-ins {
+  --ins-canvas: #0A111E;
+  --ins-panel: #121A2B;
+  --ins-raised: #172034;
+  --ins-inset: #0E1626;
+  --ins-line: #253046;
+  --ins-line-strong: #36435C;
+
+  --ins-grid: #1E2A3E;
+  --ins-axis: #7D8CA5;
+
+  --ins-s1: #4A90F7;
+  --ins-s2: #BE811B;
+  --ins-s3: #0FA093;
+  --ins-s4: #9068F0;
+  --ins-s5: #DA5490;
+  --ins-s6: #6E9C2A;
+
+  --ins-s1-soft: #15243E;
+  --ins-s2-soft: #2C2110;
+  --ins-s3-soft: #0A2926;
+  --ins-s4-soft: #1F1838;
+  --ins-s5-soft: #2F1523;
+  --ins-s6-soft: #1A2410;
+
+  --ins-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px -14px rgba(0, 0, 0, 0.55);
+  --ins-shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.45), 0 22px 48px -18px rgba(0, 0, 0, 0.65);
+}
+
+/* ------------------------------------------------------------ insights motion
+
+   Four behaviours, each with a job:
+
+   `ins-rise`    a section arriving, staggered down the page by
+                 `--i`, so the eye is led through the order the
+                 page is meant to be read in rather than shown
+                 everything at once.
+   `ins-swap`    a panel whose contents changed under a filter.
+                 Short, because the reader is waiting for it.
+   `ins-hoist`   the hover lift on a card that can be opened.
+   `ins-zoom`    the photograph or plan inside such a card.
+
+   Everything runs once. Nothing loops, and all of it stops when
+   the reader has asked their system for less movement.
+   -------------------------------------------------------------------------- */
+
+@keyframes ins-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes ins-swap { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes ins-grow { from { transform: scaleX(0); } to { transform: none; } }
+
+/* `backwards`, never `both`. A finished `both` animation keeps its last
+   frame, and this one ends on `transform: none` — which is still a
+   transform, and a transformed element is a containing block for every
+   `position: fixed` descendant it has. The filter sheet lives inside the
+   header panel, and with `both` it stopped being fixed to the viewport and
+   started being fixed to the header: a bottom sheet that opened halfway up
+   the page with no overlay behind it. `backwards` applies the first frame
+   during the delay and then gets out of the way. The same trap is
+   documented on `vr-rise` further up this file. */
+.ins-rise {
+  animation: ins-rise 460ms cubic-bezier(.16, 1, .3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.ins-swap { animation: ins-swap 220ms cubic-bezier(.2, .8, .2, 1) backwards; }
+/* A bar filling from its start. Only on leaf elements, so the transform
+   cannot become anyone's containing block. */
+.ins-grow { transform-origin: left center; animation: ins-grow 700ms cubic-bezier(.16, 1, .3, 1) backwards; }
+
+.ins-hoist {
+  transition: transform var(--p1-normal) var(--p1-ease), box-shadow var(--p1-normal) var(--p1-ease), border-color var(--p1-fast) ease;
+}
+.ins-hoist:hover { transform: translateY(-3px); box-shadow: var(--ins-shadow-raised); }
+.ins-hoist:focus-within { box-shadow: var(--ins-shadow-raised); }
+
+.ins-zoom-frame { overflow: hidden; }
+.ins-zoom { transition: transform 420ms cubic-bezier(.16, 1, .3, 1); transform-origin: center; }
+.ins-hoist:hover .ins-zoom { transform: scale(1.045); }
+
+/* The active-module indicator slides rather than reappears. */
+.ins-indicator { transition: transform 240ms var(--p1-ease), width 240ms var(--p1-ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ins-rise, .ins-swap, .ins-grow { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .ins-hoist, .ins-zoom, .ins-indicator { transition: none !important; }
+  .ins-hoist:hover { transform: none; }
+  .ins-hoist:hover .ins-zoom { transform: none; }
+}
+
+/* A plan or photograph the reader is dragging inside its viewer. */
+.ins-grab { cursor: grab; }
+.ins-grabbing { cursor: grabbing; }
+
+/* Horizontal scrollers — comparison columns on a phone, category chips —
+   snap so a card never comes to rest half off the screen. */
+.ins-snap-x { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.ins-snap-x > * { scroll-snap-align: start; }
+
+/* A scroller whose contents run past its edge fades them out rather than
+   guillotining them. An item cut dead at the boundary reads as a rendering
+   fault; the same item fading reads as "there is more that way". Applied
+   only while the element actually overflows, so a rail that fits is not
+   given soft edges for nothing. */
+.ins-fade-x {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+}
+
+/* ---------------------------------------------------------------- account
+   The deep panel the Account screens open on: the landing page's night sky,
+   so a plan and a registration read as V-RENT's and not as a settings form.
+   Dark mode lifts it off the page rather than sinking into it. */
+.p1 {
+  --p1-ink-from: #0B1220;
+  --p1-ink-mid: #0F1D3A;
+  --p1-ink-to: #1D3A7A;
+  --p1-ink-line: rgba(255, 255, 255, 0.12);
+  --p1-ink-glow: rgba(96, 165, 250, 0.26);
+}
+.dark .p1 {
+  --p1-ink-from: #111B30;
+  --p1-ink-mid: #14254A;
+  --p1-ink-to: #1C3A78;
+  --p1-ink-line: rgba(148, 163, 184, 0.2);
+  --p1-ink-glow: rgba(96, 165, 250, 0.2);
+}
+@keyframes acct-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.acct-fill { transform-origin: left center; animation: acct-fill .9s cubic-bezier(.22, 1, .36, 1) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .acct-fill { animation: none; }
+}

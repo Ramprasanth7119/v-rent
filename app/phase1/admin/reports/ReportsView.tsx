@@ -26,6 +26,7 @@ import {
 import { Drawer } from '../../../../components/phase1/overlays';
 import { ACTION_LABEL, IS_ADVERSE, type AuditRow } from '../../../../lib/phase1/audit-labels';
 import { FUNNEL, LISTING_STATUS_LABEL, sgd, type ListingStatus } from '../../../../lib/phase1/data';
+import { useDemoDataOn } from '../../../../lib/phase1/report-data/switch';
 import { sgDateTime, sgRelative } from '../../../../lib/phase1/format';
 import type { OpsSnapshot } from '../../../../lib/phase1/admin-insight';
 import {
@@ -92,12 +93,13 @@ const STATUS_COLOUR: Record<string, string> = {
   suspended: 'var(--p1-highlight)',
 };
 
-const PLAN_COLOUR = [
-  'var(--p1-primary)',
-  'color-mix(in srgb, var(--p1-primary) 58%, var(--p1-surface))',
-  'color-mix(in srgb, var(--p1-primary) 30%, var(--p1-surface))',
-  'var(--p1-info)',
-];
+/**
+ * The categorical ramp, as a prefix. It replaces a monochrome one that faded
+ * the third plan to 30% of the primary against the surface — legible as a
+ * shape, not as a colour you could match to a legend entry, and the fourth
+ * step sat close enough to the second to be guesswork.
+ */
+const PLAN_COLOUR = ['var(--p1-chart-1)', 'var(--p1-chart-2)', 'var(--p1-chart-3)', 'var(--p1-chart-4)', 'var(--p1-chart-5)'];
 
 function PlatformTab({ listings, decisions, revenue, agents }: Pick<OpsSnapshot, 'listings' | 'decisions' | 'revenue' | 'agents'>) {
   const top = FUNNEL[0].count;
@@ -116,30 +118,35 @@ function PlatformTab({ listings, decisions, revenue, agents }: Pick<OpsSnapshot,
     .sort((a, b) => b.value - a.value);
 
   const trendTotal = decisions.trend.values.reduce((n, v) => n + v, 0);
+  /* The funnel is modelled, not recorded, so it is demo data and shows only with Demo Data ON. */
+  const demoOn = useDemoDataOn();
   const planTotal = revenue.byPlan.reduce((n, p) => n + p.sgd, 0) || 1;
 
   return (
     <div className="grid gap-5">
       <section aria-label="Platform at a glance" className="vr-stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KPI label="Agents" value={agents.total} icon={<Users size={16} />} sub={`${agents.approved} approved`} href="/phase1/admin/agents" />
-        <KPI label="Listings" value={listings.total} icon={<Building2 size={16} />} sub={`+${listings.publishedThisWeek} this week`} />
+        <KPI label="Agents" value={agents.total} icon={<Users size={16} />} iconTone="primary" sub={`${agents.approved} approved`} href="/phase1/admin/agents" />
+        <KPI label="Listings" value={listings.total} icon={<Building2 size={16} />} iconTone="primary" sub={`+${listings.publishedThisWeek} this week`} />
         <KPI
           label="Decisions, 7 days"
           value={decisions.week}
-          icon={<FileCheck size={16} />}
+          icon={<FileCheck size={16} />} iconTone="info"
           sub={`${decisions.adverseShare}% adverse`}
           spark={decisions.trend.values.length > 1 ? { data: decisions.trend.values, tone: 'primary' } : undefined}
           className="max-sm:[&>div:last-child>svg]:hidden"
         />
-        <KPI label="Annual recurring" value={revenue.arrSgd} prefix="S$" compact icon={<CreditCard size={16} />} sub={`${revenue.activeCount} paying agents`} href="/phase1/admin/subscriptions" />
+        <KPI label="Annual recurring" value={revenue.arrSgd} prefix="S$" compact icon={<CreditCard size={16} />} iconTone="success" sub={`${revenue.activeCount} paying agents`} href="/phase1/admin/subscriptions" />
       </section>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <SectionCard
           title="Onboarding funnel"
           description="Registration through to a first published listing"
-          actions={<ModelledBadge note="Volumes are modelled for the business case. A prototype with a handful of accounts cannot show where hundreds of agents give up. Every other figure on this page is read from this instance." />}
+          actions={demoOn ? <ModelledBadge note="Volumes are modelled for the business case. A prototype with a handful of accounts cannot show where hundreds of agents give up. Every other figure on this page is read from this instance." /> : undefined}
         >
+          {!demoOn ? (
+            <EmptyState compact title="Not tracked yet" description="This instance does not record the onboarding steps between registration and a first listing, so there is no real funnel to draw. Turn on Demo Data in the header to preview the modelled one." />
+          ) : <>
           <FlatFunnel stages={FUNNEL.map((f) => ({ label: f.stage, value: f.count }))} />
           {worst.lost > 0 && (
             <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-p1-danger-soft px-3.5 py-2.5 text-[13px]">
@@ -149,10 +156,14 @@ function PlatformTab({ listings, decisions, revenue, agents }: Pick<OpsSnapshot,
               <span className="font-semibold tabular-nums text-p1-danger">−{worst.lost} agents</span>
             </div>
           )}
+          </>}
         </SectionCard>
 
         <div className="grid gap-5">
-          <SectionCard title="End-to-end conversion" description="Registered to first listing" actions={<ModelledBadge note="Drawn from the same modelled funnel." />}>
+          <SectionCard title="End-to-end conversion" description="Registered to first listing" actions={demoOn ? <ModelledBadge note="Drawn from the same modelled funnel." /> : undefined}>
+            {!demoOn ? (
+              <EmptyState compact title="Not tracked yet" description="Needs the same onboarding record as the funnel." />
+            ) : <>
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-[34px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-p1-text">{conversion}%</span>
               <span className="text-[13px] tabular-nums text-p1-text-3">{last} of {top}</span>
@@ -160,6 +171,7 @@ function PlatformTab({ listings, decisions, revenue, agents }: Pick<OpsSnapshot,
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-p1-subtle">
               <div className="vr-grow h-full rounded-full bg-p1-primary" style={{ width: `${conversion}%` }} />
             </div>
+            </>}
           </SectionCard>
 
           <SectionCard title="Listings by standing" description="Across every agent, right now">

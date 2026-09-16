@@ -24,6 +24,8 @@ import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { PropertyImage } from '../../../../components/phase1/PropertyImage';
 import { coverPhoto, listingPhotos } from '../../../../lib/phase1/photos';
 import { useToast } from '../../../../components/phase1/Toast';
+import { useDemoDataOn } from '../../../../lib/phase1/report-data/switch';
+import { DEMO_LIVE_ACTION_BLOCKED } from '../../../../lib/phase1/report-data';
 import type { ModerationItem } from '../../../../lib/phase1/admin-moderation';
 import { DemoListing, REJECTION_REASONS, sgd } from '../../../../lib/phase1/data';
 import { DEAL_LABEL, dealOf, priceLabel } from '../../../../lib/phase1/pricing';
@@ -97,6 +99,7 @@ const LEVEL_ICON: Record<Level, { icon: typeof Check; cls: string }> = {
 export default function ModerationQueue({ items }: { items: ModerationItem[] }) {
   const router = useRouter();
   const { push } = useToast();
+  const demoOn = useDemoDataOn();
   const [rejecting, setRejecting] = useState<ModerationItem | null>(null);
   const [reason, setReason] = useState(REJECTION_REASONS[0]);
   const [note, setNote] = useState('');
@@ -127,6 +130,11 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
   }, []);
 
   const decide = useCallback(async (item: ModerationItem, action: 'approve' | 'reject', why?: string) => {
+    // The queue holds live listings; Demo Data never changes them.
+    if (demoOn) {
+      push(DEMO_LIVE_ACTION_BLOCKED);
+      return;
+    }
     setBusy(item.listing.id);
     try {
       const res = await fetch('/api/phase1/admin/moderation', {
@@ -147,7 +155,7 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
     } finally {
       setBusy(null);
     }
-  }, [push, router, select, shown]);
+  }, [demoOn, push, router, select, shown]);
 
   const confirmReject = () => {
     const item = rejecting;
@@ -275,7 +283,7 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
                         </div>
                         <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-p1-text-2"><MapPin size={13} className="shrink-0 text-p1-text-3" aria-hidden />{l.address}{l.address.includes(l.postalCode) ? '' : `, ${l.postalCode}`} · {districtCode(l.district)} {districtLabel(l.district)}</p>
                       </div>
-                      <div className="text-[20px] font-semibold tabular-nums tracking-[-0.02em] text-p1-text">{p.amount}<span className="text-[12.5px] font-normal text-p1-text-3">{p.suffix}</span></div>
+                      <div className="font-p1display text-[20px] font-bold tabular-nums tracking-[-0.02em] text-p1-primary">{p.amount}<span className="text-[12.5px] font-normal text-p1-text-3">{p.suffix}</span></div>
                     </div>
 
                     <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-p1-border p-3 text-[13px] sm:grid-cols-4">

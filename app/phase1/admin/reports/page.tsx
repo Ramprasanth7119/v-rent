@@ -5,10 +5,11 @@
  */
 
 import { opsSnapshot } from '../../../../lib/phase1/admin-insight';
+import { demoDataOnServer } from '../../../../lib/phase1/report-data/server';
 import ReportsView from './ReportsView';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReportsPage() {
-  return <ReportsView snapshot={await opsSnapshot()} now={new Date().toISOString()} />;
+  return <ReportsView snapshot={await opsSnapshot({ demo: await demoDataOnServer() })} now={new Date().toISOString()} />;
 }

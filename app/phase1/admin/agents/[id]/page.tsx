@@ -6,13 +6,14 @@
 
 import { PageHeader, Card, EmptyState, LinkButton } from '../../../../../components/phase1/kit';
 import { agentDetail } from '../../../../../lib/phase1/admin-directory';
+import { demoDataOnServer } from '../../../../../lib/phase1/report-data/server';
 import AgentDetail from './AgentDetail';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const found = await agentDetail(id);
+  const found = await agentDetail(id, { demo: await demoDataOnServer() });
 
   if (!found) {
     return (

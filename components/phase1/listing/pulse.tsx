@@ -2,6 +2,9 @@
 
 /**
  * Performance Pulse — compact enquiry trend and inline stats for a listing.
+ *
+ * Traffic is only counted for the demo account (see `performance.ts`). For
+ * the agent's own listings both pieces say so rather than showing zeros.
  */
 
 import React from 'react';
@@ -10,9 +13,14 @@ import { DemoListing } from '../../../lib/phase1/data';
 import { listingStats } from '../../../lib/phase1/performance';
 import { Sparkline, cx } from '../kit';
 
+const NOT_MEASURED = 'Not measured yet';
+
 export function Pulse({ listing, className = '', showSpark = true }: { listing: DemoListing; className?: string; showSpark?: boolean }) {
   const s = listingStats(listing);
   const live = listing.status === 'published' || listing.status === 'paused' || listing.status === 'expired';
+  if (live && !s.measured) {
+    return <span className={cx('text-[12.5px] text-p1-text-3', className)} title="Views and enquiry trends are counted once the tenant site is live">{NOT_MEASURED}</span>;
+  }
   if (!live || s.views30d === 0) return <span className={cx('text-[12.5px] text-p1-text-3', className)}>No traffic yet</span>;
   const up = s.trendPct > 0, flat = s.trendPct === 0;
   const Icon = flat ? Minus : up ? TrendingUp : TrendingDown;
@@ -29,6 +37,7 @@ export function Pulse({ listing, className = '', showSpark = true }: { listing: 
 
 export function StatsInline({ listing, className = '', period = '7d' }: { listing: DemoListing; className?: string; period?: '7d' | '30d' }) {
   const s = listingStats(listing);
+  if (!s.measured) return <span className={cx('text-[12.5px] text-p1-text-3', className)}>{NOT_MEASURED}</span>;
   const views = period === '7d' ? s.views7d : s.views30d;
   const enq = period === '7d' ? s.enquiries7d : s.enquiries30d;
   return (

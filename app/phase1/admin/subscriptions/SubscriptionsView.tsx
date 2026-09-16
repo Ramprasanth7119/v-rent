@@ -9,9 +9,10 @@
  * the book — when it renews, which plans carry it, how it pays, how much of it
  * is still paying — then the people to chase, then the ledger itself.
  *
- * The revenue figures come from real accounts on this instance; the sample
- * roster is marked on every row it appears in, because an officer about to
- * issue a refund needs to know whether there is anybody to refund.
+ * The revenue figures come from real accounts on this instance. The sample
+ * roster is demo data: it is added only while Demo Data is ON, and even then
+ * every sample row is marked, because an officer about to issue a refund needs
+ * to know whether there is anybody to refund.
  */
 
 import { useMemo, useState } from 'react';
@@ -31,12 +32,19 @@ import { SUBSCRIPTIONS, sgd } from '../../../../lib/phase1/data';
 import { sgDate, sgDateShort } from '../../../../lib/phase1/format';
 import { TODAY } from '../../../../lib/phase1/workspace';
 import type { SubscriptionEntry } from '../../../../lib/phase1/admin-subscriptions';
+import { useDemoDataOn } from '../../../../lib/phase1/report-data/switch';
 
 type Filter = 'all' | 'active' | 'past_due' | 'expired' | 'cancelled';
 type Sort = 'renews' | 'amount' | 'agent' | 'status';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const PLAN_COLOUR = ['var(--p1-primary)', 'color-mix(in srgb, var(--p1-primary) 55%, white)', 'var(--p1-success)', 'var(--p1-text-3)'];
+/**
+ * Plans are categories, not verdicts. The old ramp reached for `--p1-success`
+ * for the third plan, which said green-is-good about a name that carries no
+ * such thing; this is the categorical ramp, taken as a prefix so the
+ * adjacent-pair separation it was validated for still holds.
+ */
+const PLAN_COLOUR = ['var(--p1-chart-1)', 'var(--p1-chart-2)', 'var(--p1-chart-3)', 'var(--p1-chart-4)', 'var(--p1-chart-5)'];
 const STATUS_ORDER: Record<string, number> = { past_due: 0, expired: 1, active: 2, cancelled: 3 };
 const DAY = 86_400_000;
 
@@ -60,14 +68,14 @@ export default function SubscriptionsView({ subscriptions }: { subscriptions: Su
   const [reconciledAt, setReconciledAt] = useState<Date | null>(null);
 
   /**
-   * Accounts on this instance first, then the sample roster. A sample row is
-   * marked, because an officer about to refund one needs to know whether there
-   * is anybody to refund.
+   * Accounts on this instance, and — with Demo Data ON only — the sample
+   * roster after them, each sample row marked.
    */
+  const demoOn = useDemoDataOn();
   const SUBS: SubscriptionEntry[] = useMemo(() => [
     ...subscriptions,
-    ...SUBSCRIPTIONS.map((s, i) => ({ ...s, accountId: `sample-${i}`, real: false, email: '' })),
-  ], [subscriptions]);
+    ...(demoOn ? SUBSCRIPTIONS.map((s, i) => ({ ...s, accountId: `demo-sample-${i}`, real: false, email: '' })) : []),
+  ], [subscriptions, demoOn]);
 
   /* ------------------------------------------------------------- the money */
 
@@ -147,7 +155,10 @@ export default function SubscriptionsView({ subscriptions }: { subscriptions: Su
   const retry = (s: SubscriptionEntry) =>
     push({ tone: 'info', title: 'Payment retry requested', body: `${s.agent} will be charged again within the hour.` });
 
-  const menuFor = (s: SubscriptionEntry): (MenuItem | 'divider')[] => [
+  /* A demo row is not an account: nothing can be retried or refunded against it. */
+  const menuFor = (s: SubscriptionEntry): (MenuItem | 'divider')[] => !s.real ? [
+    { key: 'demo', label: 'Demo row — no actions', icon: <Info size={15} />, disabled: true },
+  ] : [
     ...(s.real ? [{ key: 'open', label: 'Open agent record', icon: <ArrowUpRight size={15} />, href: `/phase1/admin/agents/${s.accountId}` }] : []),
     ...(s.status === 'past_due' ? [{ key: 'retry', label: 'Retry payment', icon: <RotateCcw size={15} />, onSelect: () => retry(s) }] : []),
     ...((s.real || s.status === 'past_due') ? ['divider' as const] : []),
@@ -229,13 +240,13 @@ export default function SubscriptionsView({ subscriptions }: { subscriptions: Su
           label="Annual recurring revenue"
           value={money.arr}
           prefix="S$"
-          icon={<CircleDollarSign size={16} />}
+          icon={<CircleDollarSign size={16} />} iconTone="success"
           sub={`${sgd(money.mrr)} a month`}
         />
         <KPI
           label="Active subscriptions"
           value={money.active.length}
-          icon={<Users size={16} />}
+          icon={<Users size={16} />} iconTone="primary"
           sub={`${money.retained}% of all still paying${money.samples ? ` · ${money.samples} sample` : ''}`}
         />
         <KPI
@@ -244,12 +255,13 @@ export default function SubscriptionsView({ subscriptions }: { subscriptions: Su
           prefix="S$"
           tone={money.atRisk > 0 ? 'danger' : 'default'}
           icon={<ShieldAlert size={16} />}
+          iconTone={money.atRisk > 0 ? 'danger' : 'neutral'}
           sub={money.attention.length ? `${money.attention.length} past due or expired` : 'Nothing to chase'}
         />
         <KPI
           label="Renewing in 30 days"
           value={money.soon.length}
-          icon={<CalendarClock size={16} />}
+          icon={<CalendarClock size={16} />} iconTone="accent"
           sub={money.soon.length ? `${sgd(money.soonSgd)} due to renew` : `${money.renewalsDue} due in the next 12 months`}
         />
       </section>

@@ -1,14 +1,18 @@
 /**
- * The enquiries waiting for a reply.
+ * The enquiries waiting on the agent.
  *
- * The same view as /phase1/performance, opened on its enquiries tab. It has its
- * own address because the sidebar offers it as its own errand — previously both
- * entries pointed at the same URL, so whichever you clicked the other one lit
- * up too and "Enquiries" looked like it had taken you to the wrong screen.
+ * Its own screen now: it used to be a tab of /phase1/performance, which put a
+ * page of traffic figures between the agent and the people waiting for a reply.
  */
 
-import PerformanceView from '../performance/PerformanceView';
+import { Suspense } from 'react';
+import EnquiriesView from './EnquiriesView';
+import Loading from './loading';
 
 export default function EnquiriesPage() {
-  return <PerformanceView initialTab="enquiries" />;
+  return (
+    <Suspense fallback={<Loading />}>
+      <EnquiriesView />
+    </Suspense>
+  );
 }

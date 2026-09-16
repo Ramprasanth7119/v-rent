@@ -26,17 +26,18 @@ import { useToast } from './Toast';
 import {
   FileSpreadsheet, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Plus, Gavel, Receipt, BarChart3, Users,
   Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, LogOut, LayoutGrid, Search, BookOpen, MessageCircle, Phone,
-  Settings, TrendingUp, ChevronRight, ChevronDown, ArrowLeftRight, Rocket, RefreshCw, FileText, CalendarClock, LineChart,
-  GitCompareArrows, LayoutPanelTop, Trees, QrCode, Star, LifeBuoy, Video, Megaphone, Compass, PanelLeftClose, PanelLeftOpen,
+  Settings, TrendingUp, ChevronRight, ChevronDown, ArrowLeftRight, RefreshCw, FileText, CalendarClock, LineChart,
+  GitCompareArrows, Trees, QrCode, LifeBuoy, Video, Megaphone, Compass, PanelLeftClose, PanelLeftOpen,
   Globe, Home,
 } from 'lucide-react';
 import { useDemo } from '../../lib/phase1/DemoContext';
+import { useEnquiries } from '../../lib/phase1/useEnquiries';
 import { usePersona } from '../layout/PersonaContext';
 import { useTheme } from './hooks';
 import { Avatar, Kbd, Tooltip, cx } from './kit';
 import { StatusBadge } from './status';
 import { useSession, shortName, agencyLabel } from '../../lib/phase1/SessionContext';
-import { MODERATION_QUEUE, VERIFICATION_QUEUE } from '../../lib/phase1/data';
+import { DemoDataStrip, DemoDataSwitch } from './DemoDataSwitch';
 import { PublicFrame } from './landing/PublicFrame';
 
 type Icon = React.ComponentType<{ size?: number | string; className?: string; strokeWidth?: number }>;
@@ -54,10 +55,10 @@ const TITLES: Record<string, string> = {
   status: 'Verification', plans: 'Plans', checkout: 'Subscription', payment: 'Payment', sandbox: 'Sandbox checkout', dashboard: 'Dashboard', properties: 'Properties',
   listings: 'Listings', new: 'Create listing', import: 'Bulk import', reports: 'Reports', admin: 'Operations', agents: 'Agents', performance: 'Performance', settings: 'Settings',
   verification: 'Verification', moderation: 'Moderation', subscriptions: 'Subscriptions',
-  featured: 'Featured placement', refresh: 'Automatic refresh', placement: 'Search placement',
+  refresh: 'Automatic refresh',
   viewings: 'Viewings', whatsapp: 'WhatsApp handover', shortlists: 'Client shortlists',
-  market: 'Market data', transactions: 'Transactions', compare: 'Compare projects',
-  floorplans: 'Floor plans', neighbourhood: 'Neighbourhood', agent: 'Public page', qr: 'QR code',
+  insights: 'Insights', market: 'Market data', transactions: 'Transactions', compare: 'Compare projects',
+  neighbourhood: 'Neighbourhood', agent: 'Public page', qr: 'QR code',
   learn: 'Guides', sessions: 'Sessions', support: 'Support', print: 'Printable report',
   export: 'Export', shortlist: 'Shortlist', enquiries: 'Enquiries',
 };
@@ -68,16 +69,20 @@ const COLLAPSE_KEY = 'vrent_nav_collapsed';
 
 function crumbLabel(segment: string): string {
   if (TITLES[segment]) return TITLES[segment];
-  if (segment.startsWith('lst-') || segment.startsWith('imp-') || segment.startsWith('oth-')) return 'Listing';
+  if (segment.startsWith('lst-') || segment.startsWith('imp-') || segment.startsWith('oth-') || segment.startsWith('demo-')) return 'Listing';
   if (segment.startsWith('agt-') || UUID.test(segment)) return 'Agent';
   return segment;
 }
 
 /** Crumbs only where they help: on a page two levels below a section. */
-function useCrumbs(pathname: string) {
+function useCrumbs(pathname: string, listings: { id: string; project: string }[]) {
   const parts = pathname.split('/').filter(Boolean).slice(1);
   if (parts.length < 2) return [];
-  return parts.map((p, i) => ({ label: crumbLabel(p), href: '/phase1/' + parts.slice(0, i + 1).join('/') }));
+  return parts.map((p, i) => {
+    // A listing is named by its development, not by its record id.
+    const listing = parts[i - 1] === 'listings' ? listings.find((l) => l.id === p) : undefined;
+    return { label: listing ? listing.project : crumbLabel(p), href: '/phase1/' + parts.slice(0, i + 1).join('/') };
+  });
 }
 
 function useMedia(query: string) {
@@ -132,15 +137,15 @@ function NavLink({ item, pathname, onNavigate, rail }: { item: NavItem; pathname
       aria-label={rail ? `${item.label}${hasBadge ? `, ${item.badge}` : ''}` : undefined}
       onClick={onNavigate}
       className={cx(
-        'group relative z-[1] flex h-9 items-center gap-3 rounded-lg text-[13.5px] transition-colors duration-150',
+        'group relative z-[1] flex h-[38px] items-center gap-3 rounded-lg text-[13.5px] transition-colors duration-150',
         rail ? 'justify-center px-0' : 'px-2.5',
-        active ? 'font-medium text-p1-text' : 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text',
+        active ? 'font-semibold text-p1-text' : 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text',
       )}
     >
       <Icon
         size={17}
         strokeWidth={active ? 2.2 : 1.9}
-        className={cx('shrink-0 transition-colors', active ? 'text-p1-primary' : 'text-p1-text-3 group-hover:text-p1-text-2')}
+        className={cx('shrink-0 transition-colors', active ? 'text-p1-primary' : 'text-p1-text-3 group-hover:text-p1-text')}
         aria-hidden
       />
       {!rail && <span className="flex-1 truncate">{item.label}</span>}
@@ -201,19 +206,19 @@ function SidebarNav({ groups, pathname, onNavigate, rail }: { groups: NavGroup[]
                   type="button"
                   onClick={() => setOpen((s) => ({ ...s, [g.key]: !expanded }))}
                   aria-expanded={expanded}
-                  className={cx('mb-1 flex h-8 w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 text-[13.5px] transition-colors', 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text')}
+                  className={cx('mb-1 flex h-[38px] w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 text-[13.5px] transition-colors', 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text')}
                 >
                   {GroupIcon && <GroupIcon size={17} strokeWidth={1.9} className="text-p1-text-3" aria-hidden />}
                   <span className="flex-1 text-left">{g.title}</span>
                   <ChevronDown size={14} className={cx('transition-transform duration-200', expanded ? 'rotate-0' : '-rotate-90', 'text-p1-text-3')} aria-hidden />
                 </button>
               ) : (
-                <div className="px-2.5 pb-1.5 text-[11.5px] font-medium text-p1-text-3">{g.title}</div>
+                <div className="px-2.5 pb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-p1-text-3">{g.title}</div>
               )
             )}
             {/* Grid rows animate the height of a group without measuring it. */}
             <div className={cx('grid transition-[grid-template-rows] duration-200 ease-out', expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
-              <ul className={cx('flex min-h-0 flex-col gap-0.5 overflow-hidden', g.collapsible && !rail && 'pl-4', g.collapsible && !rail && expanded && 'pb-1')} onTransitionEnd={measure}>
+              <ul className={cx('flex min-h-0 flex-col gap-1 overflow-hidden', g.collapsible && !rail && 'pl-4', g.collapsible && !rail && expanded && 'pb-1')} onTransitionEnd={measure}>
                 {g.items.map((item) => (
                   <li key={item.href}><NavLink item={item} pathname={pathname} onNavigate={onNavigate} rail={rail} /></li>
                 ))}
@@ -244,7 +249,7 @@ const BARE_ROUTES = ['/phase1/login', '/phase1/signup', '/phase1/forgot', '/phas
  */
 const BARE_PREFIXES = ['/phase1/share/', '/phase1/listings/export', '/phase1/homes'];
 
-export function Phase1Shell({ children }: { children: React.ReactNode }) {
+export function Phase1Shell({ children, backend = 'mongodb' }: { children: React.ReactNode; backend?: 'mongodb' | 'files' }) {
   const pathnameForFrame = usePathname();
   const { user } = useSession();
   if (BARE_PREFIXES.some((p) => pathnameForFrame.startsWith(p))) return <>{children}</>;
@@ -252,11 +257,11 @@ export function Phase1Shell({ children }: { children: React.ReactNode }) {
     return <div className="p1 font-p1sans">{children}</div>;
   }
   if (!user) return <PublicFrame>{children}</PublicFrame>;
-  return <Phase1Frame>{children}</Phase1Frame>;
+  return <Phase1Frame backend={backend}>{children}</Phase1Frame>;
 }
 
-function Phase1Frame({ children }: { children: React.ReactNode }) {
-  const { state, markAlertsRead } = useDemo();
+function Phase1Frame({ children, backend }: { children: React.ReactNode; backend: 'mongodb' | 'files' }) {
+  const { state, markAlertsRead, demo, demoChanges } = useDemo();
   const { user, isAdmin: isAdminAccount, signOut } = useSession();
   const { isDarkMode, setDarkMode } = usePersona();
   const { toggle: toggleTheme, ready: themeReady } = useTheme(setDarkMode, isDarkMode);
@@ -266,11 +271,20 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
 
   /* Signing out navigates to the sign-in page, which on its own is hard to
      tell from a session that expired. Saying it was deliberate is the point. */
+  /* A change made while Demo Data is ON looks exactly like a saved one, so say
+     it was not saved — once, not after every keystroke of a burst. */
+  const toldAt = useRef(0);
+  useEffect(() => {
+    if (!demo || demoChanges === 0 || Date.now() - toldAt.current < 6000) return;
+    toldAt.current = Date.now();
+    push({ tone: 'info', title: 'Demo mode — changes are not saved', body: 'Turn Demo Data off in the header to work with your own records.' });
+  }, [demo, demoChanges, push]);
+
   const signOutAndSay = () => {
     push({ tone: 'success', title: 'Signed out', body: 'Your session on this device has ended.' });
     void signOut();
   };
-  const crumbs = useCrumbs(pathname);
+  const crumbs = useCrumbs(pathname, state.listings);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [drawer, setDrawer] = useState(false);
@@ -317,9 +331,9 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
   const isAdmin = isAdminAccount && pathname.startsWith('/phase1/admin');
 
   // Queue sizes come from the server for staff: a badge that disagrees with the
-  // page it points at is worse than no badge. Fixtures are the fallback until
-  // the first response lands.
-  const [queues, setQueues] = useState({ verification: VERIFICATION_QUEUE.length, moderation: MODERATION_QUEUE.length });
+  // page it points at is worse than no badge, so there is none until the first
+  // response lands.
+  const [queues, setQueues] = useState<{ verification: number; moderation: number }>({ verification: 0, moderation: 0 });
   const seen = useRef<{ verification: number; moderation: number } | null>(null);
   useEffect(() => {
     if (!isAdminAccount) return;
@@ -337,8 +351,8 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
         if (!res.ok || !live) return;
         const body = (await res.json()) as { verification?: number; moderation?: number };
         const next = {
-          verification: body.verification ?? VERIFICATION_QUEUE.length,
-          moderation: body.moderation ?? MODERATION_QUEUE.length,
+          verification: body.verification ?? 0,
+          moderation: body.moderation ?? 0,
         };
         if (!live) return;
         setQueues(next);
@@ -363,7 +377,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
   }, [isAdminAccount, pathname, router]);
 
   const attention = state.listings.filter((l) => !l.archived && (l.status === 'rejected' || (l.status === 'draft' && l.images === 0))).length;
-  const newEnquiries = state.enquiries.filter((e) => e.status === 'new').length;
+  const { newCount: newEnquiries } = useEnquiries();
 
   const agentGroups: NavGroup[] = [
     { key: 'main', items: [
@@ -374,18 +388,22 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
       { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
     ] },
     { key: 'grow', title: 'Marketing', icon: Megaphone, collapsible: true, items: [
-      { href: '/phase1/featured', label: 'Featured placement', icon: Rocket },
       { href: '/phase1/refresh', label: 'Automatic refresh', icon: RefreshCw },
-      { href: '/phase1/placement', label: 'Search placement', icon: Star },
       { href: '/phase1/shortlists', label: 'Client shortlists', icon: FileText },
       { href: '/phase1/whatsapp', label: 'WhatsApp handover', icon: Phone },
       { href: '/phase1/agent', label: 'Public page', icon: Globe },
       { href: '/phase1/qr', label: 'QR code', icon: QrCode },
     ] },
+    /* Insights is a product inside the product rather than a folder of links,
+       so the group leads with its own landing page: the five modules answer
+       five different questions, and an agent who does not yet know which one
+       they need has somewhere to arrive. The rest keep the order they are
+       worked through in — what the market did, how two developments compare,
+       what the layouts are, what is around the address, then the document. */
     { key: 'insight', title: 'Insights', icon: LineChart, collapsible: true, items: [
+      { href: '/phase1/insights', label: 'Overview', icon: Compass, exact: true },
       { href: '/phase1/market/transactions', label: 'Transactions', icon: LineChart },
       { href: '/phase1/market/compare', label: 'Compare projects', icon: GitCompareArrows },
-      { href: '/phase1/floorplans', label: 'Floor plans', icon: LayoutPanelTop },
       { href: '/phase1/neighbourhood', label: 'Neighbourhood', icon: Trees },
       { href: '/phase1/reports', label: 'Reports', icon: FileSpreadsheet },
     ] },
@@ -448,7 +466,6 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
               pathname="" onNavigate={close} rail={r}
             />
           )}
-          {!isAdmin && <NavLink item={{ href: '/phase1', label: 'All tools', icon: Compass, exact: true }} pathname={pathname} onNavigate={close} rail={r} />}
           {!forceExpanded && wide && (
             <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" disabled={!collapsed}>
               <button
@@ -525,7 +542,8 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                 <span className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 gap-0.5"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
               </form>
 
-              <div className="ml-1 flex items-center gap-0.5">
+              <div className="ml-1 flex items-center gap-1">
+                <DemoDataSwitch backend={backend} className="mr-1" />
                 <Tooltip content={isDarkMode ? 'Light mode' : 'Dark mode'} side="bottom">
                   <button type="button" onClick={toggleTheme} aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'} className={iconBtn}>
                     {themeReady && isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
@@ -542,7 +560,6 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                         { i: BookOpen, t: 'Guides', href: '/phase1/learn' },
                         { i: Video, t: 'Product sessions', href: '/phase1/learn/sessions' },
                         { i: LifeBuoy, t: 'Contact support', href: '/phase1/support' },
-                        ...(!isAdmin ? [{ i: Compass, t: 'All tools', href: '/phase1' }] : []),
                       ].map((h) => (
                         <li key={h.t}><Link href={h.href} onClick={() => setPop(null)} className="flex h-9 items-center gap-3 px-4 hover:bg-p1-subtle"><h.i size={15} className="text-p1-text-3" aria-hidden />{h.t}</Link></li>
                       ))}
@@ -588,7 +605,9 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                   </Popover>
                 </div>
 
-                <div className="relative ml-1">
+                <span aria-hidden className="mx-1 hidden h-5 w-px bg-p1-border sm:block" />
+
+                <div className="relative">
                   <button type="button" onClick={() => setPop(pop === 'user' ? null : 'user')} aria-haspopup="menu" aria-expanded={pop === 'user'} aria-label="Account menu" className="flex h-9 cursor-pointer items-center rounded-full p-0.5 transition-shadow hover:shadow-[0_0_0_3px_var(--p1-border)]">
                     <Avatar name={userName} size="sm" tone={isAdmin ? 'neutral' : 'primary'} />
                   </button>
@@ -627,6 +646,7 @@ function Phase1Frame({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </div>
+            <DemoDataStrip />
           </header>
 
           <main id="p1-main" className="flex-1 pb-24 lg:pb-12" tabIndex={-1}>
