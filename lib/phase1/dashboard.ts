@@ -481,3 +481,32 @@ export function activity(src: Sources, limit = 7): ActivityEvent[] {
 
   return out.sort((a, b) => b.at - a.at).slice(0, limit);
 }
+
+/* ---------------------------------------------------------------- viewings */
+
+/**
+ * Booked slots from today on, soonest first. The same rule as
+ * `portfolioSummary().upcomingViewings`, so the count and the list agree.
+ */
+export function upcomingSlots(slots: ViewingSlot[], now: Date): ViewingSlot[] {
+  const today = sgDayNo(now.getTime());
+  return slots
+    .filter((s) => s.booking && isoDayNo(s.date) >= today)
+    .sort((a, b) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`));
+}
+
+/* ----------------------------------------------------------------- ranking */
+
+/**
+ * Live listings, best first, and what they are ranked by. Views over seven
+ * days when traffic is measured; otherwise the enquiries and viewings actually
+ * recorded over thirty days, never a view count of zero.
+ */
+export function rankListings(perf: ListingPerformance[]): { rows: ListingPerformance[]; byViews: boolean } {
+  const live = perf.filter((p) => p.l.status === 'published');
+  const byViews = live.some((p) => p.measured);
+  const rows = [...live].sort((a, b) => (byViews
+    ? b.views7d - a.views7d || b.enquiries30d - a.enquiries30d
+    : b.enquiries30d + b.viewings - (a.enquiries30d + a.viewings) || a.l.project.localeCompare(b.l.project)));
+  return { rows, byViews };
+}
