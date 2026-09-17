@@ -15,7 +15,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Info, LineChart } from 'lucide-react';
 import { AreaChart, Delta, Segmented, Tooltip } from '../kit';
 import { DashMetric, Range, RANGES, Sources, trafficMeasured, trend } from '../../../lib/phase1/dashboard';
-import { Panel, PanelEmpty } from './parts';
+import { CompactSelect, Panel, PanelEmpty } from './parts';
 import { CountBars } from './CountBars';
 
 const METRIC_LABEL: Record<DashMetric, string> = { views: 'Views', saves: 'Saves', enquiries: 'Enquiries', viewings: 'Viewings' };
@@ -60,19 +60,12 @@ export function PerformanceChart({ src, className = '' }: { src: Sources; classN
   const empty = t.total === 0 && t.prevTotal === 0;
 
   const rangeSelect = (
-    <label className="relative inline-flex">
-      <span className="sr-only">Time range</span>
-      <select
-        value={range}
-        onChange={(e) => setRange(e.target.value as Range)}
-        className="h-8 cursor-pointer appearance-none rounded-lg border border-p1-border-strong bg-p1-surface pl-2.5 pr-7 text-[12.5px] font-medium text-p1-text-2 transition-colors hover:bg-p1-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-p1-primary"
-      >
-        {(Object.keys(RANGE_LABEL) as Range[]).map((r) => <option key={r} value={r}>{RANGE_LABEL[r]}</option>)}
-      </select>
-      <svg aria-hidden viewBox="0 0 12 12" className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-p1-text-3">
-        <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </label>
+    <CompactSelect<Range>
+      label="Time range"
+      value={range}
+      onChange={setRange}
+      options={(Object.keys(RANGE_LABEL) as Range[]).map((r) => ({ value: r, label: RANGE_LABEL[r] }))}
+    />
   );
 
   return (

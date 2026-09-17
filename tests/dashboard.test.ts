@@ -137,3 +137,27 @@ describe('the dashboard screen', () => {
     expect(read('components/phase1/dashboard/KpiRow.tsx')).not.toMatch(/views|saves/i);
   });
 });
+
+describe('the enquiries screen, in the dashboard design', () => {
+  const view = read('app/phase1/enquiries/EnquiriesView.tsx');
+
+  it('adds no switch of its own and reads the shared inbox', () => {
+    expect(view).not.toMatch(/<DemoDataSwitch\b|setDemoDataOn|useDemoDataOn/);
+    expect(view).not.toMatch(/SEED_LISTINGS|demoWorkspace|Math\.random/);
+    expect(view).toMatch(/useEnquiries\(\)/);
+  });
+
+  it('never lets a demo or seeded record be called or messaged from a row', () => {
+    expect(view).toMatch(/const blocked = demo \|\| isSeededSample\(e\.id\);/);
+    expect(view).toMatch(/if \(!href \|\| off\)/);
+  });
+
+  it('colours every stage the way the dashboard colours its status', () => {
+    const tag = read('components/phase1/enquiries/StageTag.tsx');
+    for (const [stage, accent] of [['new', 'blue'], ['contacted', 'amber'], ['viewing_scheduled', 'violet'], ['let', 'green']]) {
+      expect(tag).toMatch(new RegExp(`${stage}: '${accent}'`));
+    }
+    const recent = read('components/phase1/dashboard/RecentEnquiries.tsx');
+    expect(recent).toMatch(/new: 'blue', replied: 'amber', viewing: 'violet', closed: 'green'/);
+  });
+});

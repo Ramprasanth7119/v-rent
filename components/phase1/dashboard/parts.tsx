@@ -11,7 +11,7 @@
 
 import Link from 'next/link';
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cx } from '../kit';
 
 export { IconTile, Delta, SectionHead, CardHead } from '../kit';
@@ -138,6 +138,37 @@ export function PanelEmpty({ icon, title, body, action }: {
       {body && <p className="mt-1 max-w-[34ch] text-[12.5px] leading-5 text-p1-text-3">{body}</p>}
       {action && <div className="mt-3">{action}</div>}
     </div>
+  );
+}
+
+/** A small native select, sized for a card header or a toolbar. */
+export function CompactSelect<T extends string>({
+  label, value, options, onChange, icon, className = '',
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  icon?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={cx('relative inline-flex min-w-0', className)}>
+      <span className="sr-only">{label}</span>
+      {icon && <span aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-p1-text-3">{icon}</span>}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className={cx(
+          'h-9 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg border border-p1-border-strong bg-p1-surface pr-8 text-[13px] font-medium text-p1-text-2',
+          'transition-colors hover:bg-p1-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-p1-primary',
+          icon ? 'pl-8' : 'pl-3',
+        )}
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <ChevronDown size={14} aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-p1-text-3" />
+    </label>
   );
 }
 

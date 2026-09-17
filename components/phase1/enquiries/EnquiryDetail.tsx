@@ -18,7 +18,8 @@ import {
 import { Avatar, Button, LinkButton, cx } from '../kit';
 import { Drawer } from '../overlays';
 import { DemoBadge } from '../DemoDataSwitch';
-import { Channel, NextAction, PropertyLine, StagePill } from './parts';
+import { Channel, NextAction, PropertyLine } from './parts';
+import { StageTag } from './StageTag';
 import type { DemoListing } from '../../../lib/phase1/data';
 import { sgd } from '../../../lib/phase1/data';
 import type { Enquiry, EnquiryStatus } from '../../../lib/phase1/workspace';
@@ -111,9 +112,9 @@ export function EnquiryDetail({
         )}
 
         {/* ------------------------------------------------ where it stands */}
-        <section aria-label="Status" className="rounded-xl border border-p1-border bg-p1-subtle/50 p-4">
+        <section aria-label="Status" className="rounded-2xl border border-p1-border bg-p1-bg/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <StagePill r={r} />
+            <StageTag r={r} />
             <NextAction r={r} />
           </div>
           {e.viewingAt && (
@@ -147,7 +148,7 @@ export function EnquiryDetail({
         {/* ------------------------------------------------------ the property */}
         <section aria-labelledby="enq-prop">
           <h3 id="enq-prop" className="mb-2 text-[12.5px] font-semibold text-p1-text-3">Property</h3>
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-p1-border p-3">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-p1-border p-3">
             <PropertyLine l={listing} own={own} ownerId={ownerId} />
             {listing && own && (
               <Link href={`/phase1/listings/${listing.id}`} className="shrink-0 rounded-lg p-2 text-p1-text-3 hover:bg-p1-subtle hover:text-p1-text" aria-label={`Open ${listing.project}`}>
@@ -167,7 +168,7 @@ export function EnquiryDetail({
               { k: 'Move-in', v: e.moveIn ? sgDate(e.moveIn) : 'Flexible' },
               { k: 'Bedrooms', v: typeof e.bedrooms === 'number' ? String(e.bedrooms) : 'Not given' },
             ].map((x) => (
-              <div key={x.k} className="rounded-lg border border-p1-border px-3 py-2">
+              <div key={x.k} className="rounded-xl border border-p1-border bg-p1-surface px-3 py-2.5">
                 <dt className="text-[12px] text-p1-text-3">{x.k}</dt>
                 <dd className={cx('mt-0.5 text-[14px] font-semibold tabular-nums', x.v === 'Not given' ? 'text-p1-text-3' : 'text-p1-text')}>{x.v}</dd>
               </div>
