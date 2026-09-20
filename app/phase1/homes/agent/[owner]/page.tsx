@@ -10,13 +10,22 @@ import { districtCode, districtLabel } from '../../../../../lib/phase1/districts
 import { sgDate } from '../../../../../lib/phase1/format';
 import { PropertyCard } from '../../../../../components/phase1/market/PropertyCard';
 import { CopyText } from '../../../../../components/phase1/market/CopyText';
+import { JsonLd } from '../../../../../components/phase1/market/JsonLd';
+import { agentJsonLd } from '../../../../../lib/phase1/market-jsonld';
+import { absolute, publicOrigin } from '../../../../../lib/phase1/public-origin';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ owner: string }> }) {
   const { owner } = await params;
   const found = await marketAgent(owner);
-  return { title: found ? `${found.agent.name}, ${found.agent.agency} — V-RENT` : 'Agent not found — V-RENT' };
+  if (!found) return { title: 'Agent not found — V-RENT' };
+  const { agent, listings } = found;
+  return {
+    title: `${agent.name}, ${agent.agency} — V-RENT`,
+    description: `${agent.name} (CEA ${agent.ceaNumber}) of ${agent.agency} has ${listings.length} ${listings.length === 1 ? 'home' : 'homes'} live on V-RENT.`,
+    alternates: { canonical: `/phase1/homes/agent/${owner}` },
+  };
 }
 
 export default async function AgentProfilePage({ params }: { params: Promise<{ owner: string }> }) {
@@ -28,8 +37,11 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ o
   const initials = a.name.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   const wa = a.mobile ? `https://wa.me/${a.mobile.replace(/[^\d]/g, '').replace(/^(?!65)(\d{8})$/, '65$1')}` : null;
 
+  const origin = await publicOrigin();
+
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <JsonLd data={agentJsonLd(a, absolute(origin, `/phase1/homes/agent/${owner}`), listings.length)} />
       <section className="vr-rise rounded-2xl border border-p1-border bg-p1-surface p-6 sm:p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-start">
           <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-p1-primary-soft text-[26px] font-semibold text-p1-primary" aria-hidden>{initials}</span>

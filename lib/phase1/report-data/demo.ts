@@ -84,6 +84,16 @@ const DEVELOPMENTS = [
   'Aster Residences', 'Linden Grove', 'Cobalt Court', 'Juniper Heights', 'Saffron Park Residences', 'Halcyon View',
   'Marlowe Gardens', 'Tessera Suites', 'Wren Terrace', 'Everly Point', 'Arden Parc', 'Solace Residences',
 ];
+/** Neighbours for a flat or a landed home are named the way those places are. */
+const HDB_STREETS = ['Northbrook Avenue', 'Westmead Drive', 'Riverstone Road', 'Oakridge Street', 'Maplewood Walk', 'Elmhurst Crescent'];
+const ESTATES = ['Larkspur Park Estate', 'Hollins Garden Estate', 'Greywell Hill', 'Ashcombe Villas', 'Stonebridge Terrace', 'Brightwater Rise'];
+const neighbourNames = (l: DemoListing, r: () => number): string[] => {
+  if (l.propertyType === 'HDB') {
+    return draw(r, HDB_STREETS, 4).map((street) => `Blk ${100 + Math.floor(r() * 800)} ${street}`);
+  }
+  if (l.propertyType === 'Landed') return draw(r, ESTATES, 4);
+  return draw(r, DEVELOPMENTS, 4);
+};
 const STEMS = ['Northbrook', 'Westmead', 'Riverstone', 'Oakridge', 'Maplewood', 'Elmhurst', 'Brightwater', 'Stonebridge', 'Ashcombe', 'Larkspur', 'Hollins', 'Greywell'];
 const STREET_KIND = ['Road', 'Avenue', 'Drive', 'Walk'];
 
@@ -176,7 +186,7 @@ export function demoContracts(l: DemoListing): Transaction[] {
   const size = l.sizeSqft > 0 ? l.sizeSqft : typical(l.bedrooms);
   const otherBeds = [1, 2, 3, 4].filter((b) => b !== l.bedrooms);
   const neighbours = NEIGHBOURS[l.district] ?? [];
-  const others = draw(r, DEVELOPMENTS, 4).map((name, k) => ({
+  const others = neighbourNames(l, r).map((name, k) => ({
     name,
     street: streetFor(name),
     district: k < 2 || neighbours.length === 0 ? l.district : neighbours[whole(r, 0, neighbours.length - 1)],
@@ -198,7 +208,9 @@ export function demoContracts(l: DemoListing): Transaction[] {
   };
 
   MARKET_MONTHS.forEach((month, index) => {
-    const same = r() < 0.5 ? 2 : 1;
+    /* Two or three leases of the property's own layout a month give a local
+       sample large enough to read, as a well-traded development has. */
+    const same = r() < 0.5 ? 3 : 2;
     for (let k = 0; k < same; k += 1) lease(l.project, dev.street, l.district, l.bedrooms, size * between(r, 0.9, 1.1), month, index, rate);
     const layouts = whole(r, 1, 3);
     for (let k = 0; k < layouts; k += 1) {
@@ -296,7 +308,9 @@ export function demoCompeting(l: DemoListing, now: Date = new Date()): Competing
   const rate = price / l.sizeSqft;
   const band = bandFor(l.sizeSqft);
   const near = [l.district, ...(NEIGHBOURS[l.district] ?? [])];
-  const names = draw(r, DEVELOPMENTS, 9);
+  const names = l.propertyType === 'HDB'
+    ? draw(r, HDB_STREETS, 6).map((street, k) => `Blk ${200 + k * 37} ${street}`)
+    : l.propertyType === 'Landed' ? draw(r, ESTATES, 6) : draw(r, DEVELOPMENTS, 9);
   const pool: ActiveListing[] = Array.from({ length: whole(r, 6, 9) }, (_, k) => {
     const sqft = Math.min(band.max, Math.max(band.min, Math.round(l.sizeSqft * between(r, 0.88, 1.12))));
     const ask = rate * between(r, 0.9, 1.1) * sqft;
@@ -354,8 +368,10 @@ export const demoDataProvider: ReportDataProvider = {
 
   contracts: demoContracts,
   development: demoDevelopment,
-  position: (l) => marketPosition(l, demoContracts(l)),
-  history: (l) => marketHistory(l, demoContracts(l), demoDevelopment(l)),
+  /* The generated contracts are of the property's own kind, so an HDB flat or a
+     landed home is compared too; the original provider keeps the type rule. */
+  position: (l) => marketPosition(l, demoContracts(l), { allTypes: true }),
+  history: (l) => marketHistory(l, demoContracts(l), demoDevelopment(l), { allTypes: true }),
   earlier: (l) => demoEarlier(l),
   photos: (_owner, l) => listingPhotos(undefined, l),
   enquiries: (own, now) => demoEnquirySet(own.listings, now, DEMO_ID_PREFIX),

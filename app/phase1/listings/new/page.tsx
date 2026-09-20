@@ -24,11 +24,20 @@ import {
 import { StatusBadge } from '../../../../components/phase1/status';
 import { ConfirmDialog } from '../../../../components/phase1/overlays';
 import { useToast } from '../../../../components/phase1/Toast';
-import { PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
+import { MAX_MB, MAX_PHOTOS, PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from '../../../../components/phase1/listing/PhotoUploader';
 import { uploadPhotos } from '../../../../components/phase1/listing/upload';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { LocationPicker } from '../../../../components/phase1/listing/LocationPicker';
 import { NearbyPlaces } from '../../../../components/phase1/listing/NearbyPlaces';
+import { FloorPlanUpload, type FloorPlanNote } from '../../../../components/phase1/listing/FloorPlanUpload';
+import { VideoUpload } from '../../../../components/phase1/listing/VideoUpload';
+import { MediaSection } from '../../../../components/phase1/listing/MediaSection';
+import type { VideoNote } from '../../../../lib/phase1/video';
+import { PropertyTypePicker } from '../../../../components/phase1/listing/PropertyTypePicker';
+import { ChipPicker } from '../../../../components/phase1/listing/ChipPicker';
+import { EligibilityPicker } from '../../../../components/phase1/listing/EligibilityPicker';
+import { type EipEligibility, hasEligibility } from '../../../../lib/phase1/eip';
+import { broadTypeFor, categoryFromBroad, type PropertyCategory } from '../../../../lib/phase1/property-types';
 import { PropertyImage } from '../../../../components/phase1/PropertyImage';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
@@ -38,17 +47,18 @@ import { DealType, dealOf, normaliseDeal } from '../../../../lib/phase1/pricing'
 import type { AddressMatch as OneMapMatch } from '../../../../lib/phase1/onemap';
 import { districtCode, districtLabel } from '../../../../lib/phase1/districts';
 import { sgDate } from '../../../../lib/phase1/format';
-import { AMENITIES } from '../../../../lib/phase1/agents';
+import { AMENITIES, FITTINGS } from '../../../../lib/phase1/agents';
+import { POLICY_NOTE, firstIssueMessage, reviewText } from '../../../../lib/phase1/content-policy';
 import {
   Check, X, MapPin, Search, Lock, ChevronLeft, ArrowRight, ShieldCheck, Sparkles, SearchX, Send, Save, Map as MapIcon,
-  Type as TypeIcon, Wand2, Pencil, Undo2, CheckCircle2, CircleAlert,
+  Type as TypeIcon, Wand2, Pencil, Undo2, CheckCircle2, CircleAlert, ImagePlus, Building2, Sofa,
 } from 'lucide-react';
 
 const STEPS = [
   { key: 'address', label: 'Address', ask: 'Where is the property?', hint: 'Search the address or postal code, or point at it on the map.' },
   { key: 'property', label: 'Property', ask: 'Tell tenants about the unit', hint: 'Unit number, size and layout — the filters most searches use.' },
   { key: 'terms', label: 'Terms', ask: 'Set the price and terms', hint: 'The asking price, when it is available, and a short description.' },
-  { key: 'photos', label: 'Photos', ask: 'Add photographs', hint: 'At least one. Daylight, lights on, landscape.' },
+  { key: 'photos', label: 'Media', ask: 'Add the photographs', hint: 'Photographs are needed. The floor plan and a video tour are optional.' },
   { key: 'review', label: 'Review', ask: 'Check and publish', hint: 'A last look at what tenants will see.' },
 ] as const;
 
@@ -75,13 +85,16 @@ function stepFromParam(raw: string | null): number {
   return SECTION_STEP[raw.trim().toLowerCase()] ?? 0;
 }
 
+/* Offered in the dropdowns; anything beyond them is typed in. */
+const LAYOUT_CHOICES = ['0', '1', '2', '3', '4', '5', '6'];
+
 const DRAFT_KEY = 'vrent_listing_draft';
 
 interface LocalDraft {
   at: string;
   deal: DealType; addr: AddressMatch | null; query: string; unitNo: string; beds: string; baths: string; sqft: string;
   propertyType: PropertyType; rent: string; salePrice: string; furnishing: Furnishing; lease: string; availableFrom: string;
-  desc: string; amenities: string[]; step: number;
+  desc: string; amenities: string[]; fittings: string[]; step: number;
 }
 
 export default function NewListingPage() {
@@ -123,12 +136,31 @@ function ListingWizard() {
   const [baths, setBaths] = useState(() => String(editing?.bathrooms ?? 2));
   const [sqft, setSqft] = useState(() => (editing?.sizeSqft ? String(editing.sizeSqft) : ''));
   const [propertyType, setPropertyType] = useState<PropertyType>(() => editing?.propertyType ?? 'Condominium');
+  const [category, setCategory] = useState<PropertyCategory>(
+    () => (editing?.propertyCategory as PropertyCategory) ?? categoryFromBroad(editing?.propertyType ?? 'Condominium'),
+  );
+  const [subtype, setSubtype] = useState<string>(() => editing?.propertySubtype ?? '');
+
+  /* One choice sets all three: the exact classification the agent picked, the
+     category it came from, and the broad type every existing filter reads. */
+  const chooseType = (next: PropertyCategory, chosen: string) => {
+    setCategory(next);
+    setSubtype(chosen);
+    setPropertyType(broadTypeFor(next, chosen) as PropertyType);
+  };
   const [rent, setRent] = useState(() => (editing?.monthlyRent ? String(editing.monthlyRent) : ''));
   const [furnishing, setFurnishing] = useState<Furnishing>(() => editing?.furnishing ?? 'Partially furnished');
+  const [furnishingNote, setFurnishingNote] = useState(() => editing?.furnishingNote ?? '');
+  const [eligibility, setEligibility] = useState<EipEligibility>(
+    () => ({ ethnic: (editing?.eligibility?.ethnic ?? []) as EipEligibility['ethnic'], citizenship: (editing?.eligibility?.citizenship ?? []) as EipEligibility['citizenship'] }),
+  );
   const [lease, setLease] = useState(() => String(editing?.minLeaseMonths ?? 12));
   const [availableFrom, setAvailableFrom] = useState(() => editing?.availableFrom ?? TODAY_ISO);
   const [desc, setDesc] = useState(() => editing?.description ?? '');
   const [amenities, setAmenities] = useState<string[]>(() => editing?.amenities ?? []);
+  const [fittings, setFittings] = useState<string[]>(() => editing?.fittings ?? []);
+  const [floorPlan, setFloorPlan] = useState<FloorPlanNote | null>(() => editing?.floorPlan ?? null);
+  const [video, setVideo] = useState<VideoNote | null>(() => editing?.video ?? null);
   const [shots, setShots] = useState<Shot[]>(() => (editing?.photos ?? []).map((id) => ({ kind: 'saved', id }) as Shot));
   const [uploading, setUploading] = useState(false);
   const [photoNotes, setPhotoNotes] = useState<PhotoNote[]>([]);
@@ -158,7 +190,7 @@ function ListingWizard() {
   const restore = (d: LocalDraft) => {
     setDeal(d.deal); setAddr(d.addr); setQuery(d.query); setUnitNo(d.unitNo); setBeds(d.beds); setBaths(d.baths); setSqft(d.sqft);
     setPropertyType(d.propertyType); setRent(d.rent); setSalePrice(d.salePrice); setFurnishing(d.furnishing); setLease(d.lease);
-    setAvailableFrom(d.availableFrom); setDesc(d.desc); setAmenities(d.amenities); setStep(Math.min(d.step, 3));
+    setAvailableFrom(d.availableFrom); setDesc(d.desc); setAmenities(d.amenities); setFittings(d.fittings ?? []); setStep(Math.min(d.step, 3));
     setRestorable(null);
     push({ tone: 'success', title: 'Draft restored', body: 'Photographs are not kept between visits — add them again.' });
   };
@@ -168,11 +200,11 @@ function ListingWizard() {
     if (editing || !hydrated.current || restorable) return;
     if (!addr && !desc && !unitNo) return;
     const t = setTimeout(() => {
-      const d: LocalDraft = { at: new Date().toISOString(), deal, addr, query, unitNo, beds, baths, sqft, propertyType, rent, salePrice, furnishing, lease, availableFrom, desc, amenities, step };
+      const d: LocalDraft = { at: new Date().toISOString(), deal, addr, query, unitNo, beds, baths, sqft, propertyType, rent, salePrice, furnishing, lease, availableFrom, desc, amenities, fittings, step };
       try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); setSavedAt(d.at); } catch { /* not kept; nothing to say */ }
     }, 600);
     return () => clearTimeout(t);
-  }, [editing, restorable, deal, addr, query, unitNo, beds, baths, sqft, propertyType, rent, salePrice, furnishing, lease, availableFrom, desc, amenities, step]);
+  }, [editing, restorable, deal, addr, query, unitNo, beds, baths, sqft, propertyType, rent, salePrice, furnishing, lease, availableFrom, desc, amenities, fittings, step]);
 
   const clearLocalDraft = () => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ } };
 
@@ -218,7 +250,10 @@ function ListingWizard() {
   const applyTemplate = () => {
     if (!template) return;
     setPropertyType(template.propertyType);
+    setCategory((template.propertyCategory as PropertyCategory) ?? categoryFromBroad(template.propertyType));
+    if (template.propertySubtype) setSubtype(template.propertySubtype);
     if (template.amenities?.length) setAmenities(template.amenities);
+    if (template.fittings?.length) setFittings(template.fittings);
     if (template.nearestMrt || template.tenure || template.builtYear) {
       setCarried({ nearestMrt: template.nearestMrt, tenure: template.tenure, builtYear: template.builtYear });
     }
@@ -264,6 +299,7 @@ function ListingWizard() {
     setBeds(String(facts.bedrooms));
     setBaths(String(facts.bathrooms));
     setPropertyType(facts.propertyType);
+    setCategory(categoryFromBroad(facts.propertyType));
     setFurnishing(facts.furnishing);
     if (facts.amenities.length) setAmenities(facts.amenities);
     if (facts.nearestMrt || facts.tenure || facts.builtYear) {
@@ -280,11 +316,16 @@ function ListingWizard() {
     { addr: addr ? undefined : 'Choose the property from the results, or pick it on the map.' },
     {
       unit: normalisedUnit ? undefined : 'Add the unit number, for example 12-34.',
+      type: subtype ? undefined : 'Choose the property type.',
       sqft: Number(sqft) > 0 ? undefined : 'Add the floor area in square feet.',
     },
     {
       price: Number(priceValue) > 0 ? undefined : deal === 'sale' ? 'Add the asking price.' : 'Add the monthly rent.',
-      desc: desc.trim().length >= 20 ? undefined : `Write at least 20 characters (${desc.trim().length} so far).`,
+      /* Length first: an agent who has written three words needs telling that
+         before they are told anything about policy. */
+      desc: desc.trim().length >= 20
+        ? firstIssueMessage(desc) ?? undefined
+        : `Write at least 20 characters (${desc.trim().length} so far).`,
     },
     { photos: shots.length > 0 ? undefined : 'Add at least one photograph.' },
     {},
@@ -374,6 +415,10 @@ function ListingWizard() {
     lat: addr!.lat,
     lng: addr!.lng,
     propertyType,
+    propertyCategory: category,
+    propertySubtype: subtype || undefined,
+    furnishingNote: furnishing === 'Other' ? furnishingNote.trim() || undefined : undefined,
+    eligibility: category === 'hdb' && hasEligibility(eligibility) ? eligibility : undefined,
     bedrooms: Number(beds),
     bathrooms: Number(baths),
     sizeSqft: Number(sqft),
@@ -384,6 +429,7 @@ function ListingWizard() {
     minLeaseMonths: Number(lease),
     furnishing,
     amenities,
+    fittings,
     nearestMrt: carried.nearestMrt,
     tenure: carried.tenure,
     builtYear: carried.builtYear,
@@ -460,7 +506,10 @@ function ListingWizard() {
     router.push(`/phase1/listings/${editing.id}`);
   };
 
-  const toggleAmenity = (a: string) => setAmenities((s) => (s.includes(a) ? s.filter((x) => x !== a) : [...s, a]));
+  /* Re-read on every change: the list is short and the check is a handful of
+     regular expressions over a paragraph. */
+  const descIssues = useMemo(() => reviewText(desc), [desc]);
+
 
   if (missing) {
     return (
@@ -678,7 +727,18 @@ function ListingWizard() {
                       placeholder="12-34"
                       rightSlot={unitChecking ? <Spinner size={14} /> : undefined}
                       error={err(1, 'unit')}
-                      hint={normalisedUnit ? <>Shown as <span className="font-medium text-p1-text">{normalisedUnit}</span></> : undefined}
+                      /* One line. The long version of this note was read as a
+                         warning rather than as reassurance, which is the
+                         opposite of what it is for. */
+                      hint={
+                        <span className="flex items-start gap-1.5">
+                          <ShieldCheck size={13} className="mt-0.5 shrink-0 text-p1-success" aria-hidden />
+                          <span>
+                            Kept private — never shown to tenants, on the advertisement or in reports. For your records
+                            only{normalisedUnit ? <>, saved as <span className="font-medium text-p1-text">{normalisedUnit}</span></> : null}.
+                          </span>
+                        </span>
+                      }
                     />
                     <TextInput label="Floor area" required inputMode="numeric" value={sqft} onChange={(e) => setSqft(e.target.value.replace(/\D/g, ''))} rightSlot="sqft" error={err(1, 'sqft')} placeholder="850" />
                   </div>
@@ -709,31 +769,63 @@ function ListingWizard() {
                   )}
 
                   <div className="grid gap-5 sm:grid-cols-3">
-                    <SelectInput label="Property type" value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)}
-                      options={['Condominium', 'HDB', 'Apartment', 'Landed', 'Executive Condominium'].map((v) => ({ value: v, label: v }))} />
-                    <SelectInput label="Bedrooms" value={beds} onChange={(e) => setBeds(e.target.value)}
-                      options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))} />
-                    <SelectInput label="Bathrooms" value={baths} onChange={(e) => setBaths(e.target.value)}
-                      options={[1, 2, 3, 4].map((n) => ({ value: String(n), label: String(n) }))} />
+                    <PropertyTypePicker
+                      category={category}
+                      subtype={subtype || undefined}
+                      onChange={chooseType}
+                      required
+                      error={err(1, 'type')}
+                    />
+                    {/* Studios have none and a good class bungalow has nine,
+                        so the list runs further than the old one and ends in a
+                        box rather than in a ceiling. */}
+                    <SelectInput label="Bedrooms" value={LAYOUT_CHOICES.includes(beds) ? beds : 'other'} onChange={(e) => setBeds(e.target.value === 'other' ? '' : e.target.value)}
+                      options={[...LAYOUT_CHOICES.map((n) => ({ value: n, label: n === '0' ? 'Studio' : n })), { value: 'other', label: 'Other' }]} />
+                    <SelectInput label="Bathrooms" value={LAYOUT_CHOICES.includes(baths) ? baths : 'other'} onChange={(e) => setBaths(e.target.value === 'other' ? '' : e.target.value)}
+                      options={[...LAYOUT_CHOICES.filter((n) => n !== '0').map((n) => ({ value: n, label: n })), { value: 'other', label: 'Other' }]} />
                   </div>
 
-                  <fieldset>
-                    <legend className="mb-2 flex w-full items-baseline justify-between text-[13.5px] font-medium text-p1-text">
-                      Amenities <span className="text-[12px] font-normal text-p1-text-3">{amenities.length} selected</span>
-                    </legend>
-                    <div className="flex flex-wrap gap-2">
-                      {AMENITIES.map((a) => {
-                        const on = amenities.includes(a);
-                        return (
-                          <button key={a} type="button" aria-pressed={on} onClick={() => toggleAmenity(a)}
-                            className={cx('p1-press inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-[13px] font-medium',
-                              on ? 'border-p1-primary bg-p1-primary-soft text-p1-primary' : 'border-p1-border-strong bg-p1-surface text-p1-text-2 hover:text-p1-text')}>
-                            {on && <Check size={14} strokeWidth={2.5} aria-hidden />}{a}
-                          </button>
-                        );
-                      })}
+                  {(!LAYOUT_CHOICES.includes(beds) || !LAYOUT_CHOICES.includes(baths)) && (
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      {!LAYOUT_CHOICES.includes(beds) && (
+                        <TextInput label="How many bedrooms" inputMode="numeric" value={beds}
+                          onChange={(e) => setBeds(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="6" />
+                      )}
+                      {!LAYOUT_CHOICES.includes(baths) && (
+                        <TextInput label="How many bathrooms" inputMode="numeric" value={baths}
+                          onChange={(e) => setBaths(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="5" />
+                      )}
                     </div>
-                  </fieldset>
+                  )}
+
+                  <ChipPicker
+                    icon={<Building2 size={15} />}
+                    legend="Facilities in the development"
+                    suggestions={AMENITIES}
+                    value={amenities}
+                    onChange={setAmenities}
+                    placeholder="Bowling alley, tennis court…"
+                    hint="Shared facilities everybody living here can use. Tenants filter on these."
+                  />
+
+                  {/* What is in the unit, as opposed to what the block has.
+                      "Partially furnished" means different things to different
+                      agents; this is where that is settled before a viewing. */}
+                  <ChipPicker
+                    icon={<Sofa size={15} />}
+                    legend="Included in the unit"
+                    suggestions={FITTINGS}
+                    value={fittings}
+                    onChange={setFittings}
+                    placeholder="Piano, bidet, water purifier…"
+                    hint="Appliances and fittings that come with the unit. Shown beside the furnishing you set on the next step."
+                  />
+
+                  {/* HDB blocks carry an ethnic quota, so an HDB flat has a
+                      real answer to "who may take this" and nothing else does. */}
+                  {category === 'hdb' && (
+                    <EligibilityPicker value={eligibility} onChange={setEligibility} />
+                  )}
                 </div>
               )}
 
@@ -752,7 +844,16 @@ function ListingWizard() {
                     )}
                     <TextInput label={deal === 'sale' ? 'Viewings from' : 'Available from'} type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} />
                     <SelectInput label="Furnishing" value={furnishing} onChange={(e) => setFurnishing(e.target.value as Furnishing)}
-                      options={['Unfurnished', 'Partially furnished', 'Fully furnished'].map((v) => ({ value: v, label: v }))} />
+                      options={['Unfurnished', 'Partially furnished', 'Fully furnished', 'Other'].map((v) => ({ value: v, label: v }))} />
+                    {furnishing === 'Other' && (
+                      <TextInput
+                        label="Describe the furnishing"
+                        value={furnishingNote}
+                        onChange={(e) => setFurnishingNote(e.target.value.slice(0, 80))}
+                        placeholder="White goods only, tenant brings the rest"
+                        hint="Shown to tenants in place of the three standard words."
+                      />
+                    )}
                     {deal === 'rent' && (
                       <SelectInput label="Minimum lease" value={lease} onChange={(e) => setLease(e.target.value)}
                         options={[{ value: '6', label: '6 months' }, { value: '12', label: '12 months' }, { value: '24', label: '24 months' }]} />
@@ -767,17 +868,57 @@ function ListingWizard() {
                     placeholder="Quiet stack, no west sun, five minutes' walk to the MRT…"
                     counter={`${desc.trim().length}`}
                     error={err(2, 'desc')}
-                    hint="What photographs cannot show. Leave out phone numbers — tenants enquire through V-RENT."
+                    hint={
+                      <>
+                        What photographs cannot show. Three things are not allowed and will stop the listing
+                        publishing: wording that excludes or prefers people by race, nationality or religion;
+                        suggestive or flirtatious wording; and your own phone number or email — tenants enquire
+                        through V-RENT so the lead is recorded.
+                        {category === 'hdb' && ' If the block has an ethnic quota, set who the flat is open to on the previous step rather than writing it here.'}
+                      </>
+                    }
                   />
+                  {/* Shown while the agent is still typing rather than held
+                      back until they press Continue: a description is rewritten
+                      far more willingly before it feels finished. */}
+                  {descIssues.length > 0 && (
+                    <Callout tone="warning" title={descIssues.length === 1 ? 'This cannot be published as written' : `${descIssues.length} things cannot be published as written`}>
+                      <ul className="space-y-1.5">
+                        {descIssues.map((i) => (
+                          <li key={`${i.kind}:${i.phrase}`}>
+                            <span className="font-medium">“{i.phrase}”</span> — {i.message}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-[12.5px]">{POLICY_NOTE}</p>
+                    </Callout>
+                  )}
                 </div>
               )}
 
-              {/* ------------------------------------------------- 4 photos */}
+              {/* -------------------------------------------------- 4 media */}
+              {/* Three uploads, three sections. They were one block once, and
+                  an agent with a PDF floor plan would drop it into the photo
+                  grid, which rejected it. Separating them says which file
+                  belongs where before anybody goes looking for one. */}
               {step === 3 && (
-                <div data-invalid={err(3, 'photos') ? 'true' : undefined} tabIndex={err(3, 'photos') ? -1 : undefined}>
-                  <PhotoUploader shots={shots} onChange={(n, added) => void onPhotos(n, added)} ownerId={user?.id ?? ''} listingId={editing?.id} busy={uploading} notes={photoNotes} />
-                  {err(3, 'photos') && <p role="alert" className="mt-3 flex items-center gap-1.5 text-[13px] text-p1-danger"><CircleAlert size={14} aria-hidden />{err(3, 'photos')}</p>}
-                  {!editing && shots.length > 0 && <p className="mt-3 text-[12.5px] text-p1-text-3">Photographs upload when you save or publish.</p>}
+                <div className="space-y-4">
+                  <div data-invalid={err(3, 'photos') ? 'true' : undefined} tabIndex={err(3, 'photos') ? -1 : undefined}>
+                    <MediaSection icon={<ImagePlus size={15} />} title="Property photographs" limits={`JPEG, PNG, WebP or HEIC · up to ${MAX_PHOTOS} files of ${MAX_MB} MB`}>
+                      <PhotoUploader shots={shots} onChange={(n, added) => void onPhotos(n, added)} ownerId={user?.id ?? ''} listingId={editing?.id} busy={uploading} notes={photoNotes} />
+                      {err(3, 'photos') && <p role="alert" className="mt-3 flex items-center gap-1.5 text-[13px] text-p1-danger"><CircleAlert size={14} aria-hidden />{err(3, 'photos')}</p>}
+                      {!editing && shots.length > 0 && <p className="mt-3 text-[12.5px] text-p1-text-3">Photographs upload when you save or publish.</p>}
+                    </MediaSection>
+                  </div>
+
+                  <FloorPlanUpload
+                    listingId={editing?.id ?? null}
+                    ownerId={user?.id ?? ''}
+                    plan={floorPlan}
+                    onChange={setFloorPlan}
+                  />
+
+                  <VideoUpload listingId={editing?.id ?? null} video={video} onChange={setVideo} />
                 </div>
               )}
 
@@ -787,11 +928,19 @@ function ListingWizard() {
                   <dl className="divide-y divide-p1-border rounded-xl border border-p1-border">
                     {[
                       { k: 'Address', v: addr ? `${addr.project}${normalisedUnit ? `, ${normalisedUnit}` : ''} · ${addr.postal}` : '—', to: 0 },
-                      { k: 'Unit', v: `${beds} bed · ${baths} bath · ${Number(sqft || 0).toLocaleString('en-SG')} sqft · ${propertyType}`, to: 1 },
+                      { k: 'Unit', v: `${beds} bed · ${baths} bath · ${Number(sqft || 0).toLocaleString('en-SG')} sqft · ${subtype || propertyType}`, to: 1 },
                       { k: deal === 'sale' ? 'Price' : 'Rent', v: priceShown ? `${priceShown}${deal === 'rent' ? ` a month · ${lease}-month lease` : ''}` : '—', to: 2 },
                       { k: 'Available', v: `${sgDate(availableFrom)} · ${furnishing}`, to: 2 },
-                      { k: 'Photographs', v: `${shots.length} ${shots.length === 1 ? 'photo' : 'photos'}`, to: 3 },
-                      { k: 'Amenities', v: amenities.length ? amenities.join(', ') : 'None listed', to: 1 },
+                      /* The two optional uploads are listed whether or not
+                         they are there, so an agent who meant to attach a plan
+                         sees that they did not. */
+                      { k: 'Media', v: [
+                        `${shots.length} ${shots.length === 1 ? 'photo' : 'photos'}`,
+                        floorPlan ? 'floor plan' : 'no floor plan',
+                        video ? 'video tour' : 'no video',
+                      ].join(' · '), to: 3 },
+                      { k: 'Facilities', v: amenities.length ? amenities.join(', ') : 'None listed', to: 1 },
+                      { k: 'In the unit', v: fittings.length ? fittings.join(', ') : 'None listed', to: 1 },
                     ].map((r) => (
                       <div key={r.k} className="flex items-start gap-4 px-4 py-3">
                         <dt className="w-24 shrink-0 text-[13px] text-p1-text-3">{r.k}</dt>

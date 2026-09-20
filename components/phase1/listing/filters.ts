@@ -14,9 +14,13 @@
 
 import { DemoListing } from '../../../lib/phase1/data';
 import { comparablePrice, dealOf, priceOf } from '../../../lib/phase1/pricing';
+/* The storey is read in one place for the whole product; see `lib/phase1/floor`. */
+export { FLOOR_BANDS, floorOf, inFloorBand, floorLabel } from '../../../lib/phase1/floor';
+import { FLOOR_BANDS, inFloorBand } from '../../../lib/phase1/floor';
 
 export type DealFilter = 'any' | 'rent' | 'sale';
-export type FloorBand = 'any' | 'low' | 'mid' | 'high';
+export type { FloorBand } from '../../../lib/phase1/floor';
+import type { FloorBand } from '../../../lib/phase1/floor';
 
 export interface ListingFilters {
   deal: DealFilter;
@@ -52,26 +56,6 @@ export const EMPTY_FILTERS: ListingFilters = {
   floor: 'any',
   mrt: 'any',
   available: 'any',
-};
-
-/**
- * The floor, from the unit number.
- *
- * Singapore unit numbers are #floor-unit, so the floor is already there and
- * asking an agent to enter it again would be asking them to contradict
- * themselves. Ground and mezzanine levels come back as 1.
- */
-export function floorOf(listing: DemoListing): number | null {
-  const match = listing.unitNo.replace(/\s/g, '').match(/^#?(\d{1,3})-/);
-  if (!match) return null;
-  const floor = Number(match[1]);
-  return Number.isFinite(floor) ? floor : null;
-}
-
-export const FLOOR_BANDS: Record<Exclude<FloorBand, 'any'>, { label: string; test: (f: number) => boolean }> = {
-  low: { label: 'Low floor (1–5)', test: (f) => f <= 5 },
-  mid: { label: 'Mid floor (6–20)', test: (f) => f > 5 && f <= 20 },
-  high: { label: 'High floor (21+)', test: (f) => f > 20 },
 };
 
 export const AVAILABILITY = [
@@ -118,10 +102,7 @@ export function matches(l: DemoListing, f: ListingFilters, today: Date): boolean
   if (f.tenure !== 'any' && (l.tenure ?? '') !== f.tenure) return false;
   if (f.mrt !== 'any' && (l.nearestMrt ?? '') !== f.mrt) return false;
 
-  if (f.floor !== 'any') {
-    const floor = floorOf(l);
-    if (floor === null || !FLOOR_BANDS[f.floor].test(floor)) return false;
-  }
+  if (!inFloorBand(l, f.floor)) return false;
 
   if (f.available !== 'any') {
     if (!l.availableFrom) return false;

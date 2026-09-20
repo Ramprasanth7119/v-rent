@@ -10,7 +10,7 @@ import { NextResponse } from 'next/server';
 import { currentUser } from '../../../../lib/auth/session';
 import { TokenBucket } from '../../../../lib/payments/concurrency';
 import { loadWorkspace, patchWorkspace } from '../../../../lib/phase1/workspace-store';
-import { sanitisePatch } from '../../../../lib/phase1/workspace';
+import { sanitisePatch, type WorkspaceState } from '../../../../lib/phase1/workspace';
 import { logged } from '../../../../lib/phase1/reqlog';
 
 export const runtime = 'nodejs';
@@ -22,10 +22,27 @@ const limiter = new TokenBucket(30, 2);
 const unauthorised = () =>
   NextResponse.json({ error: 'Sign in to continue.', code: 'unauthorised' }, { status: 401 });
 
+/**
+ * The workspace without the identities of the agents who have viewed it.
+ *
+ * A view record names the account that made it, and the directory hands the
+ * browser every agent's name against their account id — so shipping the raw
+ * records here would let anybody join the two and read for nothing the names
+ * the reveal exists to sell. The count is not secret and travels; the ids do
+ * not leave the server except through `/api/phase1/views`, which masks what
+ * has not been paid for.
+ *
+ * Reveals go the same way. What has been bought is on that route too, beside
+ * the card it bought.
+ */
+function forBrowser(w: WorkspaceState): WorkspaceState {
+  return { ...w, views: [], reveals: [] };
+}
+
 async function GET_handler() {
   const user = await currentUser();
   if (!user) return unauthorised();
-  return NextResponse.json({ workspace: await loadWorkspace(user) });
+  return NextResponse.json({ workspace: forBrowser(await loadWorkspace(user)) });
 }
 
 async function PATCH_handler(req: Request) {
@@ -52,7 +69,7 @@ async function PATCH_handler(req: Request) {
     return NextResponse.json({ error: 'Nothing to change.', code: 'empty_patch' }, { status: 400 });
   }
 
-  return NextResponse.json({ workspace: await patchWorkspace(user, patch) });
+  return NextResponse.json({ workspace: forBrowser(await patchWorkspace(user, patch)) });
 }
 
 /* Recorded in the API activity log; see `lib/phase1/reqlog`. */

@@ -190,7 +190,41 @@ export const DEFAULT_ACTIVITY = [
 ];
 
 /** Controlled amenity vocabulary — not free text. */
+/**
+ * What the development offers — shared by everybody living in it.
+ *
+ * Air conditioning was here and has moved to `FITTINGS`, where it belongs: a
+ * condominium does not have air conditioning, a unit does, and a tenant
+ * reading it under the facilities of the block learns nothing about whether
+ * the flat they are looking at is cool in August.
+ */
 export const AMENITIES = [
-  'Swimming pool', 'Gymnasium', 'Covered parking', 'Air conditioning',
+  'Swimming pool', 'Gymnasium', 'Covered parking', 'Tennis court',
   'Balcony', '24-hour security', 'BBQ pits', 'Children playground',
+  'Function room', 'Jacuzzi', 'Sheltered walkway', 'Lift lobby access',
+];
+
+/**
+ * What is inside the unit itself.
+ *
+ * The question every tenant asks after "how much" is "what comes with it",
+ * and furnishing alone does not answer it: "partially furnished" is a phrase
+ * two agents use to mean different things, and the argument that follows is
+ * always about the same handful of items. Naming them is cheaper than the
+ * viewing that ends in disappointment.
+ *
+ * Grouped the way somebody walks through a flat rather than alphabetically,
+ * so an agent filling this in can check it against the rooms in front of them.
+ */
+export const FITTINGS = [
+  /* comfort */
+  'Air conditioning', 'Ceiling fan', 'Water heater',
+  /* kitchen */
+  'Refrigerator', 'Cooker hob', 'Cooker hood', 'Oven', 'Microwave', 'Dishwasher',
+  /* utility */
+  'Washing machine', 'Clothes dryer',
+  /* living */
+  'Television', 'Wardrobe', 'Bed frame', 'Mattress', 'Sofa', 'Dining table',
+  /* services */
+  'Internet point', 'Piped gas',
 ];

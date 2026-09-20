@@ -15,6 +15,7 @@ import { Gallery, PropertyImage } from '../PropertyImage';
 import { PropertyMap } from './PropertyMap';
 import { Avatar, Button, cx } from '../kit';
 import { sgDate } from '../../../lib/phase1/format';
+import { floorLabel } from '../../../lib/phase1/floor';
 
 const fmtDate = (d: string) => sgDate(d);
 
@@ -93,11 +94,32 @@ export function PublicPreview({
               </>
             )}
 
+            {(l.fittings?.length ?? 0) > 0 && (
+              <>
+                <h4 className="mt-6 font-p1display text-[17px] font-bold tracking-[-0.012em] text-p1-text">Included in the unit</h4>
+                <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13.5px] text-p1-text-2 sm:grid-cols-3">
+                  {l.fittings!.map((a) => <li key={a} className="flex items-start gap-1.5"><span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-p1-primary dark:bg-p1-info" aria-hidden />{a}</li>)}
+                </ul>
+              </>
+            )}
+
+            {l.video && (
+              <>
+                <h4 className="mt-6 font-p1display text-[17px] font-bold tracking-[-0.012em] text-p1-text">Video tour</h4>
+                {/* Not preloaded: most visitors never press play. */}
+                <video controls preload="none" poster={l.video.posterUrl} src={l.video.url} className="mt-2 aspect-video w-full rounded-xl bg-black">
+                  Your browser cannot play this video.
+                </video>
+              </>
+            )}
+
             <h4 className="mt-6 font-p1display text-[17px] font-bold tracking-[-0.012em] text-p1-text">Details</h4>
             <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-[13.5px] sm:grid-cols-3">
               {[
-                ['Property type', l.propertyType], ['Unit', l.unitNo], ['Floor area', `${l.sizeSqft.toLocaleString()} sqft`],
-                ['Furnishing', l.furnishing], ['Minimum lease', `${l.minLeaseMonths} months`], ['Deposit', typeof l.depositMonths === 'number' ? `${l.depositMonths} month${l.depositMonths === 1 ? '' : 's'}` : 'On request'],
+                /* The storey, never the unit: a tenant is choosing a home, not
+                   being told which door it is. */
+                ['Property type', l.propertyType], ['Floor', floorLabel(l) ?? 'Not stated'], ['Floor area', `${l.sizeSqft.toLocaleString()} sqft`],
+                ['Furnishing', l.furnishing === 'Other' ? (l.furnishingNote || 'Other') : l.furnishing], ['Minimum lease', `${l.minLeaseMonths} months`], ['Deposit', typeof l.depositMonths === 'number' ? `${l.depositMonths} month${l.depositMonths === 1 ? '' : 's'}` : 'On request'],
               ].map(([k, v]) => <div key={k}><dt className="text-p1-text-3">{k}</dt><dd className="font-medium text-p1-text">{v}</dd></div>)}
             </dl>
           </div>

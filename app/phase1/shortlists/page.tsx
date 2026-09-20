@@ -221,7 +221,7 @@ export default function ShortlistsPage() {
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 flex-wrap items-center gap-2">
                             <span className="min-w-0 truncate font-p1display text-[15px] font-bold text-p1-text">
-                              {l.project} {l.unitNo}
+                              {l.project}
                             </span>
                             <StatusBadge kind="listing" value={l.status} />
                           </span>
@@ -303,7 +303,7 @@ export default function ShortlistsPage() {
                       if (!l) return null;
                       return (
                         <li key={id} className="flex items-center justify-between gap-3 text-[13px]">
-                          <span className="min-w-0 truncate text-p1-text">{l.project} {l.unitNo}</span>
+                          <span className="min-w-0 truncate text-p1-text">{l.project}</span>
                           <span className="shrink-0 tabular-nums text-p1-text-2">{priceLabel(l).amount}{dealOf(l) === 'sale' ? '' : '/mo'}</span>
                         </li>
                       );

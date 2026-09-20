@@ -24,6 +24,7 @@
 
 import { demoPortfolio, type WorkspaceState } from '../workspace';
 import { agentSlug, EMPTY_TOOLS, type ToolsState } from '../tools';
+import { STARTING_REVEAL_CREDITS } from '../views';
 import { demoEnquirySet } from './demo-enquiries';
 import type { DemoListing } from '../data';
 
@@ -197,5 +198,11 @@ export function demoWorkspace(identity: DemoIdentity, now: Date): WorkspaceState
     enquiries,
     alerts,
     tools: demoTools(listings, enquiries, identity, t),
+    /* Left empty rather than invented. A view record names the account that
+       made it, and a demonstration viewer would be an account id resolving to
+       nobody — which is worse on screen than an honest "no agents yet". */
+    views: [],
+    reveals: [],
+    revealCredits: STARTING_REVEAL_CREDITS,
   };
 }

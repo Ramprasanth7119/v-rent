@@ -9,6 +9,7 @@
 export type AuditAction =
   | 'agent.suspended'
   | 'agent.reinstated'
+  | 'agent.deleted'
   | 'application.approved'
   | 'application.rejected'
   | 'listing.approved'
@@ -33,6 +34,7 @@ export interface AuditRow {
 export const ACTION_LABEL: Record<AuditAction, string> = {
   'agent.suspended': 'Agent suspended',
   'agent.reinstated': 'Agent reinstated',
+  'agent.deleted': 'Agent deleted',
   'application.approved': 'Application approved',
   'application.rejected': 'Application rejected',
   'listing.approved': 'Listing approved',
@@ -43,6 +45,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
 export const IS_ADVERSE: Record<AuditAction, boolean> = {
   'agent.suspended': true,
   'agent.reinstated': false,
+  'agent.deleted': true,
   'application.approved': false,
   'application.rejected': true,
   'listing.approved': false,

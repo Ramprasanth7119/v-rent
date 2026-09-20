@@ -168,11 +168,17 @@ const sqft = (n: number) => n.toLocaleString('en-SG');
 
 /* ------------------------------------------------------------ selection */
 
-export function marketPosition(listing: DemoListing, contracts: Transaction[] = TRANSACTIONS): MarketResult {
+/**
+ * `allTypes` lifts the rule that only private non-landed homes are compared.
+ * The rule exists because the held contract dataset covers only those homes;
+ * a contract set generated for the property itself (demo data) covers its own
+ * kind, so the demo provider passes it and nothing else does.
+ */
+export function marketPosition(listing: DemoListing, contracts: Transaction[] = TRANSACTIONS, opts: { allTypes?: boolean } = {}): MarketResult {
   if (dealOf(listing) === 'sale') {
     return { status: 'unavailable', reason: 'sale', message: 'This property is for sale. Rental contract comparisons do not apply, and sale transaction evidence is not included in this report.' };
   }
-  if (!PRIVATE_NON_LANDED.includes(listing.propertyType)) {
+  if (!opts.allTypes && !PRIVATE_NON_LANDED.includes(listing.propertyType)) {
     return {
       status: 'unavailable',
       reason: 'category',

@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { Send, AlertTriangle } from 'lucide-react';
 import { Button, TextInput, TextArea, cx } from '../kit';
+import { SG_MOBILE_DISPLAY, contactProblem } from '../../../lib/phase1/mobile';
 
 export function EnquiryForm({
   ownerId,
@@ -41,7 +42,10 @@ export function EnquiryForm({
   const [state, setState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  const ready = name.trim() && contact.trim() && message.trim().length >= 5;
+  /* Checked here as well as on the route: a tenant who mistypes their number
+     should be told before they believe the agent has it. */
+  const contactIssue = contact.trim() ? contactProblem(contact) : null;
+  const ready = name.trim() && contact.trim() && !contactIssue && message.trim().length >= 5;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +112,8 @@ export function EnquiryForm({
             required
             value={contact}
             onChange={(e) => setContact(e.target.value)}
+            error={contactIssue ?? undefined}
+            placeholder={SG_MOBILE_DISPLAY}
             hint="However you would rather be reached."
           />
         </div>

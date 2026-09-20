@@ -26,6 +26,7 @@ import { useDemo, TODAY, TODAY_ISO } from '../../../lib/phase1/DemoContext';
 import { districtName } from '../../../lib/phase1/performance';
 import { toolsId, type ViewingSlot } from '../../../lib/phase1/tools';
 import { sgWeekday } from '../../../lib/phase1/format';
+import { SG_MOBILE_DISPLAY, normaliseSgMobile, sgMobileProblem } from '../../../lib/phase1/mobile';
 
 const START_TIMES = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 
@@ -176,7 +177,7 @@ export default function ViewingsPage() {
                         >
                           <span className="w-[112px] shrink-0 font-medium tabular-nums text-p1-text">{s.start}–{s.end}</span>
                           <span className="min-w-0 flex-1 basis-40 truncate text-[13.5px] text-p1-text-2">
-                            {l ? `${l.project} ${l.unitNo} · D${String(l.district).padStart(2, '0')}` : 'Any of your listings'}
+                            {l ? `${l.project} · D${String(l.district).padStart(2, '0')}` : 'Any of your listings'}
                           </span>
                           {s.booking ? (
                             <span className="flex min-w-0 flex-wrap items-center gap-2">
@@ -235,7 +236,7 @@ export default function ViewingsPage() {
                   { value: 'any', label: 'Any of my listings' },
                   ...live.map((l) => ({
                     value: l.id,
-                    label: `${l.project} ${l.unitNo} — D${String(l.district).padStart(2, '0')} ${districtName(l.district)}`,
+                    label: `${l.project} — D${String(l.district).padStart(2, '0')} ${districtName(l.district)}`,
                   })),
                 ]}
               />
@@ -289,7 +290,7 @@ export default function ViewingsPage() {
         footer={
           <>
             <Button variant="outline" onClick={() => setBooking(null)}>Cancel</Button>
-            <Button variant="primary" onClick={confirmBooking} disabled={!name.trim() || !mobile.trim()} leftIcon={<Check size={16} />}>
+            <Button variant="primary" onClick={confirmBooking} disabled={!name.trim() || !mobile.trim() || Boolean(sgMobileProblem(mobile))} leftIcon={<Check size={16} />}>
               Book it
             </Button>
           </>
@@ -301,7 +302,17 @@ export default function ViewingsPage() {
             save this.
           </p>
           <TextInput label="Tenant name" value={name} onChange={(e) => setName(e.target.value)} data-autofocus placeholder="Who is coming" />
-          <TextInput label="Mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="+65 9xxx xxxx" inputMode="tel" />
+          <TextInput
+            label="Mobile"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            /* Tidied on leaving the field rather than as it is typed, which
+               would fight the agent mid-number. */
+            onBlur={(e) => { const tidy = normaliseSgMobile(e.target.value); if (tidy) setMobile(tidy); }}
+            error={mobile.trim() ? sgMobileProblem(mobile) ?? undefined : undefined}
+            placeholder={SG_MOBILE_DISPLAY}
+            inputMode="tel"
+          />
         </div>
       </Dialog>
     </>

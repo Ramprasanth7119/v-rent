@@ -56,7 +56,7 @@ export function Spotlight({ item, ownerId, days }: { item: Ranked; ownerId?: str
         <div className="absolute inset-x-0 bottom-0 p-4 text-white">
           <p className="font-p1display text-[19px] font-bold leading-tight tracking-[-0.01em]">{l.project}</p>
           <p className="mt-0.5 flex items-center gap-1 text-[12.5px] text-white/80">
-            <MapPin size={12} aria-hidden /> {l.unitNo} · {districtName(l.district)} · {price(l)}
+            <MapPin size={12} aria-hidden /> {districtName(l.district)} · {price(l)}
           </p>
         </div>
       </div>
@@ -239,7 +239,7 @@ export function Leaderboard({ rows, ownerId, days }: { rows: Ranked[]; ownerId?:
                       {l.status !== 'published' && <StatusBadge kind="listing" value={l.status} size="sm" showHelp={false} />}
                     </span>
                     <span className="block truncate text-[12.5px] text-p1-text-3">
-                      {l.unitNo} · {districtName(l.district)} · {l.bedrooms} bd · {price(l)}
+                      {districtName(l.district)} · {l.bedrooms} bd · {price(l)}
                     </span>
                   </span>
                 </span>
@@ -320,7 +320,7 @@ export function NeedsLift({ rows, all, days }: { rows: Ranked[]; all: Ranked[]; 
               >
                 <HealthRing listing={l} size={34} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13.5px] font-medium text-p1-text">{l.project} <span className="font-normal text-p1-text-3">{l.unitNo}</span></span>
+                  <span className="block truncate text-[13.5px] font-medium text-p1-text">{l.project}</span>
                   <span className="block truncate text-[12.5px] text-p1-text-3">
                     {w.enquiries} enquiries · {w.views.toLocaleString('en-SG')} views
                   </span>

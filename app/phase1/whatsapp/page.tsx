@@ -97,7 +97,7 @@ export default function WhatsAppPage() {
     const l = byId.get(e.listingId);
     const who = state.profile.fullName.replace(/\s*\(.*\)\s*$/, '') || 'your agent';
     const sig = `\n\n${who}\n${state.profile.agency}\nCEA ${state.profile.ceaNumber}`;
-    const unit = l ? `${l.project} ${l.unitNo}` : 'the unit';
+    const unit = l ? `${l.project}` : 'the unit';
     const first = e.name.split(' ')[0] || 'there';
 
     switch (t) {
@@ -223,7 +223,7 @@ export default function WhatsAppPage() {
                         <StagePill r={readStage(e, openedAt)} />
                       </div>
                       <div className="mt-0.5 truncate text-[12.5px] text-p1-text-3">
-                        {l ? `${l.project} ${l.unitNo}` : 'Listing removed'} · <span className="tabular-nums">{e.contact}</span>
+                        {l ? `${l.project}` : 'Listing removed'} · <span className="tabular-nums">{e.contact}</span>
                       </div>
                       <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-p1-text-2">{e.message}</p>
                     </button>
@@ -270,7 +270,7 @@ export default function WhatsAppPage() {
                           className="h-16 w-20 shrink-0"
                         />
                         <div className="min-w-0">
-                          <div className="truncate text-[15px] font-semibold text-p1-text">{listing.project} {listing.unitNo}</div>
+                          <div className="truncate text-[15px] font-semibold text-p1-text">{listing.project}</div>
                           <div className="mt-0.5 text-[13px] text-p1-text-2">
                             {sgd(listing.monthlyRent)}/mo · {listing.bedrooms} bed · {listing.sizeSqft.toLocaleString('en-SG')} sqft
                           </div>

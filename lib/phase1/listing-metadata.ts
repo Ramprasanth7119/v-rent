@@ -22,6 +22,9 @@ export async function listingMetadata(owner: string, id: string): Promise<Metada
   return {
     title: `${title} — V-RENT`,
     description,
+    /* One address for this listing. The old share link forwards here and must
+       not be indexed as a second copy of the same home. */
+    alternates: { canonical: `/phase1/homes/${owner}/${id}` },
     openGraph: { title, description, type: 'website', siteName: 'V-RENT', images: image ? [{ url: image, alt: title }] : undefined },
     twitter: { card: image ? 'summary_large_image' : 'summary', title, description, images: image ? [image] : undefined },
   };

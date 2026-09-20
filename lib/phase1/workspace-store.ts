@@ -12,6 +12,7 @@ import type { PublicAccount } from '../auth/store';
 import { KeyedMutex } from '../payments/concurrency';
 import { AgentProfile, DEFAULT_NOTIFICATIONS, reconcileWithAccount, seedWorkspace, WorkspaceState } from './workspace';
 import { EMPTY_TOOLS } from './tools';
+import { STARTING_REVEAL_CREDITS } from './views';
 import { verificationPolicy } from './verification-policy';
 import type { DemoListing } from './data';
 import { store } from '../store/driver';
@@ -53,6 +54,10 @@ function strip(stored: StoredWorkspace): WorkspaceState {
     alerts: w.alerts ?? [],
     listings: w.listings ?? [],
     tools: { ...EMPTY_TOOLS, ...(w.tools ?? {}) },
+    /* Absent on every workspace written before views existed. */
+    views: w.views ?? [],
+    reveals: w.reveals ?? [],
+    revealCredits: typeof w.revealCredits === 'number' ? w.revealCredits : STARTING_REVEAL_CREDITS,
   };
 }
 
@@ -137,6 +142,17 @@ export async function findPublicListing(
   if (!listing || (listing.status !== 'published' && listing.status !== 'paused')) return null;
 
   return { listing, agent: workspace.profile };
+}
+
+/**
+ * Throw the workspace away and do not seed another.
+ *
+ * Only for an account being deleted. Under the same lock as every other write,
+ * so a save already in flight finishes before the record goes rather than
+ * re-creating it a moment afterwards.
+ */
+export async function deleteWorkspace(accountId: string): Promise<void> {
+  await lock.run(accountId, () => workspaces.remove(accountId));
 }
 
 /** Throw the workspace away and seed it again — the presenter's Reset button. */

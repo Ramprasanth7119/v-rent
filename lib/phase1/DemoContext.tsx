@@ -29,6 +29,7 @@ import {
   SubscriptionStatus, TODAY, TODAY_ISO, WorkspaceState, planByCode, preferredName,
 } from './workspace';
 import { EMPTY_TOOLS, type ToolsState } from './tools';
+import { STARTING_REVEAL_CREDITS } from './views';
 import { demoWorkspace } from './report-data/demo-workspace';
 import { useDemoDataOn } from './report-data/switch';
 import { useSession } from './SessionContext';
@@ -114,6 +115,11 @@ const toWorkspace = (s: DemoState): WorkspaceState => ({
   enquiries: s.enquiries,
   alerts: s.alerts,
   tools: s.tools,
+  /* The demo workspace lives in the browser and is never written, so nobody
+     can have viewed it. See `views.ts`. */
+  views: [],
+  reveals: [],
+  revealCredits: STARTING_REVEAL_CREDITS,
 });
 
 /** A single condition of the publish gate. */

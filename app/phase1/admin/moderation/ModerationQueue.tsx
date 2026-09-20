@@ -144,7 +144,7 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
       });
       if (!res.ok) throw new Error(String(res.status));
       push(action === 'approve'
-        ? { tone: 'success', title: 'Listing approved', body: `${item.listing.project} ${item.listing.unitNo} stays live and is marked reviewed.` }
+        ? { tone: 'success', title: 'Listing approved', body: `${item.listing.project} stays live and is marked reviewed.` }
         : { tone: 'warn', title: 'Listing rejected', body: `${item.ownerName} sees the reason and can correct and resubmit it.` });
       const i = shown.findIndex((x) => keyOf(x) === keyOf(item));
       const next = shown[i + 1] ?? shown[i - 1];
@@ -255,7 +255,7 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
             const current = Math.min(photo, Math.max(0, photos.length - 1));
             return (
               <div ref={workspace} key={k} className="p1-in grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-                <Card padding="none" as="section" aria-label={`${l.project} ${l.unitNo}`} className="min-w-0 overflow-hidden">
+                <Card padding="none" as="section" aria-label={`${l.project}, ${l.reference}`} className="min-w-0 overflow-hidden">
                   {/* gallery */}
                   <div className="border-b border-p1-border bg-p1-subtle/50 p-3">
                     <PropertyImage key={current} seed={l.reference + l.project} variant={current} src={photos[current]} alt={`Photograph ${current + 1}`} rounded="rounded-lg" className="p1-xfade aspect-[16/9] w-full" label={photos.length === 0} />
@@ -276,7 +276,7 @@ export default function ModerationQueue({ items }: { items: ModerationItem[] }) 
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-p1-text">{l.project} <span className="font-normal text-p1-text-3">{l.unitNo}</span></h2>
+                          <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-p1-text">{l.project} <span className="font-normal text-p1-text-3">{l.reference}</span></h2>
                           <StatusBadge kind="listing" value={l.status} size="sm" />
                           <span className="font-mono text-[12px] text-p1-text-3">{l.reference}</span>
                           {dealOf(l) === 'sale' && <span className="rounded-full border border-p1-border bg-p1-subtle px-2 py-0.5 text-[12px] font-medium text-p1-text-2">{DEAL_LABEL.sale}</span>}

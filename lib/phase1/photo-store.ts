@@ -295,3 +295,20 @@ export async function deleteListingPhotos(ownerId: string, listingId: string): P
     /* nothing uploaded for this listing */
   }
 }
+
+/**
+ * Every photograph an account holds, removed with the account.
+ *
+ * Across listings rather than one at a time, because a deleted account's
+ * listings go with it and there would be nothing left to enumerate them from.
+ * Returns how many were removed, so the officer is told what went.
+ */
+export async function deleteOwnerPhotos(ownerId: string): Promise<number> {
+  try {
+    const records = await photos.find({ ownerId });
+    await Promise.all(records.map((r) => photos.remove(r.id)));
+    return records.length;
+  } catch {
+    return 0;
+  }
+}

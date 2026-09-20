@@ -176,6 +176,21 @@ export async function recordLogin(id: string) {
   await accounts.patch(id, { lastLoginAt: new Date().toISOString() });
 }
 
+/**
+ * Remove an account outright.
+ *
+ * Suspension is the usual answer to an agent who should not be advertising: it
+ * keeps the record, it can be undone, and it leaves the audit trail able to
+ * explain itself. This is for the case suspension does not cover — an account
+ * that should never have existed, or one whose owner has asked to be forgotten.
+ *
+ * It removes the account and nothing else. What the account owned is the
+ * caller's to clear, because only the caller knows what it is willing to lose.
+ */
+export async function deleteAccount(id: string): Promise<void> {
+  await accounts.remove(id);
+}
+
 /** Admin-only: every registered agent. */
 export async function listAccounts(): Promise<PublicAccount[]> {
   const all = await accounts.list({ sort: { field: 'createdAt', dir: -1 } });

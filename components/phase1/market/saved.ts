@@ -54,3 +54,52 @@ export function useSaved() {
 
   return { ids, ready, isSaved: (key: string) => ids.includes(key), toggle };
 }
+
+/* --------------------------------------------------------- recently seen */
+
+/**
+ * The homes this browser has opened, newest first.
+ *
+ * Kept beside the saved list and for the same reason: a tenant has no account,
+ * so "the one with the balcony I looked at on the bus" has to live somewhere,
+ * and that somewhere is this device. Twelve is enough to find something again
+ * and short enough that the list is still readable.
+ *
+ * Written on the listing page and read on the saved page. Nothing is sent
+ * anywhere — no account, no server, no record of who looked at what.
+ */
+const RECENT = 'vrent_recent_homes';
+const RECENT_MAX = 12;
+
+function readRecent(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Move this home to the front of the list, dropping any older mention of it. */
+export function rememberViewed(key: string) {
+  try {
+    const next = [key, ...readRecent().filter((k) => k !== key)].slice(0, RECENT_MAX);
+    localStorage.setItem(RECENT, JSON.stringify(next));
+  } catch {
+    /* storage blocked: the visit is simply not remembered */
+  }
+}
+
+export function useRecentlyViewed() {
+  const [ids, setIds] = useState<string[]>([]);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads storage once after mount
+    setIds(readRecent());
+    setReady(true);
+  }, []);
+
+  return { ids, ready };
+}

@@ -34,6 +34,7 @@ import { comparablePrice, priceLabel } from '../../../lib/phase1/pricing';
 import { EMPTY_FILTERS, ListingFilters, activeChips, activeCount, matches as matchesFilters } from '../../../components/phase1/listing/filters';
 import { FilterPanel } from '../../../components/phase1/listing/FilterPanel';
 import { Upload, Plus, LayoutGrid, Rows3, Building2, Archive, X, SlidersHorizontal, FileDown, MapPinned, MoreHorizontal } from 'lucide-react';
+import { floorLabel } from '../../../lib/phase1/floor';
 
 type FilterKey = ListingStatus | 'all';
 type Sort = 'recent' | 'updated' | 'views' | 'enquiries' | 'rent_desc' | 'rent_asc' | 'expiry';
@@ -151,7 +152,7 @@ function ListingsBody() {
         <Link href={`/phase1/listings/${l.id}`} className="flex min-w-0 items-center gap-3">
           <PropertyImage seed={l.reference + l.project} src={coverPhoto(user?.id, l)} alt="" rounded="rounded-md" className="h-11 w-14 shrink-0" />
           <span className="min-w-0">
-            <span className="block truncate text-[14px] font-medium text-p1-text hover:text-p1-primary">{l.project}{l.unitNo && l.unitNo !== '—' && <span className="font-normal text-p1-text-3"> {l.unitNo}</span>}</span>
+            <span className="block truncate text-[14px] font-medium text-p1-text hover:text-p1-primary">{l.project}{floorLabel(l) && <span className="font-normal text-p1-text-3"> · {floorLabel(l)}</span>}</span>
             <span className="block truncate text-[12.5px] text-p1-text-3">{districtCode(l.district)} · {l.bedrooms} bed · {l.sizeSqft.toLocaleString('en-SG')} sqft · <span className="text-p1-text-2">{priceLabel(l).amount}{priceLabel(l).suffix}</span></span>
           </span>
         </Link>
@@ -316,7 +317,7 @@ function ListingsBody() {
                   const d = l.status === 'published' ? daysUntil(l.expiresAt, TODAY) : null;
                   return (
                     <li key={l.id} className="relative flex gap-3 rounded-xl border border-p1-border bg-p1-surface p-2.5">
-                      <Link href={`/phase1/listings/${l.id}`} className="shrink-0" aria-label={`${l.project} ${l.unitNo}`}>
+                      <Link href={`/phase1/listings/${l.id}`} className="shrink-0" aria-label={`${l.project}`}>
                         <PropertyImage seed={l.reference + l.project} src={coverPhoto(user?.id, l)} alt="" rounded="rounded-lg" className="h-[76px] w-[92px]" />
                       </Link>
                       <div className="min-w-0 flex-1 py-0.5">

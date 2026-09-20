@@ -28,7 +28,7 @@ import {
   Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, LogOut, LayoutGrid, Search, BookOpen, MessageCircle, Phone,
   Settings, TrendingUp, ChevronRight, ChevronDown, ArrowLeftRight, RefreshCw, FileText, CalendarClock, LineChart,
   GitCompareArrows, Trees, QrCode, LifeBuoy, Video, Megaphone, Compass, PanelLeftClose, PanelLeftOpen,
-  Globe, Home,
+  Globe, Home, LibraryBig,
 } from 'lucide-react';
 import { useDemo } from '../../lib/phase1/DemoContext';
 import { useEnquiries } from '../../lib/phase1/useEnquiries';
@@ -386,6 +386,7 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
       { href: '/phase1/enquiries', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'info' },
       { href: '/phase1/viewings', label: 'Viewings', icon: CalendarClock },
       { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
+      { href: '/phase1/directory', label: 'Directory', icon: LibraryBig },
     ] },
     { key: 'grow', title: 'Marketing', icon: Megaphone, collapsible: true, items: [
       { href: '/phase1/refresh', label: 'Automatic refresh', icon: RefreshCw },

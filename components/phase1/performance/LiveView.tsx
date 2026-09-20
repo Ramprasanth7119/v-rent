@@ -97,7 +97,7 @@ export function LiveView({ live, enquiries, waiting, ownerId }: {
                         <span className="truncate text-[14px] font-semibold text-p1-text">{l.project}</span>
                         {l.status !== 'published' && <StatusBadge kind="listing" value={l.status} size="sm" showHelp={false} />}
                       </span>
-                      <span className="block truncate text-[12.5px] text-p1-text-3">{l.unitNo} · {districtName(l.district)} · {p.amount}{p.suffix}</span>
+                      <span className="block truncate text-[12.5px] text-p1-text-3">{districtName(l.district)} · {p.amount}{p.suffix}</span>
                     </span>
                   </span>
                   <span className="hidden h-2 overflow-hidden rounded-full bg-p1-subtle md:block" aria-hidden>
