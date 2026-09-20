@@ -26,7 +26,7 @@ import { useToast } from './Toast';
 import {
   FileSpreadsheet, ShieldCheck, IdCard, CreditCard, LayoutDashboard, Building2, Plus, Gavel, Receipt, BarChart3, Users,
   Menu as MenuIcon, X, Sun, Moon, Bell, HelpCircle, LogOut, LayoutGrid, Search, BookOpen, MessageCircle, Phone,
-  Settings, TrendingUp, ChevronRight, ChevronDown, ArrowLeftRight, RefreshCw, FileText, CalendarClock, LineChart,
+  Settings, TrendingUp, ChevronRight, ChevronDown, ArrowLeftRight, RefreshCw, FileText, LineChart,
   GitCompareArrows, Trees, QrCode, LifeBuoy, Video, Megaphone, Compass, PanelLeftClose, PanelLeftOpen,
   Globe, Home, LibraryBig,
 } from 'lucide-react';
@@ -384,7 +384,10 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
       { href: '/phase1/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/phase1/listings', label: 'Listings', icon: Building2, badge: attention, badgeTone: 'danger', also: ['/phase1/properties'] },
       { href: '/phase1/enquiries', label: 'Enquiries', icon: MessageCircle, badge: newEnquiries, badgeTone: 'info' },
-      { href: '/phase1/viewings', label: 'Viewings', icon: CalendarClock },
+      /* Viewings is out of the navigation for now — not wanted in the product
+         yet. The screen and its route are untouched, so a link already sent
+         still opens and the breadcrumb still names it; putting it back is this
+         one line. */
       { href: '/phase1/performance', label: 'Performance', icon: TrendingUp },
       { href: '/phase1/directory', label: 'Directory', icon: LibraryBig },
     ] },
