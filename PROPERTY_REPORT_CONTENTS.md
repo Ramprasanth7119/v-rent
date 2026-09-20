@@ -45,65 +45,112 @@ While demo data is shown, every sheet carries a **Demo data** mark in the header
 and "Illustrative data for demonstration purposes" in the footer, and the
 sources note says so. The saved PDF title ends in "Demo data".
 
+Demo data covers every kind of home: an HDB flat is compared with generated
+HDB leases and a landed home with landed leases, so no demo report reads
+"Insufficient data". With the switch off, HDB and landed rentals are still not
+compared, because the held contract dataset covers only private non-landed
+homes. Each demo development has two or three leases of the property's layout
+a month, enough for a *Moderate* evidence level.
+
 Demo data is generated in the browser (`lib/phase1/report-data/demo.ts`). It is
 never requested from or returned by an API, never saved and never written to a
 listing, and it passes the same consistency checks as the original data.
 
 ## Client Report
 
-`app/phase1/listings/export/client-edition.tsx`. The number of properties
-decides the structure; the template is the same.
+`app/phase1/listings/export/client-edition.tsx`, with its diagrams in
+`client-visuals.tsx` and their figures in `lib/phase1/report-digest.ts`. The
+number of properties decides the structure; the template is the same. Every
+report opens with a **cover**: who it is prepared for, the title, the
+photographs, the key figures (or the shortlisted homes), **Inside this report**
+with the page each part starts on, and the agent's card.
 
-| Selection | Pages (typical) | Structure |
-|-----------|-----------------|-----------|
-| 1 property | 3–4 | Property overview · Photographs and location · Price and market position · AI Analysis with the sources note |
-| 2–3 properties | 4–5 | Shortlist overview with insights · Side-by-side comparison · one page per property (the last also carries the sources note) |
-| 4+ properties | 5 for five, 10 for ten | Summary table (with insights for up to six) · landscape comparison · compact snapshots, two to a page · sources note |
+| Selection | Pages (typical, demo data) | Structure |
+|-----------|----------------------------|-----------|
+| 1 property | 7 | Cover · key figures and AI read-out · how to read · the property · location · market evidence · recent leases and neighbours · what else is advertised · AI Analysis · sources |
+| 2–3 properties | 8 for two, 10 for three | Cover · shortlist overview with insights · side by side with the AI read-out for each · two pages per property · how to read · sources |
+| 4+ properties | 7 for five, 11 for ten | Cover · summary table · landscape comparison and AI read-out matrix · compact snapshots, two to a page · how to read · sources |
+
+Sections follow one another on the page; a new page starts only for the key
+figures, the property, the AI Analysis and each property of a short list.
 
 ### One property
-1. **Property overview**: who it is prepared for, the name, address and
-   district, the photograph (or a plain "No photograph supplied" frame), the
-   key figures (asking rent or price, per sq ft, layout, floor area,
-   availability), the property and listing details, what is nearby, and **Why
-   this property matters** (a factual positioning line and up to three measured
-   facts, then the agent's description and note).
-2. **Photographs and location**: every further photograph the agent supplied,
-   then the OneMap map of the address beside what is nearby — MRT/LRT
-   stations, schools, healthcare and daily needs, nearest first, with
-   distances. Bus stops are not included: no bus-stop dataset is connected.
-3. **Price and market position**, only when there is evidence: asking against
-   the comparable median, the position on the observed range, a benchmark
-   chart, the 12-month price history chart of the development (or district),
-   and the six most relevant contracts. With current listings only, a short
-   listings comparison instead, and the analysis continues on the same page.
-   With neither, this page is left out.
-4. **AI Analysis**, then the sources note.
+1. **Cover**, as above, with the asking price, rate per sq ft, layout, floor
+   area and availability.
+2. **Key figures**: the **comparable rent band** (the middle half of comparable
+   lease rates applied to this floor area, labelled "a comparison, not a
+   valuation", with the asking rent marked on it); the **price ladder** (the
+   lowest-to-highest range, with its median, of similar homes leased in this
+   development, similar-size homes leased in nearby developments, and similar
+   homes advertised now, against a dashed line at the asking price); the **AI
+   read-out** (see below); and **How to read this report** in four steps.
+3. **The property**: home and building details (type, development, tenure,
+   completion, floor level, floor area, straight-line distance to Raffles
+   Place), the listing (status, lease, deposit, furnishing, layout, agent),
+   **Why this property** (positioning line, up to three measured facts, the
+   agent's description and note) and every further photograph.
+4. **Location**: the OneMap map of the address beside the **neighbourhood
+   diagram** (rings at 500 m, 1 km and 2 km; every measured station, school,
+   healthcare place and daily need drawn at its true bearing and distance), then
+   the nearest places of each kind with distance, walking minutes and a bar on
+   one scale. Bus stops are not shown: no bus-stop dataset is connected.
+5. **Market evidence**, only with a comparison: asking against the comparable
+   median, the position (below, within or above), the benchmark bar; the
+   **twelve months** of the development's (or district's) median rent per sq ft
+   as a line with a month-by-month grid of medians and lease counts; the **latest
+   leases** (ten newest, same layout when there are enough, highest and lowest
+   rate marked); **neighbouring developments** (each development's same-layout
+   leases: count, median rent, median psf, its range of rates on a shared scale
+   and the latest month, this development first); and the six most similar
+   homes.
+6. **What else is advertised**, when similar listings were found: the range and
+   median by distance (same, nearby, other district) against this property, the
+   listing count and median, and up to eight listings with how long each has
+   been listed. With no comparison, a notice says why and this is the only
+   price evidence.
+7. **AI Analysis**, then **Sources and notes**.
 
 ### Two or three properties
-1. **Shortlist overview**: property cards (photograph, name, price, size,
-   layout), an at-a-glance table (property, type, location, size, asking,
-   PSF, status), the agent's note and the **Shortlist insights**.
-2. **Comparison**: the properties side by side (asking, per sq ft, floor area,
-   layout, type, location, tenure and completion, nearest MRT, comparable
-   median, market position, 12-month movement, price history, evidence,
-   availability) and **Where each asking rate sits**.
-3. **One page per property**: photograph with the further photographs as a
-   strip, facts, the map with the nearest stations, schools, healthcare and
-   daily needs, then a short AI Analysis
-   (past five years, current position, forward outlook, up to four
-   considerations).
+1. **Cover** with a mosaic of the photographs and the homes with their prices.
+2. **Shortlist overview**: a card per home (photograph, name, price, size,
+   layout and the AI read-out in one sentence), the at-a-glance table, the
+   agent's note and the **Shortlist insights**.
+3. **Side by side**: asking, per sq ft, comparable band, floor area, layout,
+   type, location, tenure and completion, nearest MRT, market position,
+   12-month movement, homes advertised now and availability; the **AI read-out
+   side by side** (the four signals for every home); **Where each asking rate
+   sits**.
+4. **Two pages per property**: the photograph and facts, the AI read-out and a
+   short AI Analysis (the four questions); then location and price — map,
+   neighbourhood diagram, nearby places and the price ladder.
 
 ### Four or more properties
-1. **Summary**: a table with a small photograph per property. Long lists
-   continue on further pages with the header repeated. Up to six properties,
-   the shortlist insights follow on the same page.
-2. **Comparison** on a landscape sheet: every property as a row (type, layout,
-   size, asking, PSF, median PSF, position, 12-month movement, nearest MRT,
-   evidence), split every 10–13 rows with the header repeated; then **Where
-   each asking rate sits** and, for more than six properties, the insights.
-3. **Snapshots**, two to a page: photograph (further photographs as a strip),
-   map, facts including the nearest station and other nearby places, and a one-line AI Analysis
-   per question with up to four considerations.
+1. **Cover**, listing the first six homes.
+2. **Summary**: a table with a small photograph per home. Long lists continue
+   with the header repeated. Up to six homes, the shortlist insights follow.
+3. **Comparison** on landscape sheets: every home as a row, split every 10–13
+   rows with the header repeated; the **AI read-out matrix**, twelve rows a
+   sheet; **Where each asking rate sits**; for more than six homes, the
+   insights.
+4. **Snapshots**, two to a page: photograph, map, facts, the four AI signals,
+   two key factors and the outlook label.
+
+### AI read-out
+Four signals, each drawn as a small diagram with its value and a caption, from
+`signalsFor` in `lib/phase1/report-digest.ts`:
+
+| Signal | Diagram | Reads |
+|--------|---------|-------|
+| Price check | Half dial: below, within, above the comparable range | Position and difference from the comparable median; "Listings only" or "Not compared" without contracts |
+| Market direction | Arrow | Firm, steady or easing, with the 12-month change of comparable rents; "No clear trend" without one |
+| Getting around | Track from the home to the station | Walking minutes and the station; "No station" with the reason |
+| Evidence strength | Three bars | Moderate, limited or insufficient, with the sample |
+
+**In short** puts the same evidence in one sentence ("A 2-bedroom condominium
+with an asking rent inside the usual range for similar homes, in a steady rental
+market, 4 minutes' walk from Downtown MRT Station."). Each part appears only
+when its evidence does. Green marks a favourable reading, amber one to check,
+grey a missing one.
 
 ### AI Analysis
 Produced by `lib/phase1/property-insight.ts` from the figures already in the
@@ -128,9 +175,12 @@ describes it as indicative analysis, not a valuation, advice or a forecast.
    yield or return. Without a readable trend, or for a sale, it reads
    **Insufficient verified historical/market data for a reliable forward
    estimate.**
-4. **Key considerations**. Three to five property-specific points, one per
-   topic (pricing position, recent movement, connectivity, competition, size,
-   schools, tenure, data limits), marked positive, attention or neutral.
+4. **Key factors**. Three to five property-specific points, one per topic
+   (pricing position, recent movement, connectivity, competition, size,
+   schools, tenure, data limits), tagged Plus, Check or Note.
+
+On the page each question is a card with an icon, a one-line answer and a
+sentence or two; the single-property page opens with the In short sentence.
 
 Each analysis carries an **Evidence** level: *Moderate* (a local sample of 20
 or more contracts), *Limited* (a small or non-local sample) or *Insufficient
@@ -149,7 +199,7 @@ text, a table with its header, a photograph with its facts). Each block is
 measured at the printed width and packed onto pages
 (`lib/phase1/paginate.ts`): a block is never split, a heading stays with what
 follows it, long tables are split into runs that repeat their header, and a
-landscape sheet is used only for the wide comparison. From tablet width the
+landscape sheet is used only for the wide comparison tables. From tablet width the
 sheet on screen is the printed page, and the toolbar warns **Page N too long**
 if anything still overflows.
 
@@ -289,15 +339,21 @@ what is missing instead of drawing an empty chart.
 
 | Graph | Where | Answers |
 |-------|-------|---------|
-| Benchmark bar (range, quartiles, median, asking) | One property, price and market position | Where does the asking rate sit? |
-| 12-month price history (development or district median per sq ft) | One property, price and market position | Has this building's rent moved? |
-| Where each asking rate sits (one strip per property on its own range) | Two or more properties, comparison | How do the properties sit against their own markets? |
+| Comparable rent band | One property, key figures | What do homes like this lease for, and where is the asking rent? |
+| Price ladder (development leases, nearby leases, listings) | Key figures; each property of a short list | How does the asking price line up with real figures? |
+| AI signals (dial, arrow, track, bars) | Key figures; every property | The analysis at a glance |
+| Neighbourhood diagram | Location; each property of a short list | What is around, in which direction, how far? |
+| Nearby distance bars | Location | How far is the nearest of each kind? |
+| Benchmark bar (range, quartiles, median, asking) | Market evidence | Where does the asking rate sit? |
+| 12-month history with the month grid | Market evidence | Has this building's rent moved, and on how many leases? |
+| Neighbouring developments range strips | Market evidence | Is this building priced like its neighbours? |
+| What else is advertised (range and median by distance) | Market competition | What is the competition asking? |
+| Where each asking rate sits | Two or more properties, comparison | How do the properties sit against their own markets? |
 
 Removed from the client report, and kept in the detailed report: the floor
 area scatter (repeats the contracts table), the trend chart with a projected
 three months (a numerical projection), the monthly contract volume bars, the
-asking-rate bars across properties (compares different markets directly) and
-the neighbourhood distance bars.
+asking-rate bars across properties (compares different markets directly).
 
 ### Detailed report
 

@@ -122,9 +122,15 @@ export type HistoryResult = MarketHistory | HistoryUnavailable;
  * contract window. Unit-level history does not exist in lodged contracts, which
  * identify a floor band at most, so this is the nearest honest history.
  */
-export function marketHistory(l: DemoListing, contracts: Transaction[] = TRANSACTIONS, dev: Project | null = developmentOf(l)): HistoryResult {
+export function marketHistory(
+  l: DemoListing,
+  contracts: Transaction[] = TRANSACTIONS,
+  dev: Project | null = developmentOf(l),
+  /** As in `marketPosition`: only a contract set generated for the property's own kind passes it. */
+  opts: { allTypes?: boolean } = {},
+): HistoryResult {
   if (dealOf(l) === 'sale') return { status: 'unavailable', reason: 'sale', message: 'Sale transaction history is not held on the platform.' };
-  if (!PRIVATE_NON_LANDED.includes(l.propertyType)) {
+  if (!opts.allTypes && !PRIVATE_NON_LANDED.includes(l.propertyType)) {
     return { status: 'unavailable', reason: 'category', message: `Rental contract history for ${l.propertyType === 'HDB' ? 'HDB flats' : 'landed homes'} is not held on the platform.` };
   }
   const window = new Set(MARKET_MONTHS);

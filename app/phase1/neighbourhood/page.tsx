@@ -113,7 +113,7 @@ export default function NeighbourhoodPage() {
 
   const listing = placed.find((l) => l.id === listingId) ?? null;
   const active = point ?? (listing && listing.lat && listing.lng
-    ? { lat: listing.lat, lng: listing.lng, label: `${listing.project} ${listing.unitNo}`, postal: listing.postalCode }
+    ? { lat: listing.lat, lng: listing.lng, label: `${listing.project}`, postal: listing.postalCode }
     : null);
 
   /**
@@ -276,7 +276,7 @@ export default function NeighbourhoodPage() {
             ...(point ? [{ value: '', label: 'A searched address' }] : []),
             ...placed.map((l) => ({
               value: l.id,
-              label: `${l.project} ${l.unitNo} — ${districtLabel(l.district)}`,
+              label: `${l.project} — ${districtLabel(l.district)}`,
             })),
           ]}
         />

@@ -38,6 +38,7 @@ import {
   readStage, type EnquiryQuery, type SortKey, type StageReading, type StatusFilter,
 } from '../../../lib/phase1/enquiries';
 import { sgDateTime, sgRelative } from '../../../lib/phase1/format';
+import { floorLabel } from '../../../lib/phase1/floor';
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'priority', label: 'Needs me first' },
@@ -111,7 +112,7 @@ export default function EnquiriesView() {
         .map(([id, n]) => ({ id, n, l: byId.get(id) }))
         .filter((x) => x.l)
         .sort((a, b) => b.n - a.n)
-        .map((x) => ({ value: x.id, label: `${x.l!.project}${x.l!.unitNo && x.l!.unitNo !== '—' ? ` ${x.l!.unitNo}` : ''} (${x.n})` })),
+        .map((x) => ({ value: x.id, label: `${x.l!.project} (${x.n})` })),
     ];
   }, [enquiries, byId]);
 
@@ -451,7 +452,7 @@ function Row({
           <span className="block truncate text-[13px] font-medium text-p1-text">{l ? l.project : 'Listing removed'}</span>
           {l && (
             <span className="block truncate text-[11.5px] text-p1-text-3">
-              {l.unitNo && l.unitNo !== '—' ? `${l.unitNo} · ` : ''}{l.bedrooms ? `${l.bedrooms} bed · ` : ''}{sgd(l.monthlyRent)}/mo
+              {floorLabel(l) ? `${floorLabel(l)} · ` : ''}{l.bedrooms ? `${l.bedrooms} bed · ` : ''}{sgd(l.monthlyRent)}/mo
             </span>
           )}
         </span>

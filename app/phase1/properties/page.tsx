@@ -9,6 +9,7 @@ import { StatusDot, Pill } from '../../../components/phase1/status';
 import { PropertyImage } from '../../../components/phase1/PropertyImage';
 import { useDemo } from '../../../lib/phase1/DemoContext';
 import { DemoListing, sgd } from '../../../lib/phase1/data';
+import { floorLabel } from '../../../lib/phase1/floor';
 
 type PType = DemoListing['propertyType'];
 type Filter = 'all' | PType;
@@ -101,7 +102,10 @@ export default function PropertiesPage() {
                   <ul className="mt-3 divide-y divide-p1-border rounded-lg border border-p1-border">
                     {p.units.slice(0, 3).map((u) => (
                       <li key={u.id} className="flex items-center justify-between gap-2 px-3 py-2 text-[13px]">
-                        <span className="font-mono text-p1-text">{u.unitNo}</span>
+                        {/* The storey, not the door. See `views.ts` and
+                            `publicFields` — the unit number is kept off every
+                            screen, including the agent's own. */}
+                        <span className="text-p1-text">{floorLabel(u) || u.reference}</span>
                         <span className="tabular-nums text-p1-text-2">{sgd(u.monthlyRent)}/mo</span>
                         <StatusDot kind="listing" value={u.status} />
                       </li>

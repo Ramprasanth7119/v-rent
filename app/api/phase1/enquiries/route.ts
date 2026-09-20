@@ -21,6 +21,7 @@ import { Enquiry } from '../../../../lib/phase1/workspace';
 import { notify } from '../../../../lib/phase1/notify';
 import { publicAccount } from '../../../../lib/auth/store';
 import { logged } from '../../../../lib/phase1/reqlog';
+import { contactProblem, normaliseContact } from '../../../../lib/phase1/mobile';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,15 +55,23 @@ async function POST_handler(req: Request) {
   const ownerId = str(body.ownerId, 64);
   const listingId = str(body.listingId, 64);
   const name = str(body.name, 120);
-  const contact = str(body.contact, 120);
+  const typedContact = str(body.contact, 120);
   const message = str(body.message, 2000);
 
-  if (!name || !contact || !message) {
+  if (!name || !typedContact || !message) {
     return NextResponse.json(
       { error: 'A name, a way to reach you, and a message are all needed.', code: 'incomplete' },
       { status: 400 },
     );
   }
+
+  /* A number an agent cannot ring is worse than no number: they reply, hear
+     nothing back, and record the lead as cold. */
+  const badContact = contactProblem(typedContact);
+  if (badContact) {
+    return NextResponse.json({ error: badContact, code: 'bad_contact' }, { status: 400 });
+  }
+  const contact = normaliseContact(typedContact);
 
   // The listing decides whether this is even a valid place to write to. A draft
   // or a rejected listing is not advertised, so nothing may arrive against it.

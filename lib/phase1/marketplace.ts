@@ -10,6 +10,13 @@
  * only, never a draft, a rejected listing or anything in moderation, and never
  * from an agent whose publication rights are suspended.
  *
+ * The Demo Data switch reaches this file and stops here. Each of the four
+ * public readers below branches once, at the top, to `market-demo` — a pure
+ * function with no store behind it — so with the switch ON the tenant site
+ * shows the sample marketplace and with it OFF it shows the real one. There is
+ * no third state and no fallback: a live read that fails throws, and the page
+ * says the listings could not be loaded rather than quietly showing samples.
+ *
  * Server only: it reads the account and workspace stores.
  */
 
@@ -18,10 +25,13 @@ import { listAccounts, type PublicAccount } from '../auth/store';
 import { displayAgency, displayName } from '../auth/cea';
 import { readWorkspace } from './workspace-store';
 import type { WorkspaceState } from './workspace';
-import { preferredName } from './workspace';
+import { preferredName, registrationIsCurrent } from './workspace';
 import type { DemoListing } from './data';
 import { photoSrc } from './photos';
+import { floorFromUnit } from './floor';
 import { usualName } from './display-name';
+import { demoDataOnServer } from './report-data/server';
+import { demoMarketAgent, demoMarketListing, demoMarketListings } from './market-demo';
 
 export interface PublicAgent {
   id: string;
@@ -53,10 +63,27 @@ export interface MarketListing {
   thumbs: string[];
 }
 
-/** The fields a tenant has no business receiving. */
+/**
+ * The fields a tenant has no business receiving.
+ *
+ * The unit number is removed rather than merely hidden on screen. A landlord
+ * advertising a unit is not advertising which door it is, and a number left in
+ * the data reaches the browser whether or not a component chooses to draw it —
+ * it would sit in the page source, in the share link's payload and in anything
+ * built from them. Stripping it here means no tenant-facing screen can leak it,
+ * including one written next year by somebody who never read this comment.
+ *
+ * The storey survives it. That is something tenants genuinely filter by, so it
+ * is read off the unit number here and carried as a figure of its own — the
+ * one part of the number that says something about the home rather than about
+ * which door it is.
+ */
 function publicFields(l: DemoListing): DemoListing {
   const copy = { ...l };
   delete copy.rejectionReason;
+  const floor = floorFromUnit(l.unitNo);
+  if (floor !== null) copy.floorLevel = floor;
+  copy.unitNo = '';
   return copy;
 }
 
@@ -95,16 +122,28 @@ function entry(ownerId: string, agent: PublicAgent, l: DemoListing): MarketListi
   };
 }
 
-/** Every agent who may advertise, with their workspace. Read once per request. */
+/**
+ * Every agent who may advertise, with their workspace. Read once per request.
+ *
+ * A lapsed registration is checked here as well as written into the workspace
+ * when the agent next signs in, and the date is read rather than the stored
+ * flag. The two are not the same thing: an agent whose registration expired in
+ * March and who has not opened the product since would otherwise keep
+ * advertising until the day they came back.
+ */
 const advertisers = cache(async () => {
   const accounts = (await listAccounts()).filter((a) => a.role === 'agent');
   const loaded = await Promise.all(accounts.map(async (a) => ({ account: a, workspace: await readWorkspace(a.id) })));
-  return loaded.filter((x): x is { account: PublicAccount; workspace: WorkspaceState } =>
-    Boolean(x.workspace) && x.workspace!.approval !== 'suspended');
+  return loaded.filter((x): x is { account: PublicAccount; workspace: WorkspaceState } => {
+    if (!x.workspace || x.workspace.approval === 'suspended') return false;
+    const until = x.account.cea?.registrationEnd || x.workspace.ceaValidUntil;
+    return registrationIsCurrent(until);
+  });
 });
 
 /** Everything live, newest first. */
 export const marketListings = cache(async (): Promise<MarketListing[]> => {
+  if (await demoDataOnServer()) return demoMarketListings();
   const all = await advertisers();
   return all
     .flatMap(({ account, workspace }) => {
@@ -117,10 +156,27 @@ export const marketListings = cache(async (): Promise<MarketListing[]> => {
 });
 
 /**
+ * The same listings with their unit numbers still on them.
+ *
+ * Server only, and named so that sending one to a browser has to be a decision
+ * rather than an oversight. It exists for the one thing that needs to tell two
+ * addresses apart to the door — recognising the same unit advertised twice by
+ * different agencies — which postal code alone cannot do.
+ */
+export const marketListingsWithUnitNumbers = cache(async (): Promise<{ ownerId: string; listingId: string; postalCode: string; unitNo: string }[]> => {
+  const all = await advertisers();
+  return all.flatMap(({ account, workspace }) =>
+    workspace.listings
+      .filter((l) => !l.archived && l.status === 'published')
+      .map((l) => ({ ownerId: account.id, listingId: l.id, postalCode: l.postalCode, unitNo: l.unitNo ?? '' })));
+});
+
+/**
  * One listing for its detail page. A paused listing still resolves, so a link
  * already sent keeps working and the page can say the unit is off the market.
  */
 export const marketListing = cache(async (ownerId: string, listingId: string): Promise<MarketListing | null> => {
+  if (await demoDataOnServer()) return demoMarketListing(ownerId, listingId);
   const all = await advertisers();
   const found = all.find((x) => x.account.id === ownerId);
   if (!found) return null;
@@ -149,6 +205,7 @@ export async function similarListings(target: MarketListing, n = 4): Promise<Mar
 
 /** An agent's public profile and what they have live. */
 export const marketAgent = cache(async (ownerId: string): Promise<{ agent: PublicAgent; listings: MarketListing[] } | null> => {
+  if (await demoDataOnServer()) return demoMarketAgent(ownerId);
   const all = await advertisers();
   const found = all.find((x) => x.account.id === ownerId);
   if (!found) return null;

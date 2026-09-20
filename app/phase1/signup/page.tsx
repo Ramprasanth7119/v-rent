@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../components/phase1/Toast';
 import { sgDate, sgTime } from '../../../lib/phase1/format';
+import { sgMobileProblem } from '../../../lib/phase1/mobile';
 
 interface CeaRecord {
   name: string;
@@ -139,7 +140,10 @@ function SignupBody() {
     { label: 'Not a commonly used password', ok: password.length >= 12 && !['password1234', 'qwertyuiop12'].includes(password.toLowerCase()) },
   ];
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
-  const mobileOk = /^\+?[0-9 ]{8,16}$/.test(mobile);
+  /* The same rule the signup route enforces, so the form cannot offer to
+     submit something the server will refuse. */
+  const mobileProblem = sgMobileProblem(mobile);
+  const mobileOk = mobileProblem === null;
   const canSubmit = rules.every((r) => r.ok) && emailOk && mobileOk && agreed && !!verified;
 
   const submit = async (e: React.FormEvent) => {
@@ -405,8 +409,8 @@ function SignupBody() {
             placeholder="+65 9123 4567"
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
-            error={mobile && !mobileOk ? 'Enter a valid Singapore mobile number.' : undefined}
-            hint="Used for listing alerts and account recovery."
+            error={mobile && mobileProblem ? mobileProblem : undefined}
+            hint="A Singapore mobile number. Used for listing alerts and account recovery."
           />
 
           <div>

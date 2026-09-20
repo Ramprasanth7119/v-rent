@@ -17,6 +17,7 @@ import type { DemoListing } from '../../../lib/phase1/data';
 import { coverPhoto } from '../../../lib/phase1/photos';
 import { districtCode, districtLabel } from '../../../lib/phase1/districts';
 import { priceLabel } from '../../../lib/phase1/pricing';
+import { floorLabel } from '../../../lib/phase1/floor';
 
 export interface PlanListing {
   l: DemoListing;
@@ -60,7 +61,7 @@ export function PlanListings({ items, used, ownerId }: { items: PlanListing[]; u
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="truncate text-[15px] font-semibold text-p1-text">{l.project}</h3>
-                        <p className="mt-0.5 truncate text-[12.5px] text-p1-text-3">{districtCode(l.district)} · {districtLabel(l.district)}{l.unitNo && l.unitNo !== '—' ? ` · ${l.unitNo}` : ''}</p>
+                        <p className="mt-0.5 truncate text-[12.5px] text-p1-text-3">{districtCode(l.district)} · {districtLabel(l.district)}{floorLabel(l) ? ` · ${floorLabel(l)}` : ''}</p>
                       </div>
                       <ArrowUpRight size={16} aria-hidden className="mt-0.5 shrink-0 text-p1-text-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-p1-primary" />
                     </div>

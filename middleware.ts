@@ -24,6 +24,24 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const COOKIE = 'vrent_session';
 
+/**
+ * The Demo Data switch, when it arrives in the address.
+ *
+ * Everywhere else in the product the switch is turned in the browser, and the
+ * browser writes this cookie. The tenant site is the exception: it decides
+ * which marketplace to build on the server, before any of its code runs, so
+ * `?demo=on` in a shared address would otherwise be read a moment too late
+ * and the page would render live data under a demo banner that never appeared.
+ *
+ * Applied to the request as well as the response — the request so this render
+ * sees it, the response so the next screen in this browser opens the same way,
+ * which is the behaviour `lib/phase1/report-data/switch.ts` already describes.
+ * Only for the tenant site, because only the tenant site reads the switch this
+ * early.
+ */
+const DEMO_COOKIE = 'vrent_demo_data';
+const DEMO_PARAM = 'demo';
+
 /** Reachable without signing in. */
 const PUBLIC_PATHS = ['/phase1', '/phase1/login', '/phase1/signup', '/phase1/forgot', '/phase1/reset'];
 
@@ -89,6 +107,21 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith('/phase1')) return NextResponse.next();
 
+  /* Read before anything else, and applied to the request so this render sees
+     it. Whatever response the rest of this function decides on then carries
+     the cookie too — the session handling below still runs. */
+  const asked = req.nextUrl.searchParams.get(DEMO_PARAM);
+  const demo = pathname.startsWith('/phase1/homes') && (asked === 'on' || asked === 'off') ? asked === 'on' : null;
+  if (demo === true) req.cookies.set(DEMO_COOKIE, 'on');
+  if (demo === false) req.cookies.delete(DEMO_COOKIE);
+
+  const withDemo = <T extends NextResponse>(res: T): T => {
+    if (demo === true) res.cookies.set(DEMO_COOKIE, 'on', { path: '/', sameSite: 'lax' });
+    if (demo === false) res.cookies.set(DEMO_COOKIE, '', { path: '/', maxAge: 0, sameSite: 'lax' });
+    return res;
+  };
+  const carryOn = () => withDemo(demo === null ? NextResponse.next() : NextResponse.next({ request: { headers: req.headers } }));
+
   const state = await readCookie(req);
   const signedIn = state === 'valid';
   const isPublic = PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
@@ -105,25 +138,25 @@ export async function middleware(req: NextRequest) {
     // A cookie that cannot be verified is worse than none: it gets the holder
     // past a presence check for the next twelve hours and explains nothing.
     if (state === 'unusable') res.cookies.delete(COOKIE);
-    return res;
+    return withDemo(res);
   }
 
   if (signedIn && (pathname === '/phase1/login' || pathname === '/phase1/signup')) {
     const url = req.nextUrl.clone();
     url.pathname = '/phase1/dashboard';
     url.search = '';
-    return NextResponse.redirect(url);
+    return withDemo(NextResponse.redirect(url));
   }
 
   // A cookie that is past its date on a public page is still worth clearing, so
   // the header stops offering an account that is no longer signed in.
   if (state === 'unusable') {
-    const res = NextResponse.next();
+    const res = carryOn();
     res.cookies.delete(COOKIE);
     return res;
   }
 
-  return NextResponse.next();
+  return carryOn();
 }
 
 export const config = {

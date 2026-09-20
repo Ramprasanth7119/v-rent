@@ -78,7 +78,7 @@ export function ListingPicker({ listings, value, onChange, ownerId }: {
                 )}
               >
                 <span className="h-12 w-16 shrink-0 overflow-hidden rounded-lg">
-                  <PropertyImage seed={l.reference + l.project} src={coverPhoto(ownerId, l)} alt={`${l.project}, ${l.unitNo}`} rounded="rounded-lg" className="h-full w-full" />
+                  <PropertyImage seed={l.reference + l.project} src={coverPhoto(ownerId, l)} alt={l.project} rounded="rounded-lg" className="h-full w-full" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-2">
@@ -86,7 +86,7 @@ export function ListingPicker({ listings, value, onChange, ownerId }: {
                     {l.status !== 'published' && <StatusBadge kind="listing" value={l.status} size="sm" showHelp={false} />}
                   </span>
                   <span className="block truncate text-[12.5px] text-p1-text-3">
-                    {l.unitNo} · {districtName(l.district)} · {p.amount}{p.suffix}
+                    {districtName(l.district)} · {p.amount}{p.suffix}
                   </span>
                 </span>
                 <span

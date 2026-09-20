@@ -3,11 +3,16 @@
 /**
  * One agent, as an operations officer sees them.
  *
- * Suspension is the only thing on this screen that changes another person's
+ * Suspension is the everyday thing on this screen that changes another person's
  * account, and for an account that actually exists it is written to their
  * workspace through the admin API — the same record the publish gate reads, so
  * the agent's next request finds publication withdrawn. On a sample row there
  * is nobody to suspend, so the control says so rather than pretending.
+ *
+ * Deletion sits apart from the rest, below a rule and behind the agent's own
+ * email address typed out, because it is the one action here that cannot be
+ * taken back. Suspension is offered first and in plainer clothing: it is what
+ * an officer reaching for this usually wants.
  *
  * Laid out as a record: who they are across the top, four numbers, the detail
  * in tabs, and every action an officer can take in one card on the right.
@@ -17,7 +22,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Card, Callout, Button, Avatar, EmptyState, SelectMenu, TextArea, KPI, Tabs, Timeline, Tooltip, DataTable, Column, cx,
+  Card, Callout, Button, Avatar, EmptyState, SelectMenu, TextArea, TextInput, KPI, Tabs, Timeline, Tooltip, DataTable, Column, cx,
 } from '../../../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../../../components/phase1/status';
 import { ConfirmDialog, Dialog } from '../../../../../components/phase1/overlays';
@@ -35,7 +40,7 @@ import { TODAY, TODAY_ISO } from '../../../../../lib/phase1/workspace';
 import { sgDate } from '../../../../../lib/phase1/format';
 import {
   ChevronLeft, Ban, RotateCcw, Mail, Phone, Building2, MessageSquare, Check, X, Building, ShieldCheck, CalendarDays,
-  FileText, Info, Wallet, CalendarClock,
+  FileText, Info, Wallet, CalendarClock, Trash2,
 } from 'lucide-react';
 
 const REASONS = [
@@ -52,9 +57,13 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
   const { push } = useToast();
   const demoOn = useDemoDataOn();
   const [override, setOverride] = useState<DirectoryAgent['status'] | null>(null);
-  const [confirm, setConfirm] = useState<null | 'suspend' | 'reinstate' | 'approve' | 'reject'>(null);
+  const [confirm, setConfirm] = useState<null | 'suspend' | 'reinstate' | 'approve' | 'reject' | 'delete'>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [reason, setReason] = useState('fraud');
+  /* Typed out by the officer to arm the delete. Cleared whenever the dialog
+     closes, so a half-typed address cannot be left sitting there armed. */
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
   const [message, setMessage] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
@@ -103,6 +112,61 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
     } catch {
       push({ tone: 'error', title: 'That did not go through', body: 'The account was not changed. Try again in a moment.' });
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeDelete = () => {
+    setConfirm(null);
+    setConfirmEmail('');
+    setDeleteReason('');
+  };
+
+  /**
+   * Delete the account, its workspace and its photographs.
+   *
+   * The server decides what may go; this only carries the officer's reason and
+   * reports what came back. There is nothing to return to afterwards, so the
+   * screen leaves for the directory rather than re-reading a record that is no
+   * longer there.
+   */
+  const remove = async () => {
+    if (!agent.real) {
+      closeDelete();
+      push({ tone: 'info', title: 'Sample agent', body: 'Nothing was changed — this row is demonstration data, not an account.' });
+      return;
+    }
+    if (demoOn) {
+      closeDelete();
+      push(DEMO_LIVE_ACTION_BLOCKED);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/phase1/admin/agents/${agent.id}`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error ?? String(res.status));
+
+      const { listings: gone = 0, photos = 0 } = payload?.removed ?? {};
+      closeDelete();
+      push({
+        tone: 'success',
+        title: `${agent.name} deleted`,
+        body: `The account, ${gone} ${gone === 1 ? 'listing' : 'listings'} and ${photos} ${photos === 1 ? 'photograph' : 'photographs'} were removed. The decision is in the audit trail.`,
+      });
+      router.push('/phase1/admin/agents');
+      router.refresh();
+    } catch (err) {
+      push({
+        tone: 'error',
+        title: 'The account was not deleted',
+        body: err instanceof Error && err.message.length > 3 ? err.message : 'Nothing was removed. Try again in a moment.',
+      });
       setBusy(false);
     }
   };
@@ -171,7 +235,7 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
           <PropertyImage seed={l.reference + l.project} src={coverPhoto(agent.id, l)} alt="" rounded="rounded-md" className="h-10 w-14 shrink-0" />
           <div className="min-w-0">
             <div className="truncate text-[14px] font-medium text-p1-text">{l.project}</div>
-            <div className="truncate text-[12.5px] text-p1-text-3">{l.unitNo} · {l.address}</div>
+            <div className="truncate text-[12.5px] text-p1-text-3">{l.reference} · {l.address}</div>
           </div>
         </div>
       ),
@@ -363,6 +427,21 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
                 <Button variant="danger-outline" block loading={busy} leftIcon={<Ban size={15} />} onClick={() => setConfirm('suspend')}>Suspend agent</Button>
               )}
             </div>
+            {/* Below a rule and worded as what it is. Suspension above covers
+                almost every case an officer opens this card for. */}
+            <div className="border-t border-p1-border px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setConfirm('delete')}
+                disabled={busy}
+                className="p1-in inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg px-2 text-[13px] font-medium text-p1-danger hover:bg-p1-danger-soft disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 size={14} aria-hidden /> Delete account
+              </button>
+              <p className="mt-1 px-2 text-[12.5px] leading-5 text-p1-text-3">
+                Removes the account, its listings and its photographs. This cannot be undone.
+              </p>
+            </div>
             <dl className="divide-y divide-p1-border border-t border-p1-border text-[13.5px]">
               <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <dt className="text-p1-text-3">Plan</dt>
@@ -427,6 +506,39 @@ export default function AgentDetail({ agent, listings }: { agent: DirectoryAgent
           hint="Sent to the agent and recorded in the audit trail."
           counter={`${rejectReason.length}/500`}
         />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirm === 'delete'} onClose={closeDelete} tone="danger" icon={<Trash2 size={20} />} confirmLabel="Delete account"
+        loading={busy}
+        title={`Delete ${agent.name}?`}
+        description={agent.real
+          ? `The account, ${agent.listingsTotal} ${agent.listingsTotal === 1 ? 'listing' : 'listings'} and every uploaded photograph are removed. The agent is emailed. This cannot be undone — suspending them keeps the record and can be reversed.`
+          : 'This row is demonstration data, so nothing will actually change.'}
+        confirmDisabled={agent.real && (confirmEmail.trim().toLowerCase() !== agent.email.toLowerCase() || deleteReason.trim().length < 10)}
+        onConfirm={() => void remove()}
+      >
+        <TextArea
+          id="delete-reason"
+          label="Why the account is being deleted"
+          rows={2}
+          value={deleteReason}
+          onChange={(e) => setDeleteReason(e.target.value.slice(0, 500))}
+          placeholder="Duplicate registration created in error; the agent asked for it to be removed."
+          hint="Recorded in the audit trail, which is kept after the account is gone."
+          counter={`${deleteReason.length}/500`}
+        />
+        <div className="mt-3">
+          <TextInput
+            id="delete-confirm-email"
+            label={`Type ${agent.email} to confirm`}
+            value={confirmEmail}
+            onChange={(e) => setConfirmEmail(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={agent.email}
+          />
+        </div>
       </ConfirmDialog>
 
       <Dialog

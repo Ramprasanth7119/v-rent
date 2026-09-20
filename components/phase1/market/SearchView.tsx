@@ -21,13 +21,32 @@ import { useToast } from '../Toast';
 import { PropertyCard, homeHref } from './PropertyCard';
 import { MapPanel, type MapItem } from './MapPanel';
 import { isSale, pinPrice } from './format';
+import { FLOOR_BANDS, type FloorBand, inFloorBand } from '../../../lib/phase1/floor';
+import { PROPERTY_CATEGORIES, categoryOf, type PropertyCategory } from '../../../lib/phase1/property-types';
 
 type Sort = 'newest' | 'price_asc' | 'price_desc' | 'size';
-interface Filters { q: string; deal: 'rent' | 'sale'; district: string; beds: string; type: string; min: string; max: string; sort: Sort }
+interface Filters {
+  q: string; deal: 'rent' | 'sale'; district: string; beds: string; type: string; min: string; max: string; sort: Sort;
+  /** Which storey. Read from the listing's floor, never from a unit number. */
+  floor: FloorBand;
+  baths: string;
+  furnishing: string;
+  /** Floor area, square feet. Blank means open-ended. */
+  sizeMin: string;
+  /** The exact classification, when a tenant narrows that far. */
+  category: string;
+  subtype: string;
+}
 type Bounds = { north: number; south: number; east: number; west: number };
 
 const TYPES = ['Condominium', 'HDB', 'Apartment', 'Executive Condominium', 'Landed'];
 const BEDS = ['any', '1', '2', '3', '4+'];
+const BATHS = ['any', '1', '2', '3+'];
+const FURNISHINGS = ['Unfurnished', 'Partially furnished', 'Fully furnished'];
+const FLOORS: { key: FloorBand; label: string }[] = [
+  { key: 'any', label: 'Any floor' },
+  ...(Object.keys(FLOOR_BANDS) as Exclude<FloorBand, 'any'>[]).map((k) => ({ key: k as FloorBand, label: FLOOR_BANDS[k].label })),
+];
 const SORTS: { key: Sort; label: string }[] = [
   { key: 'newest', label: 'Newest' },
   { key: 'price_asc', label: 'Price, low to high' },
@@ -48,6 +67,12 @@ function readFilters(p: URLSearchParams): Filters {
     min: (p.get('min') ?? '').replace(/\D/g, ''),
     max: (p.get('max') ?? '').replace(/\D/g, ''),
     sort: SORTS.some((s) => s.key === sort) ? sort : 'newest',
+    floor: FLOORS.some((x) => x.key === p.get('floor')) ? (p.get('floor') as FloorBand) : 'any',
+    baths: BATHS.includes(p.get('baths') ?? '') ? p.get('baths')! : 'any',
+    furnishing: FURNISHINGS.includes(p.get('furnishing') ?? '') ? p.get('furnishing')! : '',
+    sizeMin: (p.get('sizeMin') ?? '').replace(/\D/g, ''),
+    category: PROPERTY_CATEGORIES.some((c) => c.key === p.get('category')) ? p.get('category')! : '',
+    subtype: (p.get('subtype') ?? '').slice(0, 60),
   };
 }
 
@@ -61,6 +86,12 @@ function toQuery(f: Filters): string {
   if (f.min) p.set('min', f.min);
   if (f.max) p.set('max', f.max);
   if (f.sort !== 'newest') p.set('sort', f.sort);
+  if (f.floor !== 'any') p.set('floor', f.floor);
+  if (f.baths !== 'any') p.set('baths', f.baths);
+  if (f.furnishing) p.set('furnishing', f.furnishing);
+  if (f.sizeMin) p.set('sizeMin', f.sizeMin);
+  if (f.category) p.set('category', f.category);
+  if (f.subtype) p.set('subtype', f.subtype);
   return p.toString();
 }
 
@@ -178,6 +209,12 @@ export function SearchView({ items }: { items: MarketListing[] }) {
       .filter((m) => f.beds === 'any' || (f.beds === '4+' ? m.listing.bedrooms >= 4 : m.listing.bedrooms === Number(f.beds)))
       .filter((m) => !f.type || m.listing.propertyType === f.type)
       .filter((m) => priceOf(m) >= min && priceOf(m) <= max)
+      .filter((m) => inFloorBand(m.listing, f.floor))
+      .filter((m) => f.baths === 'any' || (f.baths === '3+' ? m.listing.bathrooms >= 3 : m.listing.bathrooms === Number(f.baths)))
+      .filter((m) => !f.furnishing || m.listing.furnishing === f.furnishing)
+      .filter((m) => !f.sizeMin || m.listing.sizeSqft >= Number(f.sizeMin))
+      .filter((m) => !f.category || m.listing.propertyCategory === f.category)
+      .filter((m) => !f.subtype || m.listing.propertySubtype === f.subtype)
       .filter((m) => {
         if (!tokens.length) return true;
         const l = m.listing;
@@ -198,23 +235,33 @@ export function SearchView({ items }: { items: MarketListing[] }) {
     .map((m) => ({ key: `${m.ownerId}/${m.listing.id}`, lat: m.listing.lat!, lng: m.listing.lng!, label: pinPrice(m.listing), href: homeHref(m) })), [results]);
 
   // The map reframes when the filters change, not when the visitor pans it.
-  const fitKey = `${f.deal}|${f.district}|${f.beds}|${f.type}|${f.min}|${f.max}|${f.q}`;
+  const fitKey = `${f.deal}|${f.district}|${f.beds}|${f.type}|${f.min}|${f.max}|${f.q}|${f.floor}|${f.baths}|${f.furnishing}|${f.sizeMin}`;
 
   const sale = f.deal === 'sale';
   const priceLabel = f.min || f.max
     ? `${f.min ? money(Number(f.min), sale) : 'Any'} – ${f.max ? money(Number(f.max), sale) : 'Any'}`
     : 'Price';
-  const moreCount = [f.type, f.district].filter(Boolean).length;
-  const activeCount = [f.min || f.max, f.beds !== 'any', f.type, f.district].filter(Boolean).length;
+  const extras = [f.type, f.district, f.floor !== 'any', f.baths !== 'any', f.furnishing, f.sizeMin, f.category, f.subtype];
+  const moreCount = extras.filter(Boolean).length;
+  const activeCount = [f.min || f.max, f.beds !== 'any', ...extras].filter(Boolean).length;
 
   const chips = [
     ...(f.district ? [{ label: `${districtCode(Number(f.district))} ${districtLabel(Number(f.district))}`, clear: () => set({ district: '' }) }] : []),
     ...(f.min || f.max ? [{ label: priceLabel, clear: () => set({ min: '', max: '' }) }] : []),
     ...(f.beds !== 'any' ? [{ label: `${f.beds} bed`, clear: () => set({ beds: 'any' }) }] : []),
     ...(f.type ? [{ label: f.type, clear: () => set({ type: '' }) }] : []),
+    ...(f.floor !== 'any' ? [{ label: FLOOR_BANDS[f.floor].label, clear: () => set({ floor: 'any' as FloorBand }) }] : []),
+    ...(f.baths !== 'any' ? [{ label: `${f.baths} bath`, clear: () => set({ baths: 'any' }) }] : []),
+    ...(f.furnishing ? [{ label: f.furnishing, clear: () => set({ furnishing: '' }) }] : []),
+    ...(f.sizeMin ? [{ label: `${Number(f.sizeMin).toLocaleString()} sqft and up`, clear: () => set({ sizeMin: '' }) }] : []),
+    ...(f.category && !f.subtype ? [{ label: categoryOf(f.category)?.label ?? f.category, clear: () => set({ category: '' }) }] : []),
+    ...(f.subtype ? [{ label: f.subtype, clear: () => set({ subtype: '' }) }] : []),
     ...(bounds ? [{ label: 'Map area', clear: () => setBounds(null) }] : []),
   ];
-  const clearAll = () => { setF((cur) => ({ ...cur, q: '', district: '', beds: 'any', type: '', min: '', max: '' })); setBounds(null); };
+  const clearAll = () => {
+    setF((cur) => ({ ...cur, q: '', district: '', beds: 'any', type: '', min: '', max: '', floor: 'any', baths: 'any', furnishing: '', sizeMin: '', category: '', subtype: '' }));
+    setBounds(null);
+  };
 
   const saveSearch = () => {
     try {
@@ -236,17 +283,81 @@ export function SearchView({ items }: { items: MarketListing[] }) {
 
   const moreFilters = (
     <div className="space-y-6">
+      {/* Two levels: the kind of property, then the exact classification for
+          somebody who knows they want a 4A and not a 4 Generic. */}
       <fieldset>
         <legend className="mb-2 text-[13px] font-semibold text-p1-text">Property type</legend>
         <div className="flex flex-wrap gap-1.5">
-          <Chip on={!f.type} onClick={() => set({ type: '' })}>Any</Chip>
-          {TYPES.map((t) => <Chip key={t} on={f.type === t} onClick={() => set({ type: f.type === t ? '' : t })}>{t === 'Executive Condominium' ? 'EC' : t}</Chip>)}
+          <Chip on={!f.category} onClick={() => set({ category: '', subtype: '' })}>Any</Chip>
+          {PROPERTY_CATEGORIES.map((c) => (
+            <Chip key={c.key} on={f.category === c.key} onClick={() => set({ category: f.category === c.key ? '' : c.key, subtype: '' })}>
+              {c.label}
+            </Chip>
+          ))}
         </div>
+        {f.category && (
+          <div className="mt-2.5 max-h-40 overflow-y-auto rounded-lg border border-p1-border p-2">
+            {(categoryOf(f.category as PropertyCategory)?.groups ?? []).map((g, gi) => (
+              <div key={g.label ?? gi} className={cx(gi > 0 && 'mt-2')}>
+                {g.label && <div className="mb-1 text-[11px] font-semibold text-p1-text-3">{g.label}</div>}
+                <div className="flex flex-wrap gap-1.5">
+                  {g.items.map((item) => (
+                    <Chip key={item} on={f.subtype === item} onClick={() => set({ subtype: f.subtype === item ? '' : item })}>{item}</Chip>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </fieldset>
       <fieldset>
         <legend className="mb-2 text-[13px] font-semibold text-p1-text">District</legend>
         <SelectMenu variant="button" hideLabel label="District" value={f.district} onChange={(v) => set({ district: v })}
           options={[{ value: '', label: 'Any district' }, ...Object.entries(DISTRICTS).map(([d, v]) => ({ value: d, label: `${districtCode(Number(d))} · ${v.name}`, hint: v.areas }))]} />
+      </fieldset>
+      {/* The storey a home is on, which is the part of a unit number that says
+          something about the home rather than about which door it is. */}
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-semibold text-p1-text">Floor</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {FLOORS.map((x) => (
+            <Chip key={x.key} on={f.floor === x.key} onClick={() => set({ floor: x.key })}>
+              {x.key === 'any' ? 'Any' : x.label.replace(/ \(.*\)$/, '')}
+            </Chip>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-semibold text-p1-text">Bathrooms</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {BATHS.map((b) => (
+            <Chip key={b} on={f.baths === b} onClick={() => set({ baths: b })}>{b === 'any' ? 'Any' : b}</Chip>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-semibold text-p1-text">Furnishing</legend>
+        <div className="flex flex-wrap gap-1.5">
+          <Chip on={!f.furnishing} onClick={() => set({ furnishing: '' })}>Any</Chip>
+          {FURNISHINGS.map((x) => (
+            <Chip key={x} on={f.furnishing === x} onClick={() => set({ furnishing: f.furnishing === x ? '' : x })}>
+              {x.replace('Partially furnished', 'Partial').replace('Fully furnished', 'Fully')}
+            </Chip>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend className="mb-2 text-[13px] font-semibold text-p1-text">Floor area</legend>
+        <label className="block">
+          <span className="sr-only">Minimum floor area in square feet</span>
+          <input
+            inputMode="numeric"
+            value={f.sizeMin}
+            onChange={(e) => set({ sizeMin: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+            placeholder="Minimum sqft"
+            className="h-10 w-full rounded-lg border border-p1-border-strong bg-p1-surface px-3 text-[14px] text-p1-text placeholder:text-p1-text-3 focus:border-p1-primary focus:shadow-[0_0_0_3px_var(--p1-ring)] focus-visible:outline-none"
+          />
+        </label>
       </fieldset>
     </div>
   );

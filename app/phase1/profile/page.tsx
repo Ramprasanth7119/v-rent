@@ -28,6 +28,8 @@ import { useDemo, preferredName } from '../../../lib/phase1/DemoContext';
 import { useSession } from '../../../lib/phase1/SessionContext';
 import { daysUntilDate, termBetween } from '../../../lib/phase1/account';
 import { sgDate } from '../../../lib/phase1/format';
+import { SG_MOBILE_DISPLAY, normaliseSgMobile, sgMobileProblem } from '../../../lib/phase1/mobile';
+import { firstIssueMessage } from '../../../lib/phase1/content-policy';
 import { DEMO_NOTICE } from '../../../lib/phase1/report-data';
 
 /** The register's end date is the last day the registration holds, Singapore time. */
@@ -155,9 +157,17 @@ export default function ProfilePage() {
                   id="p-mobile"
                   label="Mobile number"
                   inputMode="tel"
+                  placeholder={SG_MOBILE_DISPLAY}
                   value={p.mobile}
                   onChange={(e) => setProfile({ mobile: e.target.value })}
-                  hint="Shown to tenants who ask to call."
+                  onBlur={(e) => {
+                    /* Tidied when the agent leaves the field rather than as
+                       they type, which would fight them mid-number. */
+                    const tidy = normaliseSgMobile(e.target.value);
+                    if (tidy && tidy !== p.mobile) setProfile({ mobile: tidy });
+                  }}
+                  error={p.mobile.trim() ? sgMobileProblem(p.mobile) ?? undefined : undefined}
+                  hint="A Singapore mobile number. Shown to tenants who ask to call."
                   className="scroll-mt-28"
                 />
                 <div>
@@ -190,6 +200,9 @@ export default function ProfilePage() {
                   containerClassName="sm:col-span-2"
                   counter={`${p.bio.length} / 600`}
                   maxLength={600}
+                  /* A biography is advertising copy like any other: it is shown
+                     on every listing this agent publishes. */
+                  error={firstIssueMessage(p.bio) ?? undefined}
                   hint="The areas and property types you focus on. V-RENT will not write one for you."
                 />
               </div>

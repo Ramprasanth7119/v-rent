@@ -16,6 +16,8 @@ import type { PublicAccount } from '../auth/store';
 import { displayAgency, displayName } from '../auth/cea';
 import { DemoListing, ListingStatus, PLANS, PlanOption, SEED_LISTINGS } from './data';
 import { EMPTY_TOOLS, type ToolsState } from './tools';
+import { cleanEligibility } from './eip';
+import { STARTING_REVEAL_CREDITS, type ListingView, type Reveal } from './views';
 
 /**
  * Today, in Singapore.
@@ -76,6 +78,7 @@ export type NotificationPrefs = Record<string, { email: boolean; sms: boolean }>
  */
 export const DEFAULT_NOTIFICATIONS: NotificationPrefs = {
   enquiry: { email: true, sms: true },
+  views: { email: true, sms: false },
   moderation: { email: true, sms: false },
   expiry: { email: true, sms: false },
   cea: { email: true, sms: true },
@@ -144,6 +147,16 @@ export interface WorkspaceState {
   alerts: Alert[];
   /** Featuring, refreshes, viewings, shortlists and the rest. See `tools.ts`. */
   tools: ToolsState;
+  /**
+   * Which agents have opened this agent's listings, and which of them have
+   * been named. Written only by the server — see `views-store.ts` — because
+   * they are a sales record and a billing record, and a browser must be able
+   * to read neither into existence nor out of it.
+   */
+  views: ListingView[];
+  reveals: Reveal[];
+  /** Cents, spent one name at a time. See `views.ts` for what a name costs. */
+  revealCredits: number;
 }
 
 /**
@@ -159,7 +172,7 @@ export const planByCode = (code: PlanOption['code'] | null): PlanOption | null =
 /* ------------------------------------------------------------------ seeding */
 
 /** A registration is current when the register's end date has not passed. */
-function registrationIsCurrent(endDate?: string): boolean {
+export function registrationIsCurrent(endDate?: string): boolean {
   if (!endDate) return false;
   const end = new Date(`${endDate}T23:59:59+08:00`);
   return !Number.isNaN(end.getTime()) && end.getTime() >= TODAY.getTime();
@@ -230,6 +243,36 @@ export function reconcileProfile(profile: AgentProfile, user: PublicAccount): Ag
  * Returns null when nothing needed changing, so the ordinary load writes
  * nothing.
  */
+/**
+ * Take an agent's listings down when their registration lapses, and put the
+ * same ones back when it is current again.
+ *
+ * Only listings this function took down are restored: one suspended by a
+ * moderator carries no `frozen` mark and stays where the moderator put it.
+ * Drafts are left alone — an agent may keep working on them, they are simply
+ * not advertised.
+ *
+ * Returns the new list, or null when nothing needs to change, so a workspace
+ * is not rewritten on every read.
+ */
+function freezeOrThaw(listings: DemoListing[], ceaValid: boolean): DemoListing[] | null {
+  let changed = false;
+  const next = listings.map((l) => {
+    if (!ceaValid && (l.status === 'published' || l.status === 'pending_review')) {
+      changed = true;
+      return { ...l, status: 'suspended' as ListingStatus, frozen: 'cea_lapsed' as const };
+    }
+    if (ceaValid && l.frozen === 'cea_lapsed' && l.status === 'suspended') {
+      changed = true;
+      const restored = { ...l, status: 'published' as ListingStatus };
+      delete restored.frozen;
+      return restored;
+    }
+    return l;
+  });
+  return changed ? next : null;
+}
+
 export function reconcileWithAccount(
   w: WorkspaceState,
   user: PublicAccount,
@@ -248,6 +291,14 @@ export function reconcileWithAccount(
   const ceaValidUntil = user.cea?.registrationEnd ?? '';
   if (w.ceaValid !== ceaValid) changes.ceaValid = ceaValid;
   if (w.ceaValidUntil !== ceaValidUntil) changes.ceaValidUntil = ceaValidUntil;
+
+  /* An advertisement has to carry a registration that is current. When it
+     lapses, the listings come down with the publication right rather than
+     staying up until somebody notices — and they go back up by themselves once
+     the register says the agent is registered again, because the alternative
+     is an agent who renewed on Monday chasing us on Wednesday. */
+  const listings = freezeOrThaw(w.listings, ceaValid);
+  if (listings) changes.listings = listings;
 
   // A registered agent whose application was never submitted was seeded before
   // the registration was attached. Put them where signing up would have.
@@ -302,6 +353,9 @@ export function seedWorkspace(
       enquiries: [],
       alerts: [],
       tools: { ...EMPTY_TOOLS },
+      views: [],
+      reveals: [],
+      revealCredits: STARTING_REVEAL_CREDITS,
     };
   }
 
@@ -334,6 +388,11 @@ export function seedWorkspace(
     enquiries: [],
     alerts: [],
     tools: { ...EMPTY_TOOLS },
+    views: [],
+    reveals: [],
+    /* Enough to use the feature and form a view of it before being asked for
+       anything. See `views.ts`. */
+    revealCredits: STARTING_REVEAL_CREDITS,
   };
 }
 
@@ -431,7 +490,7 @@ function cleanListing(raw: unknown): DemoListing | null {
   const type = ['Condominium', 'HDB', 'Apartment', 'Landed', 'Executive Condominium'].includes(l.propertyType as string)
     ? (l.propertyType as DemoListing['propertyType'])
     : 'Condominium';
-  const furnishing = ['Unfurnished', 'Partially furnished', 'Fully furnished'].includes(l.furnishing as string)
+  const furnishing = ['Unfurnished', 'Partially furnished', 'Fully furnished', 'Other'].includes(l.furnishing as string)
     ? (l.furnishing as DemoListing['furnishing'])
     : 'Unfurnished';
 
@@ -469,10 +528,51 @@ function cleanListing(raw: unknown): DemoListing | null {
     expiresAt: str(l.expiresAt, 24) || undefined,
     rejectionReason: str(l.rejectionReason, 500) || undefined,
     reviewedAt: str(l.reviewedAt, 32) || undefined,
-    hasFloorPlan: l.hasFloorPlan === true || undefined,
+    hasFloorPlan: l.hasFloorPlan === true || Boolean(l.floorPlan) || undefined,
+    /* The file lives in the floor plan store; what survives a patch is the
+       note that there is one. The browser cannot invent it — the upload route
+       writes it — but it does send it back with the rest of the listing. */
+    floorPlan: l.floorPlan && typeof l.floorPlan === 'object'
+      ? {
+        filename: str((l.floorPlan as Record<string, unknown>).filename, 120),
+        contentType: str((l.floorPlan as Record<string, unknown>).contentType, 60),
+        bytes: num((l.floorPlan as Record<string, unknown>).bytes),
+        at: str((l.floorPlan as Record<string, unknown>).at, 32),
+      }
+      : undefined,
+    /* Same reasoning as the floor plan: the upload route writes this, and
+       what a patch has to do is carry it rather than drop it. The URLs are
+       rebuilt server-side on every upload, so a tampered one survives only
+       until the next. */
+    video: l.video && typeof l.video === 'object'
+      ? (() => {
+        const v = l.video as Record<string, unknown>;
+        return {
+          publicId: str(v.publicId, 200),
+          url: str(v.url, 400),
+          posterUrl: str(v.posterUrl, 400),
+          bytes: num(v.bytes),
+          durationSec: typeof v.durationSec === 'number' ? num(v.durationSec) : undefined,
+          format: str(v.format, 12),
+          at: str(v.at, 32),
+        };
+      })()
+      : undefined,
     amenities: Array.isArray(l.amenities)
       ? l.amenities.slice(0, MAX_AMENITIES).map((a) => str(a, 60)).filter(Boolean)
       : undefined,
+    propertyCategory: str(l.propertyCategory, 24) || undefined,
+    propertySubtype: str(l.propertySubtype, 60) || undefined,
+    furnishingNote: str(l.furnishingNote, 80) || undefined,
+    eligibility: cleanEligibility(l.eligibility),
+    fittings: Array.isArray(l.fittings)
+      ? l.fittings.slice(0, MAX_AMENITIES).map((a) => str(a, 60)).filter(Boolean)
+      : undefined,
+    /* Derived from the unit number when a listing is advertised, and kept here
+       so a round trip through the browser does not drop it. */
+    floorLevel: typeof l.floorLevel === 'number' ? num(l.floorLevel) : undefined,
+    /* Only ever set by the platform, and only to the one value it means. */
+    frozen: l.frozen === 'cea_lapsed' ? 'cea_lapsed' : undefined,
     depositMonths: typeof l.depositMonths === 'number' ? num(l.depositMonths) : undefined,
     nearestMrt: str(l.nearestMrt, 80) || undefined,
     tenure: ['Freehold', '99-year leasehold', '999-year leasehold'].includes(l.tenure as string)

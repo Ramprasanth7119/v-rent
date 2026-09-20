@@ -26,6 +26,7 @@ type Density = 'comfortable' | 'compact';
 /** What each stored preference key means on screen. */
 const EVENTS: { key: string; label: string; description: string; always?: string }[] = [
   { key: 'enquiry', label: 'New enquiry', description: 'A tenant asks about one of your listings.' },
+  { key: 'views', label: 'Another agent viewed a listing', description: 'An agent you have not seen before opens one of your properties in the directory.' },
   { key: 'moderation', label: 'Moderation outcome', description: 'A listing is approved or rejected by a moderator.', always: 'A rejection is always sent — it stops the listing being advertised.' },
   { key: 'expiry', label: 'Listing expiring', description: 'Seven days before a published listing expires.' },
   { key: 'cea', label: 'CEA registration', description: 'Sixty days before your registration lapses, and if the register changes.', always: 'A lapsed registration is always sent — publication stops with it.' },

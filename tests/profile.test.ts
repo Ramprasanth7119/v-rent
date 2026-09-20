@@ -131,6 +131,9 @@ describe('reconciling the workspace against the account', () => {
     enquiries: [],
     alerts: [],
     tools: {} as WorkspaceState['tools'],
+    views: [],
+    reveals: [],
+    revealCredits: 0,
     ...over,
   });
 

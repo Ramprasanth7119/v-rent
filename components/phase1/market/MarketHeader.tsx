@@ -20,14 +20,19 @@ function DealLinks() {
   const params = useSearchParams();
   const onSearch = pathname.startsWith('/phase1/homes/search');
   const deal = params.get('deal') === 'sale' ? 'sale' : 'rent';
+  /* Rent and Buy are the same page with a different deal, so they are active
+     on the deal rather than on the address; Explore and Agents are pages of
+     their own and are active on their prefix. */
   const items = [
-    { key: 'rent', label: 'Rent', href: '/phase1/homes/search' },
-    { key: 'sale', label: 'Buy', href: '/phase1/homes/search?deal=sale' },
+    { key: 'rent', label: 'Rent', href: '/phase1/homes/search', on: onSearch && deal === 'rent' },
+    { key: 'sale', label: 'Buy', href: '/phase1/homes/search?deal=sale', on: onSearch && deal === 'sale' },
+    { key: 'explore', label: 'Explore', href: '/phase1/homes/explore', on: pathname.startsWith('/phase1/homes/explore') || /^\/phase1\/homes\/(d|mrt|project)\//.test(pathname) },
+    { key: 'agents', label: 'Agents', href: '/phase1/homes/agents', on: pathname.startsWith('/phase1/homes/agent') },
   ];
   return (
     <nav aria-label="Browse" className="hidden items-center gap-1 md:flex">
       {items.map((i) => {
-        const active = onSearch && deal === i.key;
+        const active = i.on;
         return (
           <Link key={i.key} href={i.href} aria-current={active ? 'page' : undefined}
             className={cx('relative flex h-9 items-center rounded-lg px-3 text-[14px] font-medium transition-colors', active ? 'text-p1-text' : 'text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text')}>

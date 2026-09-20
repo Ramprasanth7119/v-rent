@@ -82,12 +82,12 @@ export default async function HomesPage() {
           <section className="pt-14" aria-labelledby="areas">
             <div className="mb-5 flex items-end justify-between gap-4">
               <h2 id="areas" className="text-[22px] font-semibold tracking-[-0.02em] text-p1-text">Popular areas</h2>
-              <Link href="/phase1/homes/search" className="inline-flex items-center gap-1 text-[14px] font-medium text-p1-primary hover:underline underline-offset-4">All areas <ArrowRight size={14} aria-hidden /></Link>
+              <Link href="/phase1/homes/explore" className="inline-flex items-center gap-1 text-[14px] font-medium text-p1-primary hover:underline underline-offset-4">Explore every area <ArrowRight size={14} aria-hidden /></Link>
             </div>
             <ul className="vr-stagger grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
               {areas.map(([d, a]) => (
                 <li key={d}>
-                  <Link href={`/phase1/homes/search?district=${d}`} className="group flex h-full flex-col rounded-xl border border-p1-border bg-p1-surface p-4 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-p1-border-strong hover:shadow-p1-md">
+                  <Link href={`/phase1/homes/d/${d}`} className="group flex h-full flex-col rounded-xl border border-p1-border bg-p1-surface p-4 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-p1-border-strong hover:shadow-p1-md">
                     <span className="text-[12px] font-semibold tabular-nums text-p1-primary">{districtCode(d)}</span>
                     <span className="mt-6 text-[16px] font-semibold leading-5 tracking-[-0.01em] text-p1-text">{DISTRICTS[d]?.name}</span>
                     <span className="mt-1 line-clamp-1 text-[12.5px] text-p1-text-3">{DISTRICTS[d]?.areas}</span>
@@ -145,7 +145,10 @@ export default async function HomesPage() {
         {/* ------------------------------------------------------ agents */}
         {agents.length > 0 && (
           <section className="pb-16 pt-14" aria-labelledby="agents">
-            <h2 id="agents" className="mb-5 text-[22px] font-semibold tracking-[-0.02em] text-p1-text">Agents listing now</h2>
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <h2 id="agents" className="text-[22px] font-semibold tracking-[-0.02em] text-p1-text">Agents listing now</h2>
+              <Link href="/phase1/homes/agents" className="inline-flex items-center gap-1 text-[14px] font-medium text-p1-primary hover:underline underline-offset-4">All {agents.length} <ArrowRight size={14} aria-hidden /></Link>
+            </div>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {agents.slice(0, 4).map(({ agent, count, districts }) => (
                 <li key={agent.id}>

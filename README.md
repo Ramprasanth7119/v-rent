@@ -44,6 +44,7 @@ honestly when it is missing, and the screen that needs it says so.
 | `MONGODB_DB` | Database name. Otherwise taken from the URI, or `vrent`. |
 | `VRENT_SESSION_SECRET` | Signing cookies. **Required on any serverless deployment** — see below. |
 | `VRENT_DATA_DIR` | Overrides where state is written. See below. |
+| `VRENT_PUBLIC_ORIGIN` | The address the tenant site answers on, for the sitemap, `robots.txt` and canonical links. Without it the request's own host is used, which is right on a laptop and on most deployments. |
 
 OneMap issues short-lived tokens. When one expires the pin-drop falls back to asking for a postal
 code and the neighbourhood screen says the service is not configured; nothing else is affected.

@@ -90,7 +90,7 @@ export default function QrPage() {
   const name = p.fullName.replace(/\s*\(.*\)\s*$/, '') || 'Your public page';
 
   const title = target === 'listing'
-    ? (chosen ? `${chosen.project} ${chosen.unitNo}` : 'Listing')
+    ? (chosen ? `${chosen.project}` : 'Listing')
     : target === 'profile' ? name : 'Custom address';
   const subtitle = target === 'listing'
     ? (chosen ? `D${String(chosen.district).padStart(2, '0')} ${districtName(chosen.district)} · ${chosen.reference}` : 'No listing chosen')

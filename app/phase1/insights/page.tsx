@@ -37,6 +37,8 @@ import {
 } from '../../../lib/phase1/insights';
 import { MARKET_MONTHS, monthLabel } from '../../../lib/phase1/market';
 import { marketPosition, type MarketPosition } from '../../../lib/phase1/market-position';
+import { floorLabel } from '../../../lib/phase1/floor';
+import { districtCode } from '../../../lib/phase1/districts';
 
 /** The measures' colours, the same on every Insights screen. */
 const RENT = 0;
@@ -378,7 +380,7 @@ export default function InsightsOverviewPage() {
                 items={byListing.map(({ l, n }) => ({
                   key: l.id,
                   label: l.project,
-                  sub: `#${l.unitNo.replace(/^#/, '')}`,
+                  sub: floorLabel(l) || districtCode(l.district),
                   value: n,
                   onSelect: () => router.push(`/phase1/listings/${l.id}`),
                   selectLabel: `${l.project}: ${n} enquiries. Open the listing.`,

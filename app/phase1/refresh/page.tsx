@@ -135,7 +135,7 @@ export default function RefreshPage() {
                     <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3">
                       <div className="min-w-0 flex-1 basis-64">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-p1display text-[15px] font-bold text-p1-text">{l.project} {l.unitNo}</span>
+                          <span className="font-p1display text-[15px] font-bold text-p1-text">{l.project}</span>
                           <StatusBadge kind="listing" value={l.status} />
                         </div>
                         <div className="mt-1 text-[13px] text-p1-text-3">
@@ -146,14 +146,14 @@ export default function RefreshPage() {
 
                       <div className="flex flex-wrap items-center gap-2.5">
                         <InlineSelect
-                          label={`Refresh cadence for ${l.project} ${l.unitNo}`}
+                          label={`Refresh cadence for ${l.project}`}
                           value={rule.cadence}
                           onChange={(v) => setRule(l.id, { cadence: v })}
                           options={CADENCE}
                           icon={<RefreshCw size={14} />}
                         />
                         <InlineSelect
-                          label={`Refresh time for ${l.project} ${l.unitNo}`}
+                          label={`Refresh time for ${l.project}`}
                           value={String(rule.hour)}
                           onChange={(v) => setRule(l.id, { hour: Number(v) })}
                           options={HOURS.map((h) => ({ key: String(h), label: hourLabel(h) }))}

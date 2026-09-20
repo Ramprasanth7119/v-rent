@@ -15,7 +15,7 @@
 import { NextResponse } from 'next/server';
 import { currentUser } from '../../../../lib/auth/session';
 import { readWorkspace } from '../../../../lib/phase1/workspace-store';
-import { marketListings } from '../../../../lib/phase1/marketplace';
+import { marketListings, marketListingsWithUnitNumbers } from '../../../../lib/phase1/marketplace';
 import { competingSet, toActive } from '../../../../lib/phase1/report-insights';
 import { logged } from '../../../../lib/phase1/reqlog';
 
@@ -42,9 +42,21 @@ async function GET_handler(req: Request) {
     }
     const hasUnit = Boolean(target.unitNo?.trim()) && target.unitNo.trim() !== '—';
     const self = unitKey(target.postalCode, target.unitNo ?? '');
+
+    /* Unit numbers do not travel on the public listings any more, so the ones
+       needed to spot this same unit advertised elsewhere are read separately
+       and never leave the server. */
+    const sameUnit = new Set(
+      hasUnit
+        ? (await marketListingsWithUnitNumbers())
+          .filter((u) => unitKey(u.postalCode, u.unitNo) === self)
+          .map((u) => `${u.ownerId}/${u.listingId}`)
+        : [],
+    );
+
     const pool = (await marketListings())
       .filter((m) => !(m.ownerId === user.id && m.listing.id === target.id))
-      .filter((m) => !(hasUnit && unitKey(m.listing.postalCode, m.listing.unitNo ?? '') === self))
+      .filter((m) => !sameUnit.has(`${m.ownerId}/${m.listing.id}`))
       .map((m) => toActive(m.listing));
     return NextResponse.json(competingSet(target, pool, new Date()));
   } catch (err) {

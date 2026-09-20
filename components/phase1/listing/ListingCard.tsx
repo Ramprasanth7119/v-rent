@@ -18,6 +18,7 @@ import { Menu, MenuItem, cx } from '../kit';
 import { HealthRing } from './health';
 import { Pulse, StatsInline } from './pulse';
 import { isMeasured } from '../../../lib/phase1/performance';
+import { floorLabel } from '../../../lib/phase1/floor';
 import { sgDate, sgDateShort } from '../../../lib/phase1/format';
 
 export const fmtDate = (d: string) => sgDate(d);
@@ -37,7 +38,7 @@ export function ListingCard({ l, menu, today, href }: { l: DemoListing; menu: (M
   const expiring = l.status === 'published' ? daysUntil(l.expiresAt, today) : null;
   return (
     <article className="group flex flex-col overflow-hidden rounded-xl bg-p1-surface shadow-p1-sm ring-1 ring-p1-border transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-p1-md">
-      <Link href={to} className="relative block overflow-hidden bg-p1-primary" aria-label={`${l.project} ${l.unitNo}`}>
+      <Link href={to} className="relative block overflow-hidden bg-p1-primary" aria-label={`${l.project}, ${l.address}`}>
         {/* 1.5% and 300ms. A photograph that leaps is a photograph the eye
             follows instead of reading the card under it. */}
         <PropertyImage seed={l.reference + l.project} variant={0} rounded="rounded-none" src={coverPhoto(user?.id, l)} alt="" className="aspect-[16/10] w-full object-cover transition-transform duration-300 group-hover:scale-[1.015]" />
@@ -53,7 +54,10 @@ export function ListingCard({ l, menu, today, href }: { l: DemoListing; menu: (M
             set the price is the one number allowed to carry the accent. */}
         <div className="flex items-start justify-between gap-2">
           <Link href={to} className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold text-p1-text">{l.project} <span className="font-normal text-p1-text-2">{l.unitNo}</span></div>
+            {/* The storey, never the unit. See `publicFields` in `marketplace.ts` —
+                the number is kept off every screen, not only the public ones,
+                so a shoulder at a viewing cannot read it off a phone. */}
+            <div className="truncate text-[15px] font-semibold text-p1-text">{l.project}{floorLabel(l) && <span className="font-normal text-p1-text-2"> · {floorLabel(l)}</span>}</div>
             <div className="truncate text-[13px] text-p1-text-3">{l.address} · {district(l.district)}</div>
           </Link>
           <div className="flex shrink-0 items-center gap-1">
@@ -100,7 +104,7 @@ export function PropertyCell({ l, href, sub }: { l: DemoListing; href?: string; 
       <PropertyImage seed={l.reference + l.project} variant={0} src={coverPhoto(user?.id, l)} alt="" className="h-11 w-[60px] shrink-0 rounded-md" />
       <span className="min-w-0">
         <span className="block truncate text-[14px] font-semibold text-p1-text">{l.project}</span>
-        <span className="block truncate text-[12.5px] text-p1-text-3">{sub ?? <>{l.unitNo} · {l.address} · {district(l.district)}</>}</span>
+        <span className="block truncate text-[12.5px] text-p1-text-3">{sub ?? <>{l.address} · {district(l.district)}{floorLabel(l) && <> · {floorLabel(l)}</>}</>}</span>
       </span>
     </>
   );

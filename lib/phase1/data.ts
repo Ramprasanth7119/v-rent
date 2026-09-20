@@ -23,6 +23,12 @@ export interface DemoListing {
   address: string;
   postalCode: string;
   unitNo: string;
+  /**
+   * The storey, carried separately for a listing whose unit number has been
+   * stripped on the way to a tenant. Read it with `floorOf` in `./floor`,
+   * which falls back to the unit number on an agent's own record.
+   */
+  floorLevel?: number;
   district: number;
   /** Where OneMap placed the address, when it was matched from the register. */
   lat?: number;
@@ -39,7 +45,9 @@ export interface DemoListing {
   salePriceSgd?: number;
   availableFrom: string;
   minLeaseMonths: number;
-  furnishing: 'Unfurnished' | 'Partially furnished' | 'Fully furnished';
+  furnishing: 'Unfurnished' | 'Partially furnished' | 'Fully furnished' | 'Other';
+  /** What "Other" means, when the three standard words do not fit. */
+  furnishingNote?: string;
   status: ListingStatus;
   /** How many photographs the listing has. Derived from `photos` once real ones are uploaded. */
   images: number;
@@ -58,6 +66,42 @@ export interface DemoListing {
   /** Completeness signals used by Listing Health. */
   hasFloorPlan?: boolean;
   amenities?: string[];
+  /**
+   * The exact classification, from `property-types`: "4A", "Executive
+   * Maisonette", "Good Class Bungalow". `propertyType` stays the broad type
+   * the filters and comparables group by.
+   */
+  propertyCategory?: string;
+  propertySubtype?: string;
+  /**
+   * Who the flat is open to under HDB's ethnic quota. HDB flats only; see
+   * `lib/phase1/eip`.
+   */
+  eligibility?: { ethnic: string[]; citizenship: string[] };
+  /** What is inside the unit: appliances and fittings. See `FITTINGS`. */
+  fittings?: string[];
+  /**
+   * Why this listing was taken down by the platform rather than by its agent.
+   *
+   * Set when a listing is withdrawn for a reason outside the agent's control,
+   * so it can be put back when that reason goes away. A listing suspended by a
+   * moderator carries nothing here and is never restored automatically.
+   */
+  frozen?: 'cea_lapsed';
+  /**
+   * The floor plan, when one has been uploaded. The file itself lives in the
+   * floor plan store; this is what every screen needs to know it is there.
+   */
+  floorPlan?: { filename: string; contentType: string; bytes: number; at: string };
+  /**
+   * The video tour, when one has been uploaded. The file is held by Cloudinary
+   * rather than by us — see `lib/phase1/video.ts` — so what sits here is the
+   * address of it and enough about it to draw the control without a lookup.
+   */
+  video?: {
+    publicId: string; url: string; posterUrl: string;
+    bytes: number; durationSec?: number; format: string; at: string;
+  };
   depositMonths?: number;
   nearestMrt?: string;
   /** Set once an agent has archived the listing from their workspace. */

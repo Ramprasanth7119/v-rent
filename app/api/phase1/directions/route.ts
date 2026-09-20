@@ -4,9 +4,18 @@
  * The route from a property to one nearby place, for the line drawn on the
  * wizard's map when an agent clicks a place.
  *
- * Server-side so the OneMap token stays here, and rate limited per account
- * because this is the one lookup in the feature an agent can fire repeatedly
- * by clicking down a list. Signed-in agents only. Demo Data never reaches it.
+ * Server-side so the OneMap token stays here, and rate limited because this is
+ * the one lookup in the feature that can be fired repeatedly by clicking down
+ * a list.
+ *
+ * Open to anyone, deliberately. It began as an agent-only route for the
+ * listing wizard; the public listing page draws the same line from the same
+ * two points, and a tenant working out how far the station is has no account
+ * and will not be asked for one. Nothing here is private — two coordinates in
+ * and a public road route back — so the gate would protect nothing and only
+ * cost the tenant the answer. The budget it does protect is OneMap's, which is
+ * why the limiter is keyed per caller rather than removed: a signed-in agent
+ * by account, everyone else by address.
  */
 
 import { NextResponse } from 'next/server';
@@ -19,16 +28,23 @@ import { logged } from '../../../../lib/phase1/reqlog';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** One request to OneMap each, and an agent clicking down a list makes a few. */
+/** One request to OneMap each, and clicking down a list makes a few. */
 const limiter = new TokenBucket(20, 1);
+
+/**
+ * Who to charge the request to. An account where there is one, otherwise the
+ * address the request arrived from — the first hop in `x-forwarded-for`, which
+ * is the client as far as the proxy in front of this is concerned. A caller
+ * behind a shared address shares a bucket; that is the cost of not asking
+ * strangers to sign in, and the bucket is generous enough to absorb it.
+ */
+const callerOf = (req: Request, userId?: string) =>
+  userId ?? (req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'anonymous');
 
 async function GET_handler(req: Request) {
   const user = await currentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Sign in to continue.', code: 'unauthorised' }, { status: 401 });
-  }
 
-  const retryAfter = limiter.take(user.id);
+  const retryAfter = limiter.take(callerOf(req, user?.id));
   if (retryAfter !== null) {
     return NextResponse.json(
       { status: 'failed', reason: 'Too many lookups. Wait a moment.' },

@@ -20,6 +20,8 @@ import { Gallery } from '../../../../components/phase1/PropertyImage';
 import { useListingActions, ListingActionDialogs } from '../../../../components/phase1/listing/actions';
 import { HealthPanel } from '../../../../components/phase1/listing/health';
 import { PublicPreview } from '../../../../components/phase1/listing/PublicPreview';
+import { videoLength } from '../../../../lib/phase1/video';
+import { ViewersPanel } from '../../../../components/phase1/listing/ViewersPanel';
 import { listingPhotos } from '../../../../lib/phase1/photos';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo } from '../../../../lib/phase1/DemoContext';
@@ -41,7 +43,7 @@ import { sgDate, sgDateTime } from '../../../../lib/phase1/format';
 const fmtDate = (d: string) => sgDate(d);
 const district = (n: number) => `D${String(n).padStart(2, '0')}`;
 
-const TABS = ['overview', 'performance', 'enquiries', 'compliance', 'activity', 'preview'] as const;
+const TABS = ['overview', 'views', 'performance', 'enquiries', 'compliance', 'activity', 'preview'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ListingDetailPage() {
@@ -119,7 +121,7 @@ function ListingDetailBody() {
     <>
       <PageHeader
         title={<span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">{l.project}<StatusBadge kind="listing" value={l.status} size="md" /></span>}
-        description={`${l.unitNo} · ${l.address}${l.address.includes(l.postalCode) ? '' : `, Singapore ${l.postalCode}`} · ${district(l.district)} ${districtName(l.district)} · ${l.reference}`}
+        description={`${l.address}${l.address.includes(l.postalCode) ? '' : `, Singapore ${l.postalCode}`} · ${district(l.district)} ${districtName(l.district)} · ${l.reference}`}
         actions={
           <>
             <LinkButton href={editHref} variant="outline" leftIcon={<Pencil size={16} />}>Edit</LinkButton>
@@ -194,6 +196,7 @@ function ListingDetailBody() {
                 label="Listing sections"
                 items={[
                   { key: 'overview', label: 'Overview' },
+                  { key: 'views', label: 'Agent views' },
                   { key: 'performance', label: 'Performance' },
                   { key: 'enquiries', label: 'Enquiries', count: enquiries.length },
                   { key: 'compliance', label: 'Compliance' },
@@ -212,13 +215,13 @@ function ListingDetailBody() {
                   <h2 className="mt-6 text-[14px] font-semibold text-p1-text">Listing information</h2>
                   <FieldGrid cols={3} className="mt-2.5">
                     <Field label="Property type" value={l.propertyType} />
-                    <Field label="Unit" value={l.unitNo} mono />
                     <Field label="Postal code" value={l.postalCode} mono />
                     <Field label="Available from" value={fmtDate(l.availableFrom)} />
                     <Field label="Minimum lease" value={`${l.minLeaseMonths} months`} />
                     <Field label="Deposit" value={typeof l.depositMonths === 'number' ? `${l.depositMonths} month${l.depositMonths === 1 ? '' : 's'}` : 'Not stated'} />
                     <Field label="Nearest MRT" value={l.nearestMrt ?? 'Not stated'} />
                     <Field label="Floor plan" value={l.hasFloorPlan ? 'Attached' : 'Not attached'} />
+                    <Field label="Video tour" value={l.video ? `Attached${videoLength(l.video.durationSec) ? ` · ${videoLength(l.video.durationSec)}` : ''}` : 'Not attached'} />
                     <Field label="Photos" value={`${l.images}`} />
                   </FieldGrid>
                   <h2 className="mt-6 text-[14px] font-semibold text-p1-text">Amenities</h2>
@@ -227,6 +230,10 @@ function ListingDetailBody() {
                     : <p className="mt-2 text-[13.5px] text-p1-text-3">No amenities recorded. Add them from Edit.</p>}
                 </>
               )}
+
+              {/* Who opened this listing in the directory, and who they were.
+                  See `lib/phase1/views.ts`. */}
+              {tab === 'views' && <ViewersPanel listingId={l.id} />}
 
               {tab === 'performance' && (
                 isLive && stats.views30d > 0 ? (

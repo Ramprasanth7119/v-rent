@@ -63,6 +63,9 @@ import { useDemoDataOn } from '../../../../lib/phase1/report-data/switch';
 import { DemoBadge } from '../../../../components/phase1/DemoDataSwitch';
 import { analyseProperty, shortlistInsights, unavailableReason } from '../../../../lib/phase1/property-insight';
 import { ClientEdition, type ClientMeta, type ClientProperty, type NearbyGroup } from './client-edition';
+import {
+  cityDistanceKm, competitionBands, developmentBoard, inShort, priceLadder, radarPoints, recentLeases, rentBand, signalsFor,
+} from '../../../../lib/phase1/report-digest';
 import type { FlowLayout } from './flow';
 import {
   C, DISPLAY, SANS, VERDICT_INK, Benchmark, DemoMark, Body, Bullets, Callout, Eyebrow, Fine, GroupCard, KV, Legend, LineChart, NearestRows, None, Notice,
@@ -124,8 +127,16 @@ type Check = ReportCheck & { history: HistoryResult };
 
 const isPrimary = (p: Place) => /primary/i.test(p.detail ?? '');
 const isSecondary = (p: Place) => /secondary|junior college|\bjc\b/i.test(p.detail ?? '');
-const unitOf = (l: DemoListing) => (l.unitNo && l.unitNo.trim() && l.unitNo.trim() !== '—' ? ` ${l.unitNo.trim()}` : '');
-const nameOf = (l: DemoListing) => `${l.project}${unitOf(l)}`;
+/**
+ * A property is named by its development, never by its door.
+ *
+ * The report is a document that leaves the agent's hands: it is sent on,
+ * printed, forwarded. The unit number identifies where somebody lives and adds
+ * nothing to the argument the report is making, so it does not appear in it.
+ * The storey does appear, as its own figure, because that is what a reader is
+ * actually weighing.
+ */
+const nameOf = (l: DemoListing) => l.project;
 /* OneMap labels read "25 Bidadari Park Drive The Woodleigh Residences Singapore 367797";
    the development is already the title, so the address line is street and postal code. */
 const fullAddress = (l: DemoListing) => {
@@ -444,7 +455,16 @@ function Report({ provider, demoDataOn }: { provider: ReportDataProvider; demoDa
 
   const agentName = preferredName(p.fullName) || 'Your agent';
   const licence = p.agencyLicence && p.agencyLicence !== '—' ? p.agencyLicence : '';
-  const agentLine = `${p.fullName} · CEA ${p.ceaNumber} · ${p.agency}${licence ? ` (${licence})` : ''}`;
+  /* The mobile number rides on every sheet, not only the cover. A report is
+     read one page at a time and forwarded a page at a time, and the page a
+     client is holding when they decide to ring should be the one with the
+     number on it. */
+  const agentLine = [
+    p.fullName,
+    `CEA ${p.ceaNumber}`,
+    `${p.agency}${licence ? ` (${licence})` : ''}`,
+    p.mobile,
+  ].filter(Boolean).join(' · ');
   const rentals = checks.filter((c) => c.property.askingRent !== null);
   const rents = rentals.map((c) => c.property.askingRent!);
   const districts = [...new Set(chosen.map((l) => l.district))].sort((a, b) => a - b);
@@ -543,9 +563,11 @@ function Report({ provider, demoDataOn }: { provider: ReportDataProvider; demoDa
     if (r.kind === 'item') return { label, name: plainName(r.item.name), metres: r.item.metres };
     return { label, fallback: r.kind === 'none' ? <None>{r.text}</None> : <Unknown>{r.text}</Unknown> };
   };
-  const placeGroup = (label: string, ev: Evidence<unknown>, rows: NearbyGroup['rows'], none: string): NearbyGroup => (rows.length
-    ? { label, rows }
-    : { label, rows: [], fallback: ev.state === 'verified' ? <None>{none}</None> : <Unknown>{EVIDENCE_TEXT[ev.state]}</Unknown> });
+  const placeGroup = (kind: NearbyGroup['kind'], label: string, ev: Evidence<unknown>, rows: NearbyGroup['rows'], scale: number, none: string): NearbyGroup => ({
+    kind, label, rows, scale,
+    total: rows.filter((r) => r.metres <= scale).length,
+    fallback: rows.length ? undefined : ev.state === 'verified' ? <None>{none}</None> : <Unknown>{EVIDENCE_TEXT[ev.state]}</Unknown>,
+  });
   const thumbOf = (src: string) => (src.startsWith('/demo/') ? src.replace(/\.jpg$/, '-thumb.jpg') : `${src}${src.includes('?') ? '&' : '?'}size=thumb`);
   const clientProperties: ClientProperty[] = detailed ? [] : checks.map((c, k) => {
     const l = c.property.listing;
@@ -567,6 +589,15 @@ function Report({ provider, demoDataOn }: { provider: ReportDataProvider; demoDa
     const daily = DAILY.map((d) => ({ ...d, ev: e.amenity(d.key) }));
     const dailyRows = daily.flatMap((d) => d.ev.items.map((a) => ({ name: plainName(a.name), detail: d.label, metres: a.metres }))).sort((a, b) => a.metres - b.metres);
     const dailyEv = daily.find((d) => d.ev.state === 'verified')?.ev ?? daily[0].ev;
+    const schools = e.schools.items.filter((s) => isPrimary(s) || isSecondary(s));
+    const range = market ? rangePosition(market, l.sizeSqft) : null;
+    const notCompared = unavailableReason({ listing: l, market: c.market, heldContracts });
+    const stationPlace = station.name && station.metres !== undefined ? { name: station.name, metres: station.metres } : null;
+    const signalInput = {
+      market, range, competing: comp, insight, station: stationPlace, notCompared,
+      stationNote: e.mrt.state === 'verified' ? 'None within 2 km' : EVIDENCE_TEXT[e.mrt.state],
+    };
+    const contracts = provider.contracts(l);
     return {
       n: k + 1,
       listing: l,
@@ -580,30 +611,39 @@ function Report({ provider, demoDataOn }: { provider: ReportDataProvider; demoDa
       market,
       history: c.history.status === 'ok' ? c.history : null,
       competing: comp,
-      range: market ? rangePosition(market, l.sizeSqft) : null,
+      range,
       insight,
-      notCompared: unavailableReason({ listing: l, market: c.market, heldContracts }),
+      digest: {
+        band: rentBand(market, l.sizeSqft),
+        ladder: priceLadder(l, contracts, comp),
+        leases: recentLeases(c.history.status === 'ok' ? c.history : null, l),
+        board: developmentBoard(l, contracts),
+        competition: competitionBands(comp),
+        signals: signalsFor(signalInput),
+        inShort: inShort(l, signalInput),
+        radar: radarPoints(l, [
+          { kind: 'daily', items: daily.flatMap((d) => d.ev.items.map((a) => ({ name: plainName(a.name), metres: a.metres, lat: a.lat, lng: a.lng }))) },
+          { kind: 'healthcare', items: e.health.items },
+          { kind: 'schools', items: schools },
+          { kind: 'transport', items: e.mrt.items },
+        ]),
+      },
+      notCompared,
       photo,
       thumb: photo ? thumbOf(photo) : undefined,
       photos,
       photoThumbs: photos.map(thumbOf),
       map: e.isLocated ? `/api/phase1/map?lat=${l.lat}&lng=${l.lng}&w=512&h=384` : undefined,
       nearbyGroups: [
-        placeGroup('MRT / LRT stations', e.mrt, e.mrt.items.map((s) => ({ name: plainName(s.name), metres: s.metres })), 'No station within 2 km'),
-        placeGroup('Schools', e.schools, e.schools.items.filter((s) => isPrimary(s) || isSecondary(s)).map((s) => ({ name: plainName(s.name), detail: s.detail, metres: s.metres })), 'No school within 2 km'),
-        placeGroup('Healthcare', e.health, e.health.items.map((h) => ({ name: plainName(h.name), detail: h.detail, metres: h.metres })), 'None within 5 km'),
-        placeGroup('Daily needs', dailyEv, dailyRows, 'None within 1 km'),
+        placeGroup('transport', 'MRT / LRT stations', e.mrt, e.mrt.items.map((s) => ({ name: plainName(s.name), metres: s.metres })), 2000, 'No station within 2 km'),
+        placeGroup('schools', 'Schools', e.schools, schools.map((s) => ({ name: plainName(s.name), detail: s.detail, metres: s.metres })), 2000, 'No school within 2 km'),
+        placeGroup('healthcare', 'Healthcare', e.health, e.health.items.map((h) => ({ name: plainName(h.name), detail: h.detail, metres: h.metres })), 5000, 'None within 5 km'),
+        placeGroup('daily', 'Daily needs', dailyEv, dailyRows, 1000, 'None within 1 km'),
       ],
       development: provider.development(l),
+      cityKm: e.isLocated ? cityDistanceKm(l.lat, l.lng) : null,
       floorLevel: floorLevel(l.unitNo),
-      nearby: [
-        station,
-        nearRow('Primary school', e.primaries, 'None within 2 km'),
-        nearRow('Hawker centre', e.amenity('hawker'), 'None within 1 km'),
-        nearRow('Park', e.amenity('parks'), 'None within 1 km'),
-      ],
       station,
-      primaries: countText(e.primaries, e.primaries.items.filter((s) => s.metres <= 1000).length),
       /* The comparison's own reason for being unavailable is phrased for the
          held dataset; the client reads why it is missing in this document. */
       keyFacts: keyTakeaways(base).slice(0, 3).map((t) => (c.market.status === 'unavailable' && t === c.market.message && c.market.reason === 'no_contracts'
@@ -829,10 +869,22 @@ function Report({ provider, demoDataOn }: { provider: ReportDataProvider; demoDa
               <Body className={detailed ? 'line-clamp-[5]' : 'line-clamp-3'}>{l.description}</Body>
             </Section>
           )}
-          {detailed && (l.amenities ?? []).length > 0 && (
-            <Section label="Fittings and facilities">
+          {/* Both editions now, and both lists. A client reading the shortlist
+              is deciding what they would still have to buy, and "partially
+              furnished" does not tell them. The development's facilities and
+              the unit's own contents are labelled separately because they
+              answer different questions. */}
+          {(l.amenities ?? []).length > 0 && (
+            <Section label="Development facilities">
               <ul className="columns-3 gap-8 text-[10px]">
                 {(l.amenities ?? []).map((a) => <li key={a} className="break-inside-avoid py-[3px]"><span aria-hidden className="mr-2 inline-block h-1 w-1 translate-y-[-2px]" style={{ background: C.accent }} />{a}</li>)}
+              </ul>
+            </Section>
+          )}
+          {(l.fittings ?? []).length > 0 && (
+            <Section label={`Included in the unit · ${l.furnishing}`}>
+              <ul className="columns-3 gap-8 text-[10px]">
+                {(l.fittings ?? []).map((a) => <li key={a} className="break-inside-avoid py-[3px]"><span aria-hidden className="mr-2 inline-block h-1 w-1 translate-y-[-2px]" style={{ background: C.accent }} />{a}</li>)}
               </ul>
             </Section>
           )}

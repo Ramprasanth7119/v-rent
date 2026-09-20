@@ -15,6 +15,7 @@ import { sgd } from '../../../lib/phase1/data';
 import type { Enquiry } from '../../../lib/phase1/workspace';
 import type { StageReading } from '../../../lib/phase1/enquiries';
 import { coverPhoto } from '../../../lib/phase1/photos';
+import { floorLabel } from '../../../lib/phase1/floor';
 
 export const CHANNEL_ICON: Record<Enquiry['channel'], React.ReactNode> = {
   'V-RENT': <MessageSquare size={13} aria-hidden />,
@@ -78,7 +79,7 @@ export function PropertyLine({
       <span className="min-w-0">
         <span className={cx('block truncate font-semibold text-p1-text', size === 'sm' ? 'text-[13px]' : 'text-[14px]')}>{l.project}</span>
         <span className="block truncate text-[12.5px] text-p1-text-3">
-          {l.unitNo && l.unitNo !== '—' ? `${l.unitNo} · ` : ''}{l.bedrooms ? `${l.bedrooms} bed · ` : ''}{sgd(l.monthlyRent)}/mo
+          {floorLabel(l) ? `${floorLabel(l)} · ` : ''}{l.bedrooms ? `${l.bedrooms} bed · ` : ''}{sgd(l.monthlyRent)}/mo
         </span>
       </span>
     </span>

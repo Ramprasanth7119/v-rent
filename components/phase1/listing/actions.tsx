@@ -51,7 +51,7 @@ export function useListingActions() {
     }
     setListingStatus(l.id, 'published');
     const left = Math.max(0, listingLimit - activeListings - 1);
-    push({ tone: 'success', title: 'Listing published', body: `${l.project} ${l.unitNo} is live and counted in your active listings. ${left} slot${left === 1 ? '' : 's'} remain on ${state.plan?.name ?? 'your plan'}.`, action: { label: 'View listing', onClick: () => router.push(`/phase1/listings/${l.id}`) } });
+    push({ tone: 'success', title: 'Listing published', body: `${l.project} is live and counted in your active listings. ${left} slot${left === 1 ? '' : 's'} remain on ${state.plan?.name ?? 'your plan'}.`, action: { label: 'View listing', onClick: () => router.push(`/phase1/listings/${l.id}`) } });
   };
 
   const pause = (l: DemoListing) => {
@@ -138,9 +138,9 @@ export function ListingActionDialogs({ a }: { a: ReturnType<typeof useListingAct
   return (
     <>
       <ConfirmDialog open={p?.kind === 'publish'} onClose={() => a.setPending(null)} onConfirm={a.confirm} confirmLabel="Publish listing"
-        title="Publish this listing?" description={l ? `${l.project} ${l.unitNo} goes live immediately, uses one listing slot, and your CEA details are frozen onto the advertisement.` : undefined} />
+        title="Publish this listing?" description={l ? `${l.project} goes live immediately, uses one listing slot, and your CEA details are frozen onto the advertisement.` : undefined} />
       <ConfirmDialog open={p?.kind === 'renew'} onClose={() => a.setPending(null)} onConfirm={a.confirm} confirmLabel="Renew listing"
-        title="Renew this listing?" description={l ? `${l.project} ${l.unitNo} goes live again for 90 days and uses one listing slot.` : undefined} />
+        title="Renew this listing?" description={l ? `${l.project} goes live again for 90 days and uses one listing slot.` : undefined} />
       <ConfirmDialog open={p?.kind === 'pause'} onClose={() => a.setPending(null)} onConfirm={a.confirm} confirmLabel="Pause listing"
         title="Pause this listing?" description="Tenants will not see it until you resume. Enquiries already received are kept and your quota slot stays reserved." />
       <ConfirmDialog open={p?.kind === 'unpublish'} onClose={() => a.setPending(null)} onConfirm={a.confirm} confirmLabel="Unpublish" destructive

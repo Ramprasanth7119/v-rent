@@ -19,7 +19,7 @@
  * apply to them unchanged.
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { packPages, type Orientation, type PackedPage } from '../../../../lib/phase1/paginate';
 import { Sheet, type FrameProps } from './ui';
 
@@ -41,6 +41,14 @@ export interface FlowLayout {
 
 /** Space between blocks on a sheet, in CSS pixels. */
 export const FLOW_GAP = 18;
+
+/** The sheet each block landed on, by block key. Empty while the blocks are being measured. */
+const PageIndex = createContext<Record<string, number>>({});
+
+/** The printed page number of a block, once the document is laid out. */
+export function usePageOf(key: string): number | undefined {
+  return useContext(PageIndex)[key];
+}
 
 const orientationOf = (b: Block): Orientation => (b.landscape ? 'landscape' : 'portrait');
 
@@ -94,6 +102,8 @@ export function FlowDocument({ blocks, frame, onLayout }: {
   });
 
   const hasLandscape = blocks.some((b) => b.landscape);
+  const pageOf: Record<string, number> = {};
+  pages?.forEach((page, k) => page.items.forEach((i) => { pageOf[blocks[i].key] = k + 1; }));
   const measureSheet = (o: Orientation) => (
     <Sheet n={0} total={0} section="" {...frame} landscape={o === 'landscape'}>
       {blocks.filter((b) => orientationOf(b) === o).map((b) => (
@@ -108,6 +118,7 @@ export function FlowDocument({ blocks, frame, onLayout }: {
         <div data-probe="portrait">{measureSheet('portrait')}</div>
         {hasLandscape && <div data-probe="landscape">{measureSheet('landscape')}</div>}
       </div>
+      <PageIndex.Provider value={pageOf}>
       {pages?.map((page, k) => (
         <Sheet key={`${k}-${blocks[page.items[0]].key}`} n={k + 1} total={pages.length} section={blocks[page.items[0]].section}
           {...frame} landscape={page.orientation === 'landscape'} overflow={page.overflow}>
@@ -118,6 +129,7 @@ export function FlowDocument({ blocks, frame, onLayout }: {
           </div>
         </Sheet>
       ))}
+      </PageIndex.Provider>
     </>
   );
 }

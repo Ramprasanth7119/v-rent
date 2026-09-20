@@ -20,7 +20,7 @@ import { send } from '../mail';
 import { preferredName } from './workspace';
 
 /** Which preference row an event answers to. */
-export type AlertKind = 'enquiry' | 'moderation' | 'expiry' | 'cea' | 'billing' | 'product';
+export type AlertKind = 'enquiry' | 'views' | 'moderation' | 'expiry' | 'cea' | 'billing' | 'product';
 
 export interface Alert {
   id: string;

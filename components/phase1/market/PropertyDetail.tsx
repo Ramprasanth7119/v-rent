@@ -25,6 +25,9 @@ import { Dialog } from '../overlays';
 import { Button, cx } from '../kit';
 import { PropertyCard, SaveButton } from './PropertyCard';
 import { bedLabel, isSale, mrt, price, propertyNoun } from './format';
+import { floorLabel } from '../../../lib/phase1/floor';
+import { propertyTypeLabel } from '../../../lib/phase1/property-types';
+import { eligibilitySentence } from '../../../lib/phase1/eip';
 
 /* ------------------------------------------------------------- lightbox */
 
@@ -118,13 +121,17 @@ function DetailGallery({ item }: { item: MarketListing }) {
 
 /* ------------------------------------------------------------ sections */
 
-const SECTIONS = [
+/* The floor plan earns a place in the jumps only when there is one; a section
+   link that scrolls to nothing is worse than no link. */
+const sectionsFor = (has: { floorPlan: boolean; video: boolean; price: boolean }) => [
   { id: 'overview', label: 'Overview' },
+  ...(has.video ? [{ id: 'video', label: 'Video tour' }] : []),
   { id: 'amenities', label: 'Amenities' },
+  ...(has.floorPlan ? [{ id: 'floorplan', label: 'Floor plan' }] : []),
   { id: 'location', label: 'Location' },
+  ...(has.price ? [{ id: 'price', label: 'Price context' }] : []),
   { id: 'agent', label: 'Agent' },
 ];
-const SECTION_IDS = SECTIONS.map((s) => s.id);
 
 function useSpy(ids: string[]) {
   const [active, setActive] = useState(ids[0]);
@@ -183,7 +190,15 @@ function Description({ text }: { text: string }) {
 
 /* ---------------------------------------------------------------- page */
 
-export function PropertyDetail({ item, similar, nearby }: { item: MarketListing; similar: MarketListing[]; nearby?: React.ReactNode }) {
+export function PropertyDetail({ item, similar, nearby, priceContext }: {
+  item: MarketListing;
+  similar: MarketListing[];
+  nearby?: React.ReactNode;
+  /* Where this asking price sits among comparable live listings. Passed in
+     rather than computed here, because working it out needs the whole live
+     stock and that belongs on the server. */
+  priceContext?: React.ReactNode;
+}) {
   const l = item.listing;
   const a = item.agent;
   const p = price(l);
@@ -191,7 +206,8 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
   const paused = l.status === 'paused';
   const station = mrt(l);
   const [enquiry, setEnquiry] = useState<null | 'viewing' | 'message'>(null);
-  const spy = useSpy(SECTION_IDS);
+  const sections = sectionsFor({ floorPlan: Boolean(l.floorPlan), video: Boolean(l.video), price: Boolean(priceContext) });
+  const spy = useSpy(sections.map((x) => x.id));
   const initials = a.name.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase();
 
   const facts = [
@@ -202,7 +218,10 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
   ];
 
   const details: [string, string][] = [
-    ['Property type', propertyNoun(l)],
+    /* The exact classification where the agent gave one — "HDB 4 A" says more
+       to somebody who knows Singapore flats than "HDB" ever did. */
+    ['Property type', propertyTypeLabel(l) || propertyNoun(l)],
+    ...(floorLabel(l) ? [['Floor', floorLabel(l)!] as [string, string]] : []),
     [sale ? 'Available to view' : 'Available from', sgDate(l.availableFrom)],
     ...(!sale ? [['Minimum lease', `${l.minLeaseMonths} months`] as [string, string]] : []),
     ...(!sale && typeof l.depositMonths === 'number' ? [['Deposit', `${l.depositMonths} month${l.depositMonths === 1 ? '' : 's'}`] as [string, string]] : []),
@@ -270,7 +289,7 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
             {/* ------------------------------------------- section nav */}
             <nav aria-label="On this page" className="sticky top-[65px] z-20 mt-8 -mx-4 border-b border-p1-border bg-p1-bg/95 px-4 backdrop-blur sm:mx-0 sm:px-0">
               <ul className="p1-noscrollbar flex gap-1 overflow-x-auto">
-                {SECTIONS.map((s) => (
+                {sections.map((s) => (
                   <li key={s.id}>
                     <a href={`#${s.id}`} aria-current={spy === s.id ? 'location' : undefined}
                       className={cx('relative flex h-12 items-center whitespace-nowrap px-3 text-[14px] font-medium transition-colors', spy === s.id ? 'text-p1-text' : 'text-p1-text-3 hover:text-p1-text')}>
@@ -291,8 +310,35 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
                   </div>
                 ))}
               </dl>
+              {/* The block's quota, attributed to HDB and phrased as an
+                  opening. It is a fact about the flat, so it sits with the
+                  other facts rather than being buried in the description. */}
+              {eligibilitySentence(l.eligibility as never) && (
+                <p className="mt-5 flex items-start gap-2 rounded-lg bg-p1-subtle px-3.5 py-3 text-[13.5px] leading-5 text-p1-text">
+                  <ShieldCheck size={15} className="mt-0.5 shrink-0 text-p1-text-3" aria-hidden />
+                  {eligibilitySentence(l.eligibility as never)}
+                </p>
+              )}
               {l.description && <div className="mt-6"><Description text={l.description} /></div>}
             </Section>
+
+            {/* Between the overview and the facilities, which is where a
+                tenant looks once the numbers have not put them off. Not
+                preloaded — most visitors never press play, and a video that
+                downloads itself on a phone plan is a cost to them. */}
+            {l.video && (
+              <Section id="video" title="Video tour">
+                <video
+                  controls
+                  preload="none"
+                  poster={l.video.posterUrl}
+                  src={l.video.url}
+                  className="aspect-video w-full rounded-xl bg-black"
+                >
+                  Your browser cannot play this video.
+                </video>
+              </Section>
+            )}
 
             <Section id="amenities" title="Amenities">
               {(l.amenities?.length ?? 0) === 0 ? (
@@ -306,7 +352,41 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
                   ))}
                 </ul>
               )}
+
+              {/* The block's facilities above, the flat's own below. Tenants
+                  read the second one and decide what they still have to buy. */}
+              <h3 className="mb-3 mt-7 text-[15px] font-semibold text-p1-text">Included in the unit</h3>
+              {(l.fittings?.length ?? 0) === 0 ? (
+                <p className="text-[14px] text-p1-text-3">
+                  The agent has not listed what comes with the unit. Ask them before the viewing — it is {l.furnishing.toLowerCase()}.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                  {l.fittings!.map((fit) => (
+                    <li key={fit} className="flex items-center gap-3 text-[14.5px] text-p1-text">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-p1-subtle text-p1-text-2" aria-hidden><Check size={14} /></span>{fit}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Section>
+
+            {l.floorPlan && (
+              <Section id="floorplan" title="Floor plan">
+                <a
+                  href={`/api/phase1/floorplan?owner=${encodeURIComponent(item.ownerId)}&listing=${encodeURIComponent(l.id)}&v=${encodeURIComponent(l.floorPlan.at)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p1-press inline-flex items-center gap-3 rounded-xl border border-p1-border bg-p1-surface px-4 py-3 hover:border-p1-border-strong"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden><Grid2x2 size={18} /></span>
+                  <span className="min-w-0">
+                    <span className="block text-[14.5px] font-medium text-p1-text">Open the floor plan</span>
+                    <span className="block text-[12.5px] text-p1-text-3">{l.floorPlan.contentType === 'application/pdf' ? 'PDF' : 'Image'} · opens in a new tab</span>
+                  </span>
+                </a>
+              </Section>
+            )}
 
             <Section id="location" title="Location">
               {station && (
@@ -319,6 +399,12 @@ export function PropertyDetail({ item, similar, nearby }: { item: MarketListing;
               )}
               {nearby && <div className="mt-4">{nearby}</div>}
             </Section>
+
+            {priceContext && (
+              <Section id="price" title="How this price compares">
+                {priceContext}
+              </Section>
+            )}
 
             <Section id="agent" title="Listed by">
               <div className="flex flex-col gap-5 rounded-2xl border border-p1-border bg-p1-surface p-5 sm:flex-row sm:items-center">

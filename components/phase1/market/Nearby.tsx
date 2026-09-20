@@ -1,78 +1,57 @@
 /**
- * What is around a home: the nearest stations, schools and healthcare.
+ * What is around a home, found on the server and streamed into the listing.
  *
- * A server component, streamed in behind a skeleton: the national datasets can
- * take a few seconds on a cold instance and the rest of the listing should not
- * wait for them. A source that does not answer in time says so instead of
- * showing nothing, which would read as "there are no schools here".
+ * A server component behind `<Suspense>`: the national datasets can take a few
+ * seconds on a cold cache and the rest of the listing should not wait for
+ * them. A source that does not answer says so rather than showing nothing,
+ * which would read to a tenant as "there are no schools here".
+ *
+ * The search itself is `nearbyAround` — the same six categories, from the same
+ * published datasets, that the agent saw while writing the listing. A tenant
+ * and the agent advertising to them now read the same neighbourhood.
+ *
+ * Server only: it holds the OneMap token's side of the call.
  */
 
-import { GraduationCap, HeartPulse, TrainFront } from 'lucide-react';
-import { placesAround, type PlaceKind, type PlacesLookup } from '../../../lib/phase1/places';
 import { Skeleton } from '../kit';
+import { NEARBY_CATEGORIES } from '../../../lib/phase1/nearby';
+import { nearbyAround } from '../../../lib/phase1/nearby-sources';
+import { demoNearby } from '../../../lib/phase1/nearby-demo';
+import { demoDataOnServer } from '../../../lib/phase1/report-data/server';
+import { NearbyPanel } from './NearbyPanel';
 
-const KINDS: { kind: PlaceKind; label: string; icon: typeof TrainFront }[] = [
-  { kind: 'mrt', label: 'Transport', icon: TrainFront },
-  { kind: 'schools', label: 'Schools', icon: GraduationCap },
-  { kind: 'healthcare', label: 'Healthcare', icon: HeartPulse },
-];
+export async function Nearby({ lat, lng, postal, label }: { lat: number; lng: number; postal?: string; label?: string }) {
+  /* The one switch, read here as every other server reader reads it. With it
+     on nothing is asked of a live source, so the illustrative set is built
+     instead — and the panel above it already carries the demo badge. */
+  const demo = await demoDataOnServer();
+  const lookup = demo ? demoNearby(lat, lng, postal) : await nearbyAround(lat, lng, { postal });
 
-const withTimeout = (p: Promise<PlacesLookup>, kind: PlaceKind, ms = 9000): Promise<PlacesLookup> =>
-  Promise.race([
-    p.catch((): PlacesLookup => ({ status: 'failed', kind, reason: 'Could not reach the data source.' })),
-    new Promise<PlacesLookup>((resolve) => setTimeout(() => resolve({ status: 'failed', kind, reason: 'Still loading from the source.' }), ms)),
-  ]);
-
-const walk = (m: number) => `${Math.max(1, Math.round((m * 1.3) / 80))} min walk`;
-const dist = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`);
-
-export async function Nearby({ lat, lng, postal }: { lat: number; lng: number; postal?: string }) {
-  const found = await Promise.all(KINDS.map((k) => withTimeout(placesAround(k.kind, lat, lng, { postal }), k.kind)));
-
-  return (
-    <div className="grid gap-px overflow-hidden rounded-xl border border-p1-border bg-p1-border sm:grid-cols-3">
-      {KINDS.map((k, i) => {
-        const r = found[i];
-        return (
-          <div key={k.kind} className="bg-p1-surface p-4">
-            <div className="flex items-center gap-2 text-[13px] font-semibold text-p1-text">
-              <k.icon size={15} className="text-p1-text-3" aria-hidden /> {k.label}
-            </div>
-            {r.status !== 'ok' ? (
-              <p className="mt-3 text-[13px] leading-5 text-p1-text-3">Not available right now.</p>
-            ) : r.items.length === 0 ? (
-              <p className="mt-3 text-[13px] leading-5 text-p1-text-3">None within {dist(r.radius)}.</p>
-            ) : (
-              <ul className="mt-2.5 space-y-2.5">
-                {r.items.slice(0, 3).map((p) => (
-                  <li key={`${p.name}-${p.metres}`} className="flex items-baseline justify-between gap-3 text-[13.5px]">
-                    <span className="min-w-0">
-                      <span className="block truncate text-p1-text">{p.name}</span>
-                      {p.detail && <span className="block truncate text-[12px] text-p1-text-3">{p.detail}</span>}
-                    </span>
-                    <span className="shrink-0 text-right text-[12.5px] tabular-nums text-p1-text-3" title={dist(p.metres)}>{k.kind === 'mrt' ? walk(p.metres) : dist(p.metres)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <NearbyPanel lat={lat} lng={lng} label={label} lookup={lookup} demo={demo} />;
 }
 
 export function NearbySkeleton() {
   return (
-    <div className="grid gap-px overflow-hidden rounded-xl border border-p1-border bg-p1-border sm:grid-cols-3" aria-busy="true" aria-label="Loading what is nearby">
-      {KINDS.map((k) => (
-        <div key={k.kind} className="bg-p1-surface p-4">
-          <div className="flex items-center gap-2 text-[13px] font-semibold text-p1-text"><k.icon size={15} className="text-p1-text-3" aria-hidden /> {k.label}</div>
-          <Skeleton className="mt-3 h-3.5 w-4/5" />
-          <Skeleton className="mt-2.5 h-3.5 w-3/5" />
-          <Skeleton className="mt-2.5 h-3.5 w-2/3" />
+    <div className="overflow-hidden rounded-xl border border-p1-border bg-p1-surface" aria-busy="true" aria-label="Loading what is nearby">
+      <div className="flex border-b border-p1-border">
+        {NEARBY_CATEGORIES.map((c) => (
+          <div key={c.key} className="flex min-w-[88px] flex-1 flex-col items-center gap-1.5 px-3 py-3">
+            <Skeleton className="h-[19px] w-[19px] rounded-md" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+        ))}
+      </div>
+      <div>
+        <div className="space-y-4 p-4">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center justify-between gap-4">
+              <Skeleton className="h-3.5 w-3/5" />
+              <Skeleton className="h-3.5 w-10" />
+            </div>
+          ))}
         </div>
-      ))}
+        <Skeleton className="h-[280px] rounded-none sm:h-[340px]" />
+      </div>
     </div>
   );
 }

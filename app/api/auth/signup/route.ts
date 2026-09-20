@@ -14,6 +14,7 @@ import { createAccount, findByCea, findByEmail, passwordProblem, publicAccount }
 import { startSession } from '../../../../lib/auth/session';
 import { loadWorkspace } from '../../../../lib/phase1/workspace-store';
 import { logged } from '../../../../lib/phase1/reqlog';
+import { normaliseSgMobile, sgMobileProblem } from '../../../../lib/phase1/mobile';
 
 /** Said when the fault is ours, and the applicant can only try later. */
 const UNAVAILABLE = {
@@ -52,7 +53,7 @@ async function POST_handler(req: Request) {
 
   const email = str(body.email).toLowerCase();
   const password = typeof body.password === 'string' ? body.password : '';
-  const mobile = str(body.mobile);
+  const typedMobile = str(body.mobile);
   const registrationNo = str(body.registrationNo).toUpperCase();
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -62,9 +63,13 @@ async function POST_handler(req: Request) {
   if (pwProblem) {
     return NextResponse.json({ error: pwProblem, code: 'weak_password' }, { status: 400 });
   }
-  if (!/^\+?[0-9 ]{8,16}$/.test(mobile)) {
-    return NextResponse.json({ error: 'Enter a valid mobile number.', code: 'bad_mobile' }, { status: 400 });
+  /* Stored in the one shape rather than as typed, so every later screen and
+     every message reads the same number. */
+  const mobileProblem = sgMobileProblem(typedMobile);
+  if (mobileProblem) {
+    return NextResponse.json({ error: mobileProblem, code: 'bad_mobile' }, { status: 400 });
   }
+  const mobile = normaliseSgMobile(typedMobile)!;
 
   /* The store is the first thing this route touches that can be unavailable
      rather than wrong. An outage here must not read as "that address is taken"
