@@ -45,6 +45,8 @@ export const ENDPOINTS: Record<string, EndpointMeta> = {
   '/api/phase1/address': { label: 'Address search', area: 'Addresses', external: 'OneMap' },
   '/api/phase1/address/reverse': { label: 'What is at this point', area: 'Addresses', external: 'OneMap' },
   '/api/phase1/neighbourhood': { label: 'Neighbourhood amenities', area: 'Addresses', external: 'OneMap' },
+  '/api/phase1/nearby': { label: 'What is near a property', area: 'Addresses', external: 'OneMap and data.gov.sg' },
+  '/api/phase1/directions': { label: 'Route to a nearby place', area: 'Addresses', external: 'OneMap' },
   '/api/phase1/map': { label: 'Map tiles and markers', area: 'Addresses', external: 'OneMap' },
   '/api/phase1/workspace': { label: 'Read or save a workspace', area: 'Listings' },
   '/api/phase1/workspace/reset': { label: 'Reset a workspace', area: 'Listings' },

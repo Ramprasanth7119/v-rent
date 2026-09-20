@@ -28,6 +28,7 @@ import { PhotoNote, PhotoUploader, Shot, pendingFiles, photoUrl, savedIds } from
 import { uploadPhotos } from '../../../../components/phase1/listing/upload';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { LocationPicker } from '../../../../components/phase1/listing/LocationPicker';
+import { NearbyPlaces } from '../../../../components/phase1/listing/NearbyPlaces';
 import { PropertyImage } from '../../../../components/phase1/PropertyImage';
 import { useSession } from '../../../../lib/phase1/SessionContext';
 import { useDemo, TODAY_ISO, preferredName } from '../../../../lib/phase1/DemoContext';
@@ -647,6 +648,18 @@ function ListingWizard() {
                       </div>
                       <Button size="sm" variant="primary" onClick={applyTemplate}>Copy details</Button>
                     </div>
+                  )}
+
+                  {/* Keyed on the point, so changing the address drops the
+                      previous neighbourhood rather than leaving it on screen. */}
+                  {addr && (
+                    <NearbyPlaces
+                      key={`${addr.lat},${addr.lng}`}
+                      lat={addr.lat}
+                      lng={addr.lng}
+                      postal={addr.postal}
+                      label={addr.project || addr.label}
+                    />
                   )}
 
                   {editing && <p className="text-[13px] text-p1-text-3">Changing this on a live listing changes where it appears in search.</p>}
