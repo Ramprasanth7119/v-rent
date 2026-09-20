@@ -10,8 +10,9 @@
 import { describe, expect, it } from 'vitest';
 import type { MarketListing } from '../lib/phase1/marketplace';
 import {
-  EMPTY_QUERY, applyDirectory, describeQuery, priceSortable, queryFromParams,
-  queryToParams, sortLabel, type DirectoryQuery,
+  EMPTY_QUERY, MAX_PICKS, applyDirectory, applyPicks, describeQuery, picksFromParams,
+  picksToParam, priceSortable, queryFromParams, queryToParams, rowKey, sortLabel,
+  type DirectoryQuery,
 } from '../lib/phase1/directory-filter';
 
 /* Singapore, roughly: Tiong Bahru, then about 1.2 km and about 9 km away. */
@@ -175,5 +176,60 @@ describe('saying what the list is', () => {
   it('leaves a price range out while it does not apply', () => {
     expect(priceSortable(q())).toBe(false);
     expect(describeQuery(q({ priceMin: '3000' }), null)).toEqual([]);
+  });
+});
+
+/**
+ * Ticking properties is a separate question from filtering them, and the
+ * answer has to reach the printed document unchanged — the agent is handing
+ * somebody these six and not the other seventeen.
+ */
+describe('a hand-picked set', () => {
+  const rows = applyDirectory(
+    [item({ id: 'a' }, {}, 'agt-1'), item({ id: 'b' }, {}, 'agt-1'), item({ id: 'c' }, {}, 'agt-2')],
+    q(), null, null,
+  );
+  const ids = (rs: typeof rows) => rs.map((r) => r.m.listing.id).sort();
+
+  /* Two agents can mint the same listing id inside their own workspaces. */
+  it('names a property by its owner as well as its id', () => {
+    expect(rowKey(rows[0].m)).toContain('/');
+    expect(new Set(rows.map((r) => rowKey(r.m))).size).toBe(3);
+  });
+
+  it('narrows to what was ticked', () => {
+    const picks = new Set([rowKey(rows[0].m), rowKey(rows[2].m)]);
+    expect(ids(applyPicks(rows, picks))).toEqual(['a', 'c']);
+  });
+
+  it('leaves the list alone when nothing was ticked', () => {
+    expect(applyPicks(rows, new Set())).toHaveLength(3);
+  });
+
+  /* A link that lists every property says nothing the filters did not, and it
+     would go stale the moment another agent published. */
+  it('writes no selection when everything is ticked', () => {
+    const all = new Set(rows.map((r) => rowKey(r.m)));
+    expect(picksToParam(all, 3)).toBe('');
+    expect(picksToParam(new Set(), 3)).toBe('');
+  });
+
+  it('survives a round trip', () => {
+    const picks = new Set([rowKey(rows[0].m), rowKey(rows[2].m)]);
+    const params = new URLSearchParams({ pick: picksToParam(picks, 3) });
+    expect(ids(applyPicks(rows, picksFromParams(params)))).toEqual(['a', 'c']);
+  });
+
+  it('reads an empty or absent selection as none', () => {
+    expect(picksFromParams(new URLSearchParams()).size).toBe(0);
+    expect(picksFromParams(new URLSearchParams('pick=')).size).toBe(0);
+    expect(picksFromParams(new URLSearchParams('pick=,,')).size).toBe(0);
+  });
+
+  /* The selection rides in a URL, which has a practical ceiling. */
+  it('carries no more than the cap, however many arrive', () => {
+    const many = Array.from({ length: MAX_PICKS + 20 }, (_, i) => `agt-1/lst-${i}`);
+    expect(picksFromParams(new URLSearchParams({ pick: many.join(',') })).size).toBe(MAX_PICKS);
+    expect(picksToParam(new Set(many), 999).split(',')).toHaveLength(MAX_PICKS);
   });
 });

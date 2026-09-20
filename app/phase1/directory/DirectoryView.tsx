@@ -14,6 +14,12 @@
  * to do with that ring is then the agent's: nearest, newest, cheapest,
  * dearest or largest.
  *
+ * On top of the filters there is a selection. Filtering answers "what is
+ * around here"; ticking answers "which of these am I actually sending", and
+ * the two are different questions — the shortlist an agent hands a client is
+ * almost never a whole filtered list. The ticks travel to the printed document
+ * in the link, so what prints is what was chosen.
+ *
  * The whole query lives in the URL. It has to, because the printed version of
  * this list is a separate page that must produce exactly what is on screen —
  * see `lib/phase1/directory-filter.ts`, which both of them run.
@@ -27,7 +33,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Building2, Eye, FileDown, MapPin, Pencil, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Building2, Check, Eye, FileDown, MapPin, Pencil, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   Button, EmptyState, LinkButton, PageHeader, Pagination, SearchInput, SelectMenu, Spinner, TextInput, cx, usePagination,
 } from '../../../components/phase1/kit';
@@ -39,8 +45,8 @@ import { priceLabel } from '../../../lib/phase1/pricing';
 import { formatDistance } from '../../../lib/phase1/nearby';
 import { sgDate } from '../../../lib/phase1/format';
 import {
-  EMPTY_QUERY, RADII, SORTS, applyDirectory, describeQuery, priceSortable,
-  queryFromParams, queryToParams, type Centre, type DirectoryQuery, type Sort,
+  EMPTY_QUERY, MAX_PICKS, RADII, SORTS, applyDirectory, describeQuery, picksToParam, priceSortable,
+  queryFromParams, queryToParams, rowKey, type Centre, type DirectoryQuery, type Sort,
 } from '../../../lib/phase1/directory-filter';
 
 const TYPES = ['Condominium', 'HDB', 'Apartment', 'Executive Condominium', 'Landed'];
@@ -65,6 +71,11 @@ export default function DirectoryView({
   const [centre, setCentre] = useState<Centre | null>(centreFromUrl);
   const [looking, setLooking] = useState(false);
   const [more, setMore] = useState(false);
+
+  /* The ticks stay in React rather than the URL. A filter is worth keeping in
+     a link; a half-finished selection changing the address bar on every tick
+     is not, and it would put sixty ids in the URL of an ordinary browse. */
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
 
   const write = useCallback((next: DirectoryQuery, nextCentre: Centre | null) => {
     const p = queryToParams(next, nextCentre);
@@ -124,6 +135,31 @@ export default function DirectoryView({
     [items, query, centre, viewerId],
   );
 
+  /**
+   * The ticks that survive the current filters.
+   *
+   * Ticks on properties the filters no longer show are kept rather than
+   * dropped — narrowing a search and widening it again should not lose a
+   * selection — but they are not counted and they do not print, because a
+   * document containing something the agent cannot see would be a surprise.
+   */
+  const visible = useMemo(() => new Set(results.map((r) => rowKey(r.m))), [results]);
+  const live = useMemo(() => [...picked].filter((k) => visible.has(k)), [picked, visible]);
+  const liveSet = useMemo(() => new Set(live), [live]);
+  const atCap = live.length >= MAX_PICKS;
+
+  const toggle = (key: string) => setPicked((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key);
+    /* Silently doing nothing would read as a broken checkbox, so the bar says
+       the cap has been reached while it is in force. */
+    else if (!atCap) next.add(key);
+    return next;
+  });
+
+  const selectAll = () => setPicked((prev) => new Set([...prev, ...visible].slice(0, MAX_PICKS)));
+  const clearPicks = () => setPicked(new Set());
+
   const page = usePagination(results, 24);
   const chips = describeQuery(query, centre);
   const mineCount = items.filter((m) => m.ownerId === viewerId).length;
@@ -132,11 +168,18 @@ export default function DirectoryView({
   const clearAll = () => {
     setTyped('');
     setCentre(null);
+    clearPicks();
     write(EMPTY_QUERY, null);
   };
 
-  /* The printed list is the same query, so it is the same parameters. */
-  const exportHref = `/phase1/directory/export?${queryToParams(query, centre)}`;
+  /* The printed list is the same query, so it is the same parameters — plus
+     the ticks, when they say something the filters do not. */
+  const exportHref = useMemo(() => {
+    const p = queryToParams(query, centre);
+    const pick = picksToParam(liveSet, results.length);
+    if (pick) p.set('pick', pick);
+    return `/phase1/directory/export?${p}`;
+  }, [query, centre, liveSet, results.length]);
 
   return (
     <>
@@ -145,103 +188,121 @@ export default function DirectoryView({
         description={`Every listing live on V-RENT — ${items.length} from ${new Set(items.map((m) => m.ownerId)).size} agents. Yours are marked.`}
         actions={
           <LinkButton
-            variant="outline"
+            variant={live.length ? 'primary' : 'outline'}
             size="sm"
             href={exportHref}
             leftIcon={<FileDown size={15} />}
           >
-            Download PDF
+            {live.length ? `Download PDF (${live.length})` : 'Download PDF'}
           </LinkButton>
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 sm:max-w-md">
-          <SearchInput
-            value={typed}
-            onChange={setTyped}
-            label="Search by place, project or agent"
-            placeholder="Tiong Bahru, Normanton Park, 098765…"
-            size="sm"
-          />
-          {looking && <span className="absolute right-3 top-1/2 -translate-y-1/2"><Spinner size={14} /></span>}
-        </div>
+      {/* One card, one row, one control height. The selects carry no visible
+          label because their value already reads as one — "Within 2.0 km",
+          "Nearest first" — and a stack of labels above only some of the
+          controls is what threw the row out of line. */}
+      <div className="mb-4 rounded-xl border border-p1-border bg-p1-surface p-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] flex-1 sm:max-w-sm">
+            <SearchInput
+              value={typed}
+              onChange={setTyped}
+              label="Search by place, project or agent"
+              placeholder="Tiong Bahru, Normanton Park, 098765…"
+              size="sm"
+            />
+            {looking && <span className="absolute right-9 top-1/2 -translate-y-1/2"><Spinner size={14} /></span>}
+          </div>
 
-        {centre && (
+          {centre && (
+            <SelectMenu
+              variant="button"
+              size="sm"
+              hideLabel
+              className="w-[150px] shrink-0"
+              label="Within"
+              value={String(query.radius)}
+              onChange={(v) => setQuery({ radius: Number(v) })}
+              options={RADII.map((r) => ({ value: String(r), label: `Within ${formatDistance(r)}` }))}
+            />
+          )}
+
           <SelectMenu
             variant="button"
-            label="Within"
-            value={String(query.radius)}
-            onChange={(v) => setQuery({ radius: Number(v) })}
-            options={RADII.map((r) => ({ value: String(r), label: `Within ${formatDistance(r)}` }))}
+            size="sm"
+            hideLabel
+            className="w-[168px] shrink-0"
+            label="Sort"
+            value={query.sort}
+            onChange={(v) => setQuery({ sort: v as Sort })}
+            options={SORTS.map((s) => ({
+              value: s.value,
+              label: s.label,
+              /* Said rather than hidden: a disabled control with no reason is
+                 read as a bug. */
+              hint: s.value === 'nearest' && !centre
+                ? 'Search a place first'
+                : (s.value.startsWith('price') && !priced ? 'Choose rent or sale first' : undefined),
+            }))}
           />
-        )}
 
-        <SelectMenu
-          variant="button"
-          label="Sort"
-          value={query.sort}
-          onChange={(v) => setQuery({ sort: v as Sort })}
-          options={SORTS.map((s) => ({
-            value: s.value,
-            label: s.label,
-            /* Said rather than hidden: a disabled control with no reason is
-               read as a bug. */
-            hint: s.value === 'nearest' && !centre
-              ? 'Search a place first'
-              : (s.value.startsWith('price') && !priced ? 'Choose rent or sale first' : undefined),
-          }))}
-        />
+          <Button
+            variant={query.mine ? 'primary' : 'outline'}
+            size="md"
+            onClick={() => setQuery({ mine: !query.mine })}
+            leftIcon={<Building2 size={15} />}
+          >
+            Mine ({mineCount})
+          </Button>
 
-        <Button
-          variant={query.mine ? 'primary' : 'outline'}
-          size="sm"
-          onClick={() => setQuery({ mine: !query.mine })}
-          leftIcon={<Building2 size={15} />}
-        >
-          Mine ({mineCount})
-        </Button>
-
-        <Button variant="outline" size="sm" onClick={() => setMore((v) => !v)} leftIcon={<SlidersHorizontal size={15} />}>
-          Filters
-        </Button>
-      </div>
-
-      {more && (
-        <div className="mb-4 rounded-xl border border-p1-border bg-p1-surface p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <SelectMenu variant="button" label="Deal" value={query.deal} onChange={(v) => setQuery({ deal: v as DirectoryQuery['deal'] })}
-              options={[{ value: 'any', label: 'Rent or sale' }, { value: 'rent', label: 'To rent' }, { value: 'sale', label: 'For sale' }]} />
-            <SelectMenu variant="button" label="Property type" value={query.type} onChange={(v) => setQuery({ type: v })}
-              options={[{ value: '', label: 'Any type' }, ...TYPES.map((t) => ({ value: t, label: t }))]} />
-            <SelectMenu variant="button" label="District" value={query.district} onChange={(v) => setQuery({ district: v })}
-              options={[{ value: '', label: 'Any district' }, ...Object.entries(DISTRICTS).map(([d, v]) => ({ value: d, label: `${districtCode(Number(d))} · ${v.name}`, hint: v.areas }))]} />
-            <SelectMenu variant="button" label="Bedrooms" value={query.beds} onChange={(v) => setQuery({ beds: v })}
-              options={[{ value: 'any', label: 'Any' }, ...['1', '2', '3', '4+'].map((b) => ({ value: b, label: b }))]} />
-            <SelectMenu variant="button" label="Floor" value={query.floor} onChange={(v) => setQuery({ floor: v as FloorBand })}
-              options={[{ value: 'any', label: 'Any floor' }, ...(Object.keys(FLOOR_BANDS) as Exclude<FloorBand, 'any'>[]).map((k) => ({ value: k, label: FLOOR_BANDS[k].label }))]} />
-          </div>
-
-          <div className="mt-3 grid gap-3 border-t border-p1-border pt-3 sm:grid-cols-3">
-            <TextInput
-              label="Floor area from" inputMode="numeric" rightSlot="sqft"
-              value={query.sizeMin} onChange={(e) => setQuery({ sizeMin: e.target.value.replace(/\D/g, '') })}
-              placeholder="700"
-            />
-            <TextInput
-              label={query.deal === 'sale' ? 'Price from' : 'Rent from'} inputMode="numeric" leftIcon="S$"
-              value={query.priceMin} onChange={(e) => setQuery({ priceMin: e.target.value.replace(/\D/g, '') })}
-              disabled={!priced}
-              hint={priced ? undefined : 'Choose rent or sale first — the two are not priced in the same units.'}
-            />
-            <TextInput
-              label={query.deal === 'sale' ? 'Price up to' : 'Rent up to'} inputMode="numeric" leftIcon="S$"
-              value={query.priceMax} onChange={(e) => setQuery({ priceMax: e.target.value.replace(/\D/g, '') })}
-              disabled={!priced}
-            />
-          </div>
+          <Button
+            variant={more ? 'secondary' : 'outline'}
+            size="md"
+            onClick={() => setMore((v) => !v)}
+            leftIcon={<SlidersHorizontal size={15} />}
+            aria-expanded={more}
+          >
+            Filters
+          </Button>
         </div>
-      )}
+
+        {more && (
+          <div className="mt-2.5 border-t border-p1-border pt-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <SelectMenu variant="button" label="Deal" value={query.deal} onChange={(v) => setQuery({ deal: v as DirectoryQuery['deal'] })}
+                options={[{ value: 'any', label: 'Rent or sale' }, { value: 'rent', label: 'To rent' }, { value: 'sale', label: 'For sale' }]} />
+              <SelectMenu variant="button" label="Property type" value={query.type} onChange={(v) => setQuery({ type: v })}
+                options={[{ value: '', label: 'Any type' }, ...TYPES.map((t) => ({ value: t, label: t }))]} />
+              <SelectMenu variant="button" label="District" value={query.district} onChange={(v) => setQuery({ district: v })}
+                options={[{ value: '', label: 'Any district' }, ...Object.entries(DISTRICTS).map(([d, v]) => ({ value: d, label: `${districtCode(Number(d))} · ${v.name}`, hint: v.areas }))]} />
+              <SelectMenu variant="button" label="Bedrooms" value={query.beds} onChange={(v) => setQuery({ beds: v })}
+                options={[{ value: 'any', label: 'Any' }, ...['1', '2', '3', '4+'].map((b) => ({ value: b, label: b }))]} />
+              <SelectMenu variant="button" label="Floor" value={query.floor} onChange={(v) => setQuery({ floor: v as FloorBand })}
+                options={[{ value: 'any', label: 'Any floor' }, ...(Object.keys(FLOOR_BANDS) as Exclude<FloorBand, 'any'>[]).map((k) => ({ value: k, label: FLOOR_BANDS[k].label }))]} />
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <TextInput
+                label="Floor area from" inputMode="numeric" rightSlot="sqft"
+                value={query.sizeMin} onChange={(e) => setQuery({ sizeMin: e.target.value.replace(/\D/g, '') })}
+                placeholder="700"
+              />
+              <TextInput
+                label={query.deal === 'sale' ? 'Price from' : 'Rent from'} inputMode="numeric" leftIcon="S$"
+                value={query.priceMin} onChange={(e) => setQuery({ priceMin: e.target.value.replace(/\D/g, '') })}
+                disabled={!priced}
+                hint={priced ? undefined : 'Choose rent or sale first — the two are not priced in the same units.'}
+              />
+              <TextInput
+                label={query.deal === 'sale' ? 'Price up to' : 'Rent up to'} inputMode="numeric" leftIcon="S$"
+                value={query.priceMax} onChange={(e) => setQuery({ priceMax: e.target.value.replace(/\D/g, '') })}
+                disabled={!priced}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       {chips.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-1.5">
@@ -263,10 +324,39 @@ export default function DirectoryView({
         </div>
       )}
 
-      <p className="mb-3 text-[13.5px] text-p1-text-2" aria-live="polite">
-        {results.length} {results.length === 1 ? 'property' : 'properties'}
-        {centre && <> near <span className="font-medium text-p1-text">{centre.label}</span></>}
-      </p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-[13.5px] text-p1-text-2" aria-live="polite">
+          {results.length} {results.length === 1 ? 'property' : 'properties'}
+          {centre && <> near <span className="font-medium text-p1-text">{centre.label}</span></>}
+          {live.length > 0 && <> · <span className="font-medium text-p1-primary">{live.length} selected</span></>}
+        </p>
+
+        {results.length > 0 && (
+          <div className="flex items-center gap-3 text-[13px]">
+            {live.length === 0 ? (
+              <span className="text-p1-text-3">Tick properties to print only those</span>
+            ) : (
+              <button type="button" onClick={clearPicks} className="p1-in cursor-pointer font-medium text-p1-text-2 underline-offset-2 hover:text-p1-text hover:underline">
+                Clear selection
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={selectAll}
+              disabled={live.length >= Math.min(results.length, MAX_PICKS)}
+              className="p1-in cursor-pointer font-medium text-p1-primary underline-offset-2 hover:underline disabled:cursor-default disabled:text-p1-text-3 disabled:no-underline"
+            >
+              Select all {Math.min(results.length, MAX_PICKS)}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {atCap && (
+        <p className="mb-3 text-[12.5px] text-p1-text-3">
+          {MAX_PICKS} is the most that can be printed from a selection. Narrow the filters to choose from a shorter list.
+        </p>
+      )}
 
       {results.length === 0 ? (
         <EmptyState
@@ -285,21 +375,60 @@ export default function DirectoryView({
               const own = m.ownerId === viewerId;
               const price = priceLabel(l);
               const seen = own ? viewCounts[l.id] ?? 0 : 0;
+              const key = rowKey(m);
+              const ticked = liveSet.has(key);
               return (
-                <li key={`${m.ownerId}/${l.id}`} className={cx('overflow-hidden rounded-xl border bg-p1-surface', own ? 'border-p1-primary/45' : 'border-p1-border')}>
-                  <Link href={`/phase1/homes/${m.ownerId}/${l.id}`} className="block">
-                    <div className="relative aspect-[16/10] bg-p1-subtle">
+                <li
+                  key={key}
+                  className={cx(
+                    'overflow-hidden rounded-xl border bg-p1-surface transition-shadow',
+                    ticked
+                      ? 'border-p1-primary shadow-[0_0_0_2px_var(--p1-ring)]'
+                      : own ? 'border-p1-primary/45' : 'border-p1-border',
+                  )}
+                >
+                  {/* The badges are siblings of the link rather than inside it,
+                      so ticking a property does not open it. */}
+                  <div className="relative aspect-[16/10] bg-p1-subtle">
+                    <Link href={`/phase1/homes/${m.ownerId}/${l.id}`} className="block h-full w-full">
                       <PropertyImage seed={l.id} src={m.thumbs[0] ?? m.photos[0]} alt={l.project} className="h-full w-full object-cover" />
-                      {own && (
-                        <span className="absolute left-2 top-2 rounded-md bg-p1-primary px-2 py-1 text-[11.5px] font-semibold text-p1-primary-on">Yours</span>
+                    </Link>
+
+                    <label
+                      className={cx(
+                        'p1-press absolute left-2 top-2 flex h-7 cursor-pointer items-center gap-1.5 rounded-md pl-1.5 pr-2 text-[11.5px] font-semibold backdrop-blur-sm has-[:focus-visible]:shadow-[0_0_0_2px_var(--p1-primary)] has-[:disabled]:cursor-not-allowed',
+                        ticked ? 'bg-p1-primary text-p1-primary-on' : 'bg-black/55 text-white hover:bg-black/70',
                       )}
-                      {metres !== null && (
-                        <span className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[11.5px] font-medium tabular-nums text-white">
-                          {formatDistance(metres)}
-                        </span>
-                      )}
-                    </div>
-                  </Link>
+                    >
+                      <input
+                        type="checkbox"
+                        checked={ticked}
+                        onChange={() => toggle(key)}
+                        disabled={!ticked && atCap}
+                        className="sr-only"
+                      />
+                      <span
+                        aria-hidden
+                        className={cx(
+                          'flex h-4 w-4 items-center justify-center rounded-[4px] border',
+                          ticked ? 'border-p1-primary-on bg-p1-primary-on/20' : 'border-white/70',
+                        )}
+                      >
+                        {ticked && <Check size={11} strokeWidth={3} />}
+                      </span>
+                      {ticked ? 'Selected' : 'Select'}
+                    </label>
+
+                    {metres !== null && (
+                      <span className="absolute right-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[11.5px] font-medium tabular-nums text-white">
+                        {formatDistance(metres)}
+                      </span>
+                    )}
+                    {own && (
+                      <span className="absolute bottom-2 left-2 rounded-md bg-p1-primary px-2 py-1 text-[11.5px] font-semibold text-p1-primary-on">Yours</span>
+                    )}
+                  </div>
+
                   <div className="p-3.5">
                     <div className="flex items-baseline justify-between gap-2">
                       <Link href={`/phase1/homes/${m.ownerId}/${l.id}`} className="truncate text-[14.5px] font-semibold text-p1-text hover:text-p1-primary">

@@ -147,6 +147,53 @@ export function sortRows(rows: Row[], sort: Sort, haveCentre: boolean): Row[] {
   }
 }
 
+/* ----------------------------------------------------------------- picks */
+
+/**
+ * A listing's identity across the whole directory.
+ *
+ * Listing ids are minted inside one agent's workspace, so two agents can hold
+ * the same one. Anything that names a property across agencies — a selection,
+ * a link, a printed set — has to carry the owner with it.
+ */
+export const rowKey = (m: MarketListing): string => `${m.ownerId}/${m.listing.id}`;
+
+/**
+ * How many hand-picked properties travel in a link.
+ *
+ * The selection rides in the URL so the printed document is exactly the set
+ * that was ticked, and a URL has a practical ceiling. Sixty is far past the
+ * point where a person is ticking boxes rather than filtering, and it keeps
+ * the link well inside what browsers and servers accept.
+ */
+export const MAX_PICKS = 60;
+
+/** The ticked properties, or an empty set meaning "whatever the filters select". */
+export function picksFromParams(p: URLSearchParams): Set<string> {
+  const raw = (p.get('pick') ?? '').split(',').map((k) => k.trim()).filter(Boolean);
+  return new Set(raw.slice(0, MAX_PICKS));
+}
+
+/** The `pick` parameter, or nothing when the selection adds no information. */
+export function picksToParam(picks: Set<string>, total: number): string {
+  /* Nothing ticked, or everything ticked, is the filtered list itself — and a
+     link that says so stays short and keeps working as the list changes. */
+  if (picks.size === 0 || picks.size >= total) return '';
+  return [...picks].slice(0, MAX_PICKS).join(',');
+}
+
+/**
+ * Narrow to what was ticked.
+ *
+ * Applied after `applyDirectory` rather than inside it, because a selection is
+ * not a filter: the filters say what kind of property is wanted, the ticks say
+ * which of those the agent is actually sending on.
+ */
+export function applyPicks(rows: Row[], picks: Set<string>): Row[] {
+  if (picks.size === 0) return rows;
+  return rows.filter((r) => picks.has(rowKey(r.m)));
+}
+
 /* ------------------------------------------------------------------- URL */
 
 /** Only what differs from the default, so a plain directory has a plain link. */

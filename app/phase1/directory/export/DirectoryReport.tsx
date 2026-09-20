@@ -22,7 +22,7 @@
  * one. Same sheets, fonts and print rules as the client report.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Printer } from 'lucide-react';
@@ -34,7 +34,7 @@ import { dealOf, priceLabel, psf } from '../../../../lib/phase1/pricing';
 import { sgDate, sgDateLong } from '../../../../lib/phase1/format';
 import { formatDistance } from '../../../../lib/phase1/nearby';
 import {
-  applyDirectory, describeQuery, queryFromParams, sortLabel,
+  applyDirectory, applyPicks, describeQuery, picksFromParams, queryFromParams, sortLabel,
 } from '../../../../lib/phase1/directory-filter';
 import { FlowDocument, type Block, type FlowLayout } from '../../listings/export/flow';
 import {
@@ -129,16 +129,38 @@ export default function DirectoryReport({
     () => queryFromParams(new URLSearchParams(params.toString())),
     [params],
   );
+  const picks = useMemo(() => picksFromParams(new URLSearchParams(params.toString())), [params]);
 
   /* `mine` is resolved on the server into the set handed here, so the viewer
-     is not needed again — every row in `items` is already allowed. */
-  const rows = useMemo(() => applyDirectory(items, query, centre, null), [items, query, centre]);
+     is not needed again — every row in `items` is already allowed. The ticks
+     then narrow that to what the agent actually chose to send. */
+  const rows = useMemo(
+    () => applyPicks(applyDirectory(items, query, centre, null), picks),
+    [items, query, centre, picks],
+  );
+  const handPicked = picks.size > 0;
 
   const [layout, setLayout] = useState<FlowLayout | null>(null);
-  const onLayout = (l: FlowLayout) => setLayout(l);
+
+  /**
+   * Keep the same layout object when nothing about the layout changed.
+   *
+   * `FlowDocument` reports after every commit, because a late photograph or a
+   * font swap changes the pagination without changing the blocks. Storing a
+   * fresh object each time would re-render, which would report again: the page
+   * never settles and React eventually tears the document down. Comparing the
+   * two fields it actually has ends that.
+   */
+  const onLayout = useCallback((next: FlowLayout) => {
+    setLayout((prev) => (
+      prev && prev.pages === next.pages && prev.overflow.join() === next.overflow.join() ? prev : next
+    ));
+  }, []);
 
   const preparedOn = sgDateLong(new Date().toISOString().slice(0, 10));
-  const chips = describeQuery(query, centre);
+  /* Memoised because `blocks` depends on it, and a new array every render
+     would rebuild every block and re-measure the whole document. */
+  const chips = useMemo(() => describeQuery(query, centre), [query, centre]);
   const frame = {
     brandLine: 'Property directory',
     preparedOn,
@@ -156,11 +178,19 @@ export default function DirectoryReport({
         <div>
           <Title
             eyebrow="Property directory"
-            title={centre ? `Properties near ${centre.label}` : 'Live properties on V-RENT'}
+            title={handPicked
+              ? 'Selected properties'
+              : (centre ? `Properties near ${centre.label}` : 'Live properties on V-RENT')}
             sub={`${rows.length} ${rows.length === 1 ? 'property' : 'properties'} · ${sortLabel(query.sort, centre !== null)} · prepared ${preparedOn} by ${preparedBy}`}
           />
 
           <Section label="What this list is" className="mt-6">
+            {handPicked && (
+              <Body className="mb-2">
+                {rows.length === 1 ? 'One property, chosen' : `${rows.length} properties, chosen individually`} from the
+                directory{centre ? ` around ${centre.label}` : ''}. The filters below describe the list they were chosen from.
+              </Body>
+            )}
             {chips.length ? (
               <div className="flex flex-wrap gap-1.5">
                 {chips.map((c) => (
@@ -231,7 +261,7 @@ export default function DirectoryReport({
     });
 
     return out;
-  }, [rows, chips, centre, query.sort, preparedOn, preparedBy]);
+  }, [rows, chips, centre, handPicked, query.sort, preparedOn, preparedBy]);
 
   return (
     <div className="min-h-screen bg-p1-bg print:bg-white">

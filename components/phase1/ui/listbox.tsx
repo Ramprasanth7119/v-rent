@@ -108,7 +108,7 @@ export function AnchoredLayer({
 export interface SelectOption { value: string; label: string; hint?: string }
 
 export function SelectMenu({
-  label, value, options, onChange, variant = 'field', className = '', placeholder, id: idProp, hideLabel = false,
+  label, value, options, onChange, variant = 'field', className = '', placeholder, id: idProp, hideLabel = false, size = 'md',
 }: {
   label: string;
   value: string;
@@ -120,6 +120,8 @@ export function SelectMenu({
   placeholder?: string;
   id?: string;
   hideLabel?: boolean;
+  /** `button` only. `sm` matches a small button and a small search box, for a toolbar. */
+  size?: 'sm' | 'md';
 }) {
   const auto = useId();
   const id = idProp ?? auto;
@@ -201,12 +203,12 @@ export function SelectMenu({
             ? cx('h-full rounded-lg px-3 py-2 hover:bg-p1-subtle focus-visible:bg-p1-subtle focus-visible:shadow-[inset_0_0_0_2px_var(--p1-primary)]', open && 'bg-p1-subtle')
             : variant === 'ghost'
             ? cx('h-9 w-auto rounded-lg px-2.5 text-p1-text-2 hover:bg-p1-subtle hover:text-p1-text focus-visible:shadow-[0_0_0_2px_var(--p1-primary)]', open && 'bg-p1-subtle text-p1-text')
-            : cx('h-11 rounded-lg border bg-p1-surface px-3.5 hover:border-p1-text-3/60 focus-visible:border-p1-primary focus-visible:shadow-[0_0_0_3px_var(--p1-ring)]', open ? 'border-p1-primary shadow-[0_0_0_3px_var(--p1-ring)]' : 'border-p1-border-strong'),
+            : cx(size === 'sm' ? 'h-10 px-3 text-[13.5px]' : 'h-11 px-3.5 text-[14px]', 'rounded-lg border bg-p1-surface hover:border-p1-text-3/60 focus-visible:border-p1-primary focus-visible:shadow-[0_0_0_3px_var(--p1-ring)]', open ? 'border-p1-primary shadow-[0_0_0_3px_var(--p1-ring)]' : 'border-p1-border-strong'),
         )}
       >
         <span className="min-w-0 flex-1">
           {variant === 'field' && <span className="block text-[11.5px] font-medium text-p1-text-3">{label}</span>}
-          <span className={cx('block truncate', variant === 'button' ? 'text-[14px]' : 'text-[14px] font-medium', current ? 'text-p1-text' : 'text-p1-text-3')}>
+          <span className={cx('block truncate', variant === 'button' ? 'text-inherit' : 'text-[14px] font-medium', current ? 'text-p1-text' : 'text-p1-text-3')}>
             {current?.label ?? placeholder ?? 'Select'}
           </span>
         </span>
