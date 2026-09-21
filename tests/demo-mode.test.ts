@@ -16,7 +16,7 @@ import {
   DEMO_DATA_COOKIE, demoDataProvider, demoWorkspace, isDemoId, originalDataProvider, providerFor,
 } from '../lib/phase1/report-data';
 import { SEED_LISTINGS } from '../lib/phase1/data';
-import { DEFAULT_NOTIFICATIONS, sanitisePatch } from '../lib/phase1/workspace';
+import { DEFAULT_NOTIFICATIONS, TODAY, sanitisePatch } from '../lib/phase1/workspace';
 import { isMeasured, listingStats, totals, viewsSeries } from '../lib/phase1/performance';
 
 const NOW = new Date('2026-09-16T10:00:00+08:00');
@@ -80,15 +80,31 @@ describe('the demo account', () => {
     for (const e of w.enquiries) expect(e.contact).toContain('•');
   });
 
+  /* Built against TODAY rather than the pinned NOW, because the traffic is:
+     `viewsSeries` counts back from the day the agent is looking, so a workspace
+     dated from any other day puts the publication dates and the cut-off on
+     different calendars. They agreed when this was written and drifted a day
+     apart every day after — which is why this failed, and why in a few months
+     it would have stopped asserting anything at all instead. */
   it('has traffic figures, and none before a listing went live', () => {
-    const live = w.listings.filter((l) => l.status === 'published');
+    const today = demoWorkspace(identity, TODAY);
+    const live = today.listings.filter((l) => l.status === 'published');
     expect(totals(live).measured).toBe(true);
     expect(totals(live).views7d).toBeGreaterThan(0);
+    let checked = 0;
     for (const l of live) {
-      const since = Math.floor((NOW.getTime() - new Date(l.publishedAt as string).getTime()) / 86_400_000);
-      const series = viewsSeries(l, 365);
-      if (since < 300) expect(series.slice(0, 365 - since - 2).every((v) => v === 0)).toBe(true);
+      const since = Math.floor((TODAY.getTime() - new Date(l.publishedAt as string).getTime()) / 86_400_000);
+      /* The part of the year that ran before this listing went live, less a
+         day either side of the boundary. A listing published longer ago than
+         the window has none, and there is nothing to assert about it. */
+      const before = 365 - since - 2;
+      if (before <= 0) continue;
+      expect(viewsSeries(l, 365).slice(0, before).every((v) => v === 0)).toBe(true);
+      checked += 1;
     }
+    /* `every` on an empty slice is true, so a window that had drifted past
+       every publication date would pass this test while checking nothing. */
+    expect(checked).toBeGreaterThan(0);
   });
 });
 
