@@ -242,7 +242,9 @@ export function ChoiceCard({
 export function HelpTip({ text }: { text: string }) {
   return (
     <span className="group relative inline-flex">
-      <button type="button" aria-label={`Help: ${text}`} className="flex h-5 w-5 items-center justify-center rounded-full text-p1-text-3 hover:text-p1-text">
+      {/* A 28px target around a 14px mark: the negative margin keeps it taking
+          the same 20px of the line it sits on. */}
+      <button type="button" aria-label={`Help: ${text}`} className="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-p1-text-3 hover:text-p1-text">
         <HelpCircle size={14} aria-hidden />
       </button>
       <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 w-60 -translate-x-1/2 rounded-lg bg-p1-text px-3 py-2 text-[12.5px] leading-5 text-p1-bg opacity-0 shadow-p1-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">

@@ -29,13 +29,14 @@ import { uploadPhotos } from '../../../../components/phase1/listing/upload';
 import { PropertyMap } from '../../../../components/phase1/listing/PropertyMap';
 import { LocationPicker } from '../../../../components/phase1/listing/LocationPicker';
 import { NearbyPlaces } from '../../../../components/phase1/listing/NearbyPlaces';
-import { FloorPlanUpload, type FloorPlanNote } from '../../../../components/phase1/listing/FloorPlanUpload';
+import { FloorPlanUpload } from '../../../../components/phase1/listing/FloorPlanUpload';
+import type { FloorPlanNote } from '../../../../lib/phase1/floorplan';
 import { VideoUpload } from '../../../../components/phase1/listing/VideoUpload';
 import { MediaSection } from '../../../../components/phase1/listing/MediaSection';
 import type { VideoNote } from '../../../../lib/phase1/video';
 import { PropertyTypePicker } from '../../../../components/phase1/listing/PropertyTypePicker';
 import { ChipPicker } from '../../../../components/phase1/listing/ChipPicker';
-import { EligibilityPicker } from '../../../../components/phase1/listing/EligibilityPicker';
+import { EligibilityPicker, NoQuotaNote } from '../../../../components/phase1/listing/EligibilityPicker';
 import { type EipEligibility, hasEligibility } from '../../../../lib/phase1/eip';
 import { broadTypeFor, categoryFromBroad, type PropertyCategory } from '../../../../lib/phase1/property-types';
 import { PropertyImage } from '../../../../components/phase1/PropertyImage';
@@ -53,6 +54,17 @@ import {
   Check, X, MapPin, Search, Lock, ChevronLeft, ArrowRight, ShieldCheck, Sparkles, SearchX, Send, Save, Map as MapIcon,
   Type as TypeIcon, Wand2, Pencil, Undo2, CheckCircle2, CircleAlert, ImagePlus, Building2, Sofa,
 } from 'lucide-react';
+
+/**
+ * Said in place of the floor plan and video buttons while Demo Data is on.
+ *
+ * A demo listing is never written to the server, so there is no record for a
+ * file to attach itself to — and an upload that appeared to work and then
+ * vanished with the mode would be worse than a button that says why it is not
+ * there.
+ */
+const DEMO_MEDIA_NOTE =
+  'Demo listings are not saved, so there is nothing here for a file to attach to. Turn Demo Data off in the header to upload one.';
 
 const STEPS = [
   { key: 'address', label: 'Address', ask: 'Where is the property?', hint: 'Search the address or postal code, or point at it on the map.' },
@@ -159,8 +171,11 @@ function ListingWizard() {
   const [desc, setDesc] = useState(() => editing?.description ?? '');
   const [amenities, setAmenities] = useState<string[]>(() => editing?.amenities ?? []);
   const [fittings, setFittings] = useState<string[]>(() => editing?.fittings ?? []);
-  const [floorPlan, setFloorPlan] = useState<FloorPlanNote | null>(() => editing?.floorPlan ?? null);
+  const [floorPlans, setFloorPlans] = useState<FloorPlanNote[]>(() => editing?.floorPlans ?? []);
   const [video, setVideo] = useState<VideoNote | null>(() => editing?.video ?? null);
+  /* The listing the uploads attach to: the one being edited, or the draft the
+     first floor plan or video creates. See `ensureListing`. */
+  const [draftId, setDraftId] = useState<string | null>(() => editing?.id ?? null);
   const [shots, setShots] = useState<Shot[]>(() => (editing?.photos ?? []).map((id) => ({ kind: 'saved', id }) as Shot));
   const [uploading, setUploading] = useState(false);
   const [photoNotes, setPhotoNotes] = useState<PhotoNote[]>([]);
@@ -351,6 +366,87 @@ function ListingWizard() {
 
   /* ---------------------------------------------------------- photos */
 
+  /**
+   * The listing a floor plan or a video attaches to, creating it if there
+   * isn't one yet.
+   *
+   * Both of those files are stored against a listing id, and in the new-listing
+   * wizard no listing exists until something saves one. That used to be the
+   * photograph upload, which is why both sections sat behind "save the listing
+   * first" and came alive only once photographs had gone up — an agent holding
+   * the PDF and not yet the photographs was stuck for no reason at all.
+   *
+   * So the first of those uploads creates the draft. It appears in My listings
+   * as a draft, which is what it is, and saving or publishing at the end
+   * updates it rather than adding a second one. Photographs are still required
+   * to publish — that check is on the step, not on the upload.
+   *
+   * Called after the file has been chosen rather than when the button is
+   * pressed: no empty draft is created by a click that goes nowhere, and the
+   * seconds spent in the file picker are the seconds the workspace needs to
+   * reach the server before the upload route looks for the listing in it.
+   */
+  const ensureListing = async (): Promise<string | null> => {
+    if (draftId) return draftId;
+    if (demo) {
+      push({
+        tone: 'info',
+        title: 'Not while Demo Data is on',
+        body: 'Demo listings are not saved, so there is nothing for a file to attach to. Turn Demo Data off in the header.',
+      });
+      return null;
+    }
+    if (!addr) {
+      push({ tone: 'warn', title: 'Set the address first', body: 'A file attaches to a listing, and a listing starts with where it is.' });
+      return null;
+    }
+
+    const listing = build('draft');
+    addListing(listing);
+    setDraftId(listing.id);
+
+    /* The workspace saves on a short debounce, and the upload route reads the
+       listing out of the saved workspace — so wait until the server can see it
+       rather than racing the save and reporting a listing that does exist. */
+    for (let i = 0; i < 12; i += 1) {
+      await new Promise((r) => setTimeout(r, 300));
+      try {
+        const res = await fetch('/api/phase1/workspace', { cache: 'no-store' });
+        if (!res.ok) continue;
+        const data = await res.json();
+        if ((data.workspace?.listings ?? []).some((l: { id: string }) => l.id === listing.id)) {
+          push({ tone: 'info', title: 'Draft created', body: 'The file attaches to it. Nothing has been published.' });
+          return listing.id;
+        }
+      } catch {
+        /* keep waiting */
+      }
+    }
+
+    push({ tone: 'error', title: 'The file was not attached', body: 'The draft did not save. Check your connection and try again.' });
+    setDraftId(null);
+    return null;
+  };
+
+  /**
+   * Keep the listing in this browser in step with what an upload route wrote.
+   *
+   * The floor plan and video routes record what they stored on the listing in
+   * the saved workspace. This browser holds its own copy of that listing and
+   * saves it back on the next change — so without this the next edit would
+   * write a listing with no floor plan over the one that has them, and the
+   * files would still be in the store with nothing pointing at them.
+   */
+  const onFloorPlans = (next: FloorPlanNote[]) => {
+    setFloorPlans(next);
+    if (draftId) updateListing(draftId, { floorPlans: next.length ? next : undefined, hasFloorPlan: next.length > 0 || undefined });
+  };
+
+  const onVideo = (next: VideoNote | null) => {
+    setVideo(next);
+    if (draftId) updateListing(draftId, { video: next ?? undefined });
+  };
+
   const onPhotos = async (nextShots: Shot[], added: File[]) => {
     setShots(nextShots);
     // The demo account is never written to the server, photographs included; they stay as previews.
@@ -453,9 +549,13 @@ function ListingWizard() {
     if (!addr || committing) return;
     setCommitting(true);
     try {
-      const listing = build('draft');
-      addListing(listing);
-      await commitPhotos(listing.id);
+      /* A floor plan or a video may already have created this draft; saving
+         updates it rather than leaving the agent with two of the same flat. */
+      const fresh = draftId ? null : build('draft');
+      const id = draftId ?? fresh!.id;
+      if (fresh) addListing(fresh);
+      else updateListing(id, fields());
+      await commitPhotos(id);
       clearLocalDraft();
       push({ tone: 'success', title: 'Draft saved', body: 'Finish and publish it from My listings.' });
       router.push('/phase1/listings');
@@ -469,9 +569,20 @@ function ListingWizard() {
     if (!addr || committing) return;
     setCommitting(true);
     try {
-      const listing = build(canPublish ? 'published' : 'draft');
-      addListing(listing);
-      await commitPhotos(listing.id);
+      const status = canPublish ? 'published' as const : 'draft' as const;
+      const fresh = draftId ? null : build(status);
+      const id = draftId ?? fresh!.id;
+      if (fresh) {
+        addListing(fresh);
+      } else {
+        updateListing(id, {
+          ...fields(),
+          status,
+          publishedAt: status === 'published' ? TODAY_ISO : undefined,
+          expiresAt: status === 'published' ? '2026-11-26' : undefined,
+        });
+      }
+      await commitPhotos(id);
       clearLocalDraft();
       setConfirmPublish(false);
       push(canPublish
@@ -821,11 +932,6 @@ function ListingWizard() {
                     hint="Appliances and fittings that come with the unit. Shown beside the furnishing you set on the next step."
                   />
 
-                  {/* HDB blocks carry an ethnic quota, so an HDB flat has a
-                      real answer to "who may take this" and nothing else does. */}
-                  {category === 'hdb' && (
-                    <EligibilityPicker value={eligibility} onChange={setEligibility} />
-                  )}
                 </div>
               )}
 
@@ -874,7 +980,7 @@ function ListingWizard() {
                         publishing: wording that excludes or prefers people by race, nationality or religion;
                         suggestive or flirtatious wording; and your own phone number or email — tenants enquire
                         through V-RENT so the lead is recorded.
-                        {category === 'hdb' && ' If the block has an ethnic quota, set who the flat is open to on the previous step rather than writing it here.'}
+                        {category === 'hdb' && ' If the block has an ethnic quota, set who the flat is open to below rather than writing it here.'}
                       </>
                     }
                   />
@@ -893,6 +999,16 @@ function ListingWizard() {
                       <p className="mt-2 text-[12.5px]">{POLICY_NOTE}</p>
                     </Callout>
                   )}
+
+                  {/* Who may take the unit belongs with the other terms, beside
+                      the price and the lease, rather than among the bedrooms and
+                      the floor area. An HDB block carries a real ethnic quota
+                      and so has a real answer; everywhere else the honest answer
+                      is that there is no quota, and saying so is better than an
+                      empty space where an agent expects a question. */}
+                  {category === 'hdb'
+                    ? <EligibilityPicker value={eligibility} onChange={setEligibility} />
+                    : <NoQuotaNote />}
                 </div>
               )}
 
@@ -912,13 +1028,21 @@ function ListingWizard() {
                   </div>
 
                   <FloorPlanUpload
-                    listingId={editing?.id ?? null}
+                    listingId={draftId}
+                    ensureListing={ensureListing}
                     ownerId={user?.id ?? ''}
-                    plan={floorPlan}
-                    onChange={setFloorPlan}
+                    plans={floorPlans}
+                    onChange={onFloorPlans}
+                    unavailable={demo ? DEMO_MEDIA_NOTE : undefined}
                   />
 
-                  <VideoUpload listingId={editing?.id ?? null} video={video} onChange={setVideo} />
+                  <VideoUpload
+                    listingId={draftId}
+                    ensureListing={ensureListing}
+                    video={video}
+                    onChange={onVideo}
+                    unavailable={demo ? DEMO_MEDIA_NOTE : undefined}
+                  />
                 </div>
               )}
 
@@ -936,7 +1060,7 @@ function ListingWizard() {
                          sees that they did not. */
                       { k: 'Media', v: [
                         `${shots.length} ${shots.length === 1 ? 'photo' : 'photos'}`,
-                        floorPlan ? 'floor plan' : 'no floor plan',
+                        floorPlans.length === 0 ? 'no floor plan' : floorPlans.length === 1 ? 'floor plan' : `${floorPlans.length} floor plans`,
                         video ? 'video tour' : 'no video',
                       ].join(' · '), to: 3 },
                       { k: 'Facilities', v: amenities.length ? amenities.join(', ') : 'None listed', to: 1 },

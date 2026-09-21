@@ -9,11 +9,14 @@
  * not anything resembling the exclusion they might otherwise have typed into
  * the description.
  *
- * Shown only for HDB. Everywhere else there is no quota, and a field like this
- * would be a tool for doing the thing the product refuses.
+ * The picker is shown only for HDB. Everywhere else there is no quota, and a
+ * field like this would be a tool for doing the thing the product refuses — so
+ * those listings get `NoQuotaNote` instead, which answers the same question
+ * with the fact that there is nothing to answer.
  */
 
 import { Check, Info, Users } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { cx } from '../kit';
 import {
   CITIZENSHIP_GROUPS, EIP_EXPLAINER, ETHNIC_GROUPS, eligibilitySentence,
@@ -46,6 +49,54 @@ function Box({ on, label, onClick }: { on: boolean; label: string; onClick: () =
   );
 }
 
+/**
+ * The frame both answers share.
+ *
+ * An agent on the terms step is asking one question — who may take this unit —
+ * and should get one section back whichever kind of property it is, rather
+ * than a control on some listings and a gap on the rest.
+ */
+function Frame({ badge, children }: { badge: string; children: ReactNode }) {
+  return (
+    <section className="rounded-xl border border-p1-border bg-p1-surface">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-p1-border px-4 py-3">
+        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-p1-text">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden><Users size={15} /></span>
+          Who this home is open to
+        </h3>
+        <span className="rounded-full bg-p1-subtle px-2 py-0.5 text-[11px] font-medium text-p1-text-3">{badge}</span>
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * The answer for everything that is not an HDB flat.
+ *
+ * Shown rather than left out. An agent who sees nothing here cannot tell
+ * whether the product forgot to ask or whether there is nothing to ask, and the
+ * difference is the difference between filling the gap in the description —
+ * where it would be refused — and understanding that there is no gap.
+ */
+export function NoQuotaNote() {
+  return (
+    <Frame badge="No quota">
+      <p className="flex items-start gap-1.5 text-[13px] leading-5 text-p1-text-2">
+        <Info size={13} className="mt-1 shrink-0 text-p1-text-3" aria-hidden />
+        <span>
+          Only HDB flats carry an ethnic quota. This one has none, so it is open to any household that meets the
+          terms you set above — and there is nothing to state on the advertisement.
+          <span className="mt-1 block text-p1-text-3">
+            Which also means a preference about race, nationality or religion has no place in the description. It
+            will stop the listing publishing.
+          </span>
+        </span>
+      </p>
+    </Frame>
+  );
+}
+
 export function EligibilityPicker({
   value,
   onChange,
@@ -66,16 +117,7 @@ export function EligibilityPicker({
   const preview = eligibilitySentence(value);
 
   return (
-    <section className="rounded-xl border border-p1-border bg-p1-surface">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-p1-border px-4 py-3">
-        <h3 className="flex items-center gap-2 text-[14px] font-semibold text-p1-text">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden><Users size={15} /></span>
-          Who this flat is open to
-        </h3>
-        <span className="rounded-full bg-p1-subtle px-2 py-0.5 text-[11px] font-medium text-p1-text-3">HDB only</span>
-      </div>
-
-      <div className="p-4">
+    <Frame badge="HDB quota">
       <p className="flex items-start gap-1.5 text-[12.5px] leading-5 text-p1-text-3">
         <Info size={13} className="mt-0.5 shrink-0" aria-hidden />
         {EIP_EXPLAINER}
@@ -106,7 +148,6 @@ export function EligibilityPicker({
           {preview ?? <span className="text-p1-text-3">Nothing yet — tick the groups the block still has room for.</span>}
         </p>
       </div>
-      </div>
-    </section>
+    </Frame>
   );
 }

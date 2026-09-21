@@ -22,11 +22,20 @@
  */
 
 /**
- * 100 MB, which is what Cloudinary accepts from a browser on its ordinary
- * plans. A one-minute walkthrough from a phone is comfortably inside it; a
- * fifteen-minute unedited recording is not, and should not be advertised.
+ * 25 MB.
+ *
+ * Cloudinary would take four times that from a browser, but the limit that
+ * matters is the tenant's: a listing video is watched on a phone, often on
+ * mobile data, and the ones worth watching are a minute of steady walking
+ * through the unit. A minute at 1080p from a phone lands around 20 MB. Beyond
+ * that the file is either a long unedited recording or an unnecessarily large
+ * export of a short one, and both are better trimmed before they are uploaded
+ * than after a tenant has waited for them.
  */
-export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+
+/** `25 MB`, for the places that tell an agent the limit before they pick a file. */
+export const MAX_VIDEO_MB = MAX_VIDEO_BYTES / (1024 * 1024);
 
 /**
  * What a phone produces and what a browser can play. MOV is on the list
@@ -70,7 +79,10 @@ export function videoProblem(file: { type: string; size: number; name?: string }
     return 'A video tour has to be an MP4, MOV, WebM or M4V. That file is something else.';
   }
   if (file.size > MAX_VIDEO_BYTES) {
-    return `That video is ${(file.size / MB).toFixed(0)} MB. The limit is ${MAX_VIDEO_BYTES / MB} MB — trim it, or export it at a lower resolution.`;
+    /* A decimal place, because rounding to whole megabytes made a file barely
+       over the limit report the limit back: "That video is 25 MB. The limit is
+       25 MB." */
+    return `That video is ${(file.size / MB).toFixed(1)} MB. The limit is ${MAX_VIDEO_BYTES / MB} MB — trim it, or export it at a lower resolution.`;
   }
   return null;
 }

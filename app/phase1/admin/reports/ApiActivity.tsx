@@ -380,7 +380,7 @@ export default function ApiActivity({ rows, now }: { rows: RequestRow[]; now: st
               ))}
             </ul>
             <div className="border-t border-p1-border px-4 py-3 sm:px-5">
-              <Pagination page={pg.page} pages={Math.min(pg.pages, 999)} onChange={pg.setPage} from={pg.from} to={pg.to} total={pg.total} noun="calls" />
+              <Pagination page={pg.page} pages={pg.pages} onChange={pg.setPage} from={pg.from} to={pg.to} total={pg.total} noun="calls" />
             </div>
           </>
         )}

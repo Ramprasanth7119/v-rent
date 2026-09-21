@@ -115,8 +115,12 @@ export function Panel({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {action}
+          {/* The card link is padded to a 28px-tall target and pulled back by
+              the same amount, so it still sits on the title's baseline. At
+              12.5px the text box alone was 19px — under a thumb on a phone that
+              is a miss about as often as a hit. */}
           {href && (
-            <Link href={href} className="inline-flex items-center gap-0.5 rounded-md text-[12.5px] font-medium text-p1-primary underline-offset-4 hover:underline">
+            <Link href={href} className="-mx-1.5 inline-flex min-h-7 items-center gap-0.5 rounded-md px-1.5 text-[12.5px] font-medium text-p1-primary underline-offset-4 hover:underline">
               {linkLabel}<ChevronRight size={14} aria-hidden />
             </Link>
           )}

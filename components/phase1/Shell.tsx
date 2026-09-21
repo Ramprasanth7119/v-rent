@@ -61,6 +61,7 @@ const TITLES: Record<string, string> = {
   neighbourhood: 'Neighbourhood', agent: 'Public page', qr: 'QR code',
   learn: 'Guides', sessions: 'Sessions', support: 'Support', print: 'Printable report',
   export: 'Export', shortlist: 'Shortlist', enquiries: 'Enquiries',
+  directory: 'Property directory', forgot: 'Reset password', reset: 'New password',
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -293,6 +294,7 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
   const [collapsed, setCollapsed] = useState(false);
   const wide = useMedia('(min-width: 1280px)');
   const close = () => setDrawer(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- a remembered preference, read once after mount
@@ -307,13 +309,43 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- close overlays on navigation
   useEffect(() => { setDrawer(false); setPop(null); }, [pathname]);
+  /**
+   * The navigation drawer, while it is open.
+   *
+   * It calls itself a modal dialog, so it has to behave like one: the page
+   * behind it does not scroll, Escape closes it, focus starts inside it and Tab
+   * stays inside it, and closing hands focus back to the button that opened it.
+   * Without the last three a keyboard or screen-reader user opens the drawer
+   * and then tabs straight through it into the page underneath, which is still
+   * there and still covered.
+   */
   useEffect(() => {
     if (!drawer) return;
+    const opener = document.activeElement as HTMLElement | null;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false); };
+    const focusable = () => Array.from(
+      drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [],
+    ).filter((el) => el.offsetParent !== null);
+    focusable()[0]?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setDrawer(false); return; }
+      if (e.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      const inside = !!active && !!drawerRef.current?.contains(active);
+      if (e.shiftKey && (active === first || !inside)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (active === last || !inside)) { e.preventDefault(); first.focus(); }
+    };
     document.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = prev; document.removeEventListener('keydown', onKey); };
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+      opener?.focus?.();
+    };
   }, [drawer]);
 
   // Keyboard: "/" or Ctrl+K focuses search; "n" opens the create wizard from the agent workspace.
@@ -498,7 +530,9 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
     router.push(isAdmin ? `/phase1/admin/agents${term ? `?q=${encodeURIComponent(term)}` : ''}` : `/phase1/listings${term ? `?q=${encodeURIComponent(term)}` : ''}`);
   };
 
-  const iconBtn = 'relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-p1-text-2 transition-colors hover:bg-p1-subtle hover:text-p1-text';
+  // shrink-0: these are 36px square targets, not slack for the header row to
+  // take up when it runs short of width.
+  const iconBtn = 'relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-p1-text-2 transition-colors hover:bg-p1-subtle hover:text-p1-text';
 
   return (
     <div className="p1 min-h-screen font-p1sans">
@@ -507,7 +541,7 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
       {drawer && (
         <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
           <div className="p1-overlay absolute inset-0 bg-[#0B1220]/50" onClick={close} aria-hidden />
-          <div className="p1-drawer-left absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-p1-lg">{sidebar(true)}</div>
+          <div ref={drawerRef} className="p1-drawer-left absolute inset-y-0 left-0 w-[280px] max-w-[85vw] shadow-p1-lg">{sidebar(true)}</div>
         </div>
       )}
 
@@ -520,7 +554,7 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
           <header data-print-hide className="sticky top-0 z-40 border-b border-p1-border bg-p1-bg/85 backdrop-blur supports-[backdrop-filter]:bg-p1-bg/75">
             <div className="flex h-14 items-center gap-2 px-3 sm:px-5 lg:px-8">
               <button type="button" onClick={() => setDrawer(true)} className={cx(iconBtn, 'lg:hidden')} aria-label="Open menu"><MenuIcon size={20} /></button>
-              <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="flex items-center gap-2 lg:hidden" aria-label="V-RENT home">
+              <Link href={isAdmin ? '/phase1/admin' : '/phase1/dashboard'} className="-m-1 flex shrink-0 items-center gap-2 p-1 lg:hidden" aria-label="V-RENT home">
                 <LogoMark className="h-7 w-7 text-[13px]" />
               </Link>
 
@@ -677,7 +711,10 @@ function Phase1Frame({ children, backend }: { children: React.ReactNode; backend
             const Icon = item.icon;
             return (
               <li key={item.href}>
-                <Link href={item.href} aria-current={active ? 'page' : undefined} className={cx('relative flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors', active ? 'text-p1-primary' : 'text-p1-text-3')}>
+                {/* The create tab shows its icon alone, so it carries the label
+                    that the other tabs print underneath themselves. Without it a
+                    screen reader reaches this tab and announces "link". */}
+                <Link href={item.href} aria-label={isCreate ? item.label : undefined} aria-current={active ? 'page' : undefined} className={cx('relative flex h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors', active ? 'text-p1-primary' : 'text-p1-text-3')}>
                   {isCreate ? (
                     <span className="flex h-9 w-12 items-center justify-center rounded-xl bg-p1-primary text-p1-primary-on shadow-p1-sm"><Icon size={20} aria-hidden /></span>
                   ) : (

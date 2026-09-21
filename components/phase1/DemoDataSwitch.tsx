@@ -69,7 +69,14 @@ export function DemoDataSwitch({
           <span className={cx('absolute inset-0 rounded-full border transition-opacity duration-200', on ? 'opacity-0' : 'border-p1-border-strong opacity-100')} />
           <span className={cx('absolute inset-0 flex transition-opacity duration-200', on ? 'opacity-100' : 'opacity-0')}><DemoDot /></span>
         </span>
-        <span className="whitespace-nowrap">Demo Data</span>
+        {/* The word is dropped on the narrowest phones. The header row is the
+            menu button, the mark and this cluster, and spelling the switch out
+            needs 370px of it — at 320 that pushed the avatar 34px past the
+            right edge and the whole page scrolled sideways to reach it. 375px
+            is the narrowest phone that still fits the word, so that is where it
+            comes back. Below it the dot and the track still say which way the
+            switch is set, and aria-label still names the control. */}
+        <span className="hidden whitespace-nowrap min-[375px]:inline">Demo Data</span>
         <span
           id="p1-demo-data-state"
           className={cx('hidden min-w-[1.75rem] text-left text-[11.5px] font-semibold tracking-wide sm:inline', on ? 'text-p1-demo' : 'text-p1-text-3')}

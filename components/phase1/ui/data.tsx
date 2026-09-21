@@ -62,6 +62,30 @@ export function usePagination<T>(rows: T[], pageSize: number) {
   return { page: safe, pages, setPage, slice, total: rows.length, from: rows.length ? (safe - 1) * pageSize + 1 : 0, to: Math.min(safe * pageSize, rows.length) };
 }
 
+/**
+ * Which page numbers to print.
+ *
+ * Every page used to get its own button. Eight pages of listings is a row of
+ * eight; four hundred pages of API calls is a row of four hundred, which pushes
+ * the page wider than the window and buries Next off the right-hand edge. One
+ * call site had already capped itself at 999 buttons to keep that from being
+ * worse, which is the same bug with a ceiling on it.
+ *
+ * So: the ends, the current page and its neighbours, and a gap where the run
+ * was. Seven or fewer still prints them all, because a window would only hide
+ * what already fits.
+ */
+function pageWindow(page: number, pages: number): (number | 'gap')[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const near = [page - 1, page, page + 1].filter((n) => n > 1 && n < pages);
+  const out: (number | 'gap')[] = [1];
+  if (near[0] > 2) out.push('gap');
+  out.push(...near);
+  if (near[near.length - 1] < pages - 1) out.push('gap');
+  out.push(pages);
+  return out;
+}
+
 export function Pagination({ page, pages, onChange, from, to, total, className = '', noun = 'results' }: { page: number; pages: number; onChange: (p: number) => void; from: number; to: number; total: number; className?: string; noun?: string }) {
   if (total === 0) return null;
   return (
@@ -71,12 +95,14 @@ export function Pagination({ page, pages, onChange, from, to, total, className =
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" onClick={() => onChange(page - 1)} disabled={page <= 1} leftIcon={<ChevronLeft size={15} />} aria-label="Previous page">Previous</Button>
           <div className="hidden items-center gap-0.5 sm:flex">
-            {Array.from({ length: pages }).map((_, i) => (
-              <button key={i} type="button" onClick={() => onChange(i + 1)} aria-current={page === i + 1 ? 'page' : undefined}
-                className={cx('h-9 min-w-9 rounded-lg px-2 text-[13px] font-medium tabular-nums cursor-pointer', page === i + 1 ? 'bg-p1-primary text-p1-primary-on dark:bg-p1-info' : 'text-p1-text-2 hover:bg-p1-subtle')}>
-                {i + 1}
+            {pageWindow(page, pages).map((n, i) => (n === 'gap' ? (
+              <span key={`gap${i}`} className="px-1 text-[13px] text-p1-text-3" aria-hidden>&hellip;</span>
+            ) : (
+              <button key={n} type="button" onClick={() => onChange(n)} aria-current={page === n ? 'page' : undefined} aria-label={`Page ${n}`}
+                className={cx('h-9 min-w-9 rounded-lg px-2 text-[13px] font-medium tabular-nums cursor-pointer', page === n ? 'bg-p1-primary text-p1-primary-on dark:bg-p1-info' : 'text-p1-text-2 hover:bg-p1-subtle')}>
+                {n}
               </button>
-            ))}
+            )))}
           </div>
           <span className="px-2 text-[13px] tabular-nums text-p1-text-3 sm:hidden">{page} / {pages}</span>
           <Button variant="outline" size="sm" onClick={() => onChange(page + 1)} disabled={page >= pages} rightIcon={<ChevronRight size={15} />} aria-label="Next page">Next</Button>

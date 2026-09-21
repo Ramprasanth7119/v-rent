@@ -21,6 +21,8 @@ import { sgDate } from '../../../lib/phase1/format';
 import { PropertyImage } from '../PropertyImage';
 import { PropertyMap } from '../listing/PropertyMap';
 import { EnquiryForm } from '../listing/EnquiryForm';
+import { FacilityList } from '../listing/FacilityList';
+import { floorPlanHref, floorPlanSize } from '../../../lib/phase1/floorplan';
 import { Dialog } from '../overlays';
 import { Button, cx } from '../kit';
 import { PropertyCard, SaveButton } from './PropertyCard';
@@ -206,7 +208,8 @@ export function PropertyDetail({ item, similar, nearby, priceContext }: {
   const paused = l.status === 'paused';
   const station = mrt(l);
   const [enquiry, setEnquiry] = useState<null | 'viewing' | 'message'>(null);
-  const sections = sectionsFor({ floorPlan: Boolean(l.floorPlan), video: Boolean(l.video), price: Boolean(priceContext) });
+  const floorPlans = l.floorPlans ?? [];
+  const sections = sectionsFor({ floorPlan: floorPlans.length > 0, video: Boolean(l.video), price: Boolean(priceContext) });
   const spy = useSpy(sections.map((x) => x.id));
   const initials = a.name.split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('').toUpperCase();
 
@@ -344,13 +347,20 @@ export function PropertyDetail({ item, similar, nearby, priceContext }: {
               {(l.amenities?.length ?? 0) === 0 ? (
                 <p className="text-[14px] text-p1-text-3">The agent has not listed amenities. Ask them what the development offers.</p>
               ) : (
-                <ul className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                  {l.amenities!.map((am) => (
-                    <li key={am} className="flex items-center gap-3 text-[14.5px] text-p1-text">
+                /* Two, then the rest on a tap. A development with nine
+                   facilities is a good development and a long scroll on a
+                   phone, and the enquiry button should not be nine lines
+                   further down for it. */
+                <FacilityList
+                  items={l.amenities!}
+                  noun="amenities"
+                  listClassName="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2"
+                  renderItem={(am) => (
+                    <div key={am} className="flex items-center gap-3 text-[14.5px] text-p1-text">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-p1-subtle text-p1-text-2" aria-hidden><Check size={14} /></span>{am}
-                    </li>
-                  ))}
-                </ul>
+                    </div>
+                  )}
+                />
               )}
 
               {/* The block's facilities above, the flat's own below. Tenants
@@ -361,30 +371,46 @@ export function PropertyDetail({ item, similar, nearby, priceContext }: {
                   The agent has not listed what comes with the unit. Ask them before the viewing — it is {l.furnishing.toLowerCase()}.
                 </p>
               ) : (
-                <ul className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                  {l.fittings!.map((fit) => (
-                    <li key={fit} className="flex items-center gap-3 text-[14.5px] text-p1-text">
+                <FacilityList
+                  items={l.fittings!}
+                  noun="fittings"
+                  listClassName="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2"
+                  renderItem={(fit) => (
+                    <div key={fit} className="flex items-center gap-3 text-[14.5px] text-p1-text">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-p1-subtle text-p1-text-2" aria-hidden><Check size={14} /></span>{fit}
-                    </li>
-                  ))}
-                </ul>
+                    </div>
+                  )}
+                />
               )}
             </Section>
 
-            {l.floorPlan && (
-              <Section id="floorplan" title="Floor plan">
-                <a
-                  href={`/api/phase1/floorplan?owner=${encodeURIComponent(item.ownerId)}&listing=${encodeURIComponent(l.id)}&v=${encodeURIComponent(l.floorPlan.at)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="p1-press inline-flex items-center gap-3 rounded-xl border border-p1-border bg-p1-surface px-4 py-3 hover:border-p1-border-strong"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden><Grid2x2 size={18} /></span>
-                  <span className="min-w-0">
-                    <span className="block text-[14.5px] font-medium text-p1-text">Open the floor plan</span>
-                    <span className="block text-[12.5px] text-p1-text-3">{l.floorPlan.contentType === 'application/pdf' ? 'PDF' : 'Image'} · opens in a new tab</span>
-                  </span>
-                </a>
+{/* A unit can have more than one — a plan per storey, or a stack plan
+                beside the unit plan — so each is its own link, named by the file
+                the agent uploaded. */}
+            {floorPlans.length > 0 && (
+              <Section id="floorplan" title={floorPlans.length === 1 ? 'Floor plan' : 'Floor plans'}>
+                <ul className="flex flex-col gap-2.5">
+                  {floorPlans.map((plan) => (
+                    <li key={plan.id}>
+                      <a
+                        href={floorPlanHref(item.ownerId, l.id, plan)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p1-press inline-flex max-w-full items-center gap-3 rounded-xl border border-p1-border bg-p1-surface px-4 py-3 hover:border-p1-border-strong"
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-p1-subtle text-p1-text-2" aria-hidden><Grid2x2 size={18} /></span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[14.5px] font-medium text-p1-text">
+                            {floorPlans.length === 1 ? 'Open the floor plan' : plan.filename}
+                          </span>
+                          <span className="block text-[12.5px] text-p1-text-3">
+                            {plan.contentType === 'application/pdf' ? 'PDF' : 'Image'} · {floorPlanSize(plan.bytes)} · opens in a new tab
+                          </span>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </Section>
             )}
 

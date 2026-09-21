@@ -17,6 +17,14 @@
  *
  * When there are no credentials there is no upload, and the section says so
  * instead of offering a button that cannot work.
+ *
+ * It no longer waits for the photographs. A video needs a listing to hang on,
+ * and in the new-listing wizard there is no listing until something creates one
+ * — which used to be the photograph upload, so this section sat greyed out
+ * saying "save the listing first" until photographs had gone up. Picking a file
+ * now creates the draft (`ensureListing`) and attaches the video to it.
+ * Photographs are still required to publish; they are simply no longer required
+ * to upload a different kind of file.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -24,7 +32,7 @@ import { Clapperboard, Play, Trash2, Upload } from 'lucide-react';
 import { Button, Spinner } from '../kit';
 import { useToast } from '../Toast';
 import { MediaSection } from './MediaSection';
-import { VIDEO_ACCEPT, type VideoNote, videoLength, videoProblem, videoSize } from '../../../lib/phase1/video';
+import { MAX_VIDEO_MB, VIDEO_ACCEPT, type VideoNote, videoLength, videoProblem, videoSize } from '../../../lib/phase1/video';
 
 /** Raise the file to Cloudinary, reporting how far it has got. */
 function putToCloudinary(
@@ -53,13 +61,23 @@ function putToCloudinary(
 
 export function VideoUpload({
   listingId,
+  ensureListing,
   video,
   onChange,
+  unavailable,
 }: {
-  /** Null before the listing is first saved; the section says so. */
+  /** Null in the new-listing wizard until something has created the draft. */
   listingId: string | null;
+  /**
+   * Creates the draft this video will hang on, and returns its id. Absent when
+   * the caller already has a listing; returns null when it could not make one,
+   * having said why itself.
+   */
+  ensureListing?: () => Promise<string | null>;
   video: VideoNote | null;
   onChange: (video: VideoNote | null) => void;
+  /** Said in place of the button when uploading cannot work at all — demo data. */
+  unavailable?: string;
 }) {
   const { push } = useToast();
   const input = useRef<HTMLInputElement>(null);
@@ -77,20 +95,22 @@ export function VideoUpload({
   }, []);
 
   const upload = async (file: File) => {
-    if (!listingId) return;
-
-    /* Checked before anything is signed, so the wrong file is caught now
-       rather than after several minutes of uploading. */
+    /* Checked before anything is signed — and before a draft is created for it
+       — so the wrong file is caught now rather than after several minutes of
+       uploading. */
     const problem = videoProblem(file);
     if (problem) { push({ tone: 'error', title: 'Video not added', body: problem }); return; }
 
     setBusy(true);
     setPct(0);
     try {
+      const listing = listingId ?? (ensureListing ? await ensureListing() : null);
+      if (!listing) return;
+
       const signRes = await fetch('/api/phase1/video', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ listingId, contentType: file.type, bytes: file.size }),
+        body: JSON.stringify({ listingId: listing, contentType: file.type, bytes: file.size }),
       });
       const signed = await signRes.json().catch(() => ({}));
       if (!signRes.ok) throw new Error(signed?.error ?? 'The upload could not be started.');
@@ -101,7 +121,7 @@ export function VideoUpload({
       const confirmRes = await fetch('/api/phase1/video', {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ listingId }),
+        body: JSON.stringify({ listingId: listing }),
       });
       const confirmed = await confirmRes.json().catch(() => ({}));
       if (!confirmRes.ok) throw new Error(confirmed?.error ?? 'The video uploaded but could not be saved.');
@@ -137,7 +157,7 @@ export function VideoUpload({
     <MediaSection
       icon={<Clapperboard size={15} />}
       title="Video tour"
-      limits="MP4, MOV or WebM, up to 100 MB"
+      limits={`MP4, MOV or WebM, up to ${MAX_VIDEO_MB} MB`}
       optional
     >
       {available === false ? (
@@ -145,8 +165,8 @@ export function VideoUpload({
           Video tours are not switched on for this account yet. Everything else on this step works as usual, and a
           listing without a video is complete.
         </p>
-      ) : !listingId ? (
-        <p className="text-[13px] text-p1-text-3">Save the listing first, then a video can be attached to it.</p>
+      ) : unavailable ? (
+        <p className="text-[13px] leading-5 text-p1-text-3">{unavailable}</p>
       ) : video ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-p1-border bg-p1-bg p-2.5">
           <a

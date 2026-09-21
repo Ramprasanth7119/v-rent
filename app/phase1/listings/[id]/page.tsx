@@ -16,6 +16,7 @@ import {
   Button, LinkButton, Card, SectionCard, PageHeader, Callout, Field, FieldGrid, Tabs, KeyValue, EmptyState,
   Menu, Metric, MetricStrip, MiniBars, SkeletonPage, cx } from '../../../../components/phase1/kit';
 import { StatusBadge, Pill } from '../../../../components/phase1/status';
+import { FacilityList } from '../../../../components/phase1/listing/FacilityList';
 import { Gallery } from '../../../../components/phase1/PropertyImage';
 import { useListingActions, ListingActionDialogs } from '../../../../components/phase1/listing/actions';
 import { HealthPanel } from '../../../../components/phase1/listing/health';
@@ -99,6 +100,9 @@ function ListingDetailBody() {
   const activity = listingTimeline(l);
   // Only what the listing records. A sample list is shown for the demo account alone, never for a real unit.
   const amenities = l.amenities?.length ? l.amenities : isDemoId(l.id) ? AMENITIES.slice(0, 4 + (l.sizeSqft % 4)) : [];
+  // What is in the unit, as against what the block has. Recorded on the listing only — never sampled.
+  const fittings = l.fittings ?? [];
+  const floorPlans = l.floorPlans ?? [];
   const isSale = dealOf(l) === 'sale';
   const isLive = l.status === 'published' || l.status === 'paused' || l.status === 'expired';
   const editHref = `/phase1/listings/new?edit=${l.id}`;
@@ -220,14 +224,39 @@ function ListingDetailBody() {
                     <Field label="Minimum lease" value={`${l.minLeaseMonths} months`} />
                     <Field label="Deposit" value={typeof l.depositMonths === 'number' ? `${l.depositMonths} month${l.depositMonths === 1 ? '' : 's'}` : 'Not stated'} />
                     <Field label="Nearest MRT" value={l.nearestMrt ?? 'Not stated'} />
-                    <Field label="Floor plan" value={l.hasFloorPlan ? 'Attached' : 'Not attached'} />
+                    <Field label="Floor plans" value={floorPlans.length ? `${floorPlans.length} attached` : 'Not attached'} />
                     <Field label="Video tour" value={l.video ? `Attached${videoLength(l.video.durationSec) ? ` · ${videoLength(l.video.durationSec)}` : ''}` : 'Not attached'} />
                     <Field label="Photos" value={`${l.images}`} />
                   </FieldGrid>
+                  {/* The block's facilities, then the flat's own. Both open
+                      from two rather than arriving in full: a well-equipped
+                      development lists eight or nine, and on a phone that pushed
+                      everything below it off the screen. */}
                   <h2 className="mt-6 text-[14px] font-semibold text-p1-text">Amenities</h2>
                   {amenities.length
-                    ? <div className="mt-2 flex flex-wrap gap-2">{amenities.map((x) => <Pill key={x}>{x}</Pill>)}</div>
+                    ? (
+                      <FacilityList
+                        className="mt-2"
+                        items={amenities}
+                        noun="amenities"
+                        listClassName="flex flex-wrap gap-2"
+                        renderItem={(x) => <Pill key={x}>{x}</Pill>}
+                      />
+                    )
                     : <p className="mt-2 text-[13.5px] text-p1-text-3">No amenities recorded. Add them from Edit.</p>}
+
+                  <h2 className="mt-6 text-[14px] font-semibold text-p1-text">Included in the unit</h2>
+                  {fittings.length
+                    ? (
+                      <FacilityList
+                        className="mt-2"
+                        items={fittings}
+                        noun="fittings"
+                        listClassName="flex flex-wrap gap-2"
+                        renderItem={(x) => <Pill key={x}>{x}</Pill>}
+                      />
+                    )
+                    : <p className="mt-2 text-[13.5px] text-p1-text-3">Nothing recorded. Tenants ask what comes with the unit — add it from Edit.</p>}
                 </>
               )}
 

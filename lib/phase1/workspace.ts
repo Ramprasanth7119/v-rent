@@ -528,18 +528,12 @@ function cleanListing(raw: unknown): DemoListing | null {
     expiresAt: str(l.expiresAt, 24) || undefined,
     rejectionReason: str(l.rejectionReason, 500) || undefined,
     reviewedAt: str(l.reviewedAt, 32) || undefined,
-    hasFloorPlan: l.hasFloorPlan === true || Boolean(l.floorPlan) || undefined,
-    /* The file lives in the floor plan store; what survives a patch is the
-       note that there is one. The browser cannot invent it — the upload route
-       writes it — but it does send it back with the rest of the listing. */
-    floorPlan: l.floorPlan && typeof l.floorPlan === 'object'
-      ? {
-        filename: str((l.floorPlan as Record<string, unknown>).filename, 120),
-        contentType: str((l.floorPlan as Record<string, unknown>).contentType, 60),
-        bytes: num((l.floorPlan as Record<string, unknown>).bytes),
-        at: str((l.floorPlan as Record<string, unknown>).at, 32),
-      }
-      : undefined,
+    hasFloorPlan: l.hasFloorPlan === true || floorPlans(l).length > 0 || undefined,
+    /* The files live in the floor plan store; what survives a patch is the
+       note that they are there. The browser cannot invent one — the upload
+       route writes them — but it does send them back with the rest of the
+       listing. */
+    floorPlans: floorPlans(l).length ? floorPlans(l) : undefined,
     /* Same reasoning as the floor plan: the upload route writes this, and
        what a patch has to do is carry it rather than drop it. The URLs are
        rebuilt server-side on every upload, so a tampered one survives only
@@ -625,6 +619,37 @@ function cleanEnquiry(raw: unknown): Enquiry | null {
  */
 const isDemoRecord = (raw: unknown) =>
   !!raw && typeof raw === 'object' && String((raw as Record<string, unknown>).id ?? '').startsWith('demo-');
+
+/**
+ * The floor plans on a listing, from either shape the record has had.
+ *
+ * There used to be one plan per listing, stored under `floorPlan`. Workspaces
+ * written before it became a list still carry that field, and dropping it here
+ * would quietly detach a plan from every listing that already had one — the
+ * file would still be in the store with nothing pointing at it. So the old
+ * shape is read and folded into the new one, which is the last time anything
+ * has to think about it.
+ */
+function floorPlans(l: Record<string, unknown>): { id: string; filename: string; contentType: string; bytes: number; at: string }[] {
+  const one = (raw: unknown, fallbackId: string) => {
+    if (!raw || typeof raw !== 'object') return null;
+    const r = raw as Record<string, unknown>;
+    const at = str(r.at, 32);
+    return {
+      id: str(r.id, 64) || fallbackId || at,
+      filename: str(r.filename, 120),
+      contentType: str(r.contentType, 60),
+      bytes: num(r.bytes),
+      at,
+    };
+  };
+
+  if (Array.isArray(l.floorPlans)) {
+    return l.floorPlans.slice(0, 12).map((raw, i) => one(raw, `plan-${i}`)).filter((p) => p !== null);
+  }
+  const legacy = one(l.floorPlan, 'plan-0');
+  return legacy ? [legacy] : [];
+}
 
 export function sanitisePatch(raw: unknown): Partial<WorkspaceState> {
   if (!raw || typeof raw !== 'object') return {};

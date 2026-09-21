@@ -109,7 +109,7 @@ function demoEntries(): MarketListing[] {
     };
     delete listing.rejectionReason;
     delete listing.archived;
-    delete listing.floorPlan;
+    delete listing.floorPlans;
     delete listing.video;
 
     return { ownerId: agent.id, agent, listing, photos: [], thumbs: [] };

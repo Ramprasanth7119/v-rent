@@ -31,11 +31,21 @@ describe('what may be uploaded', () => {
     expect(videoProblem(file('video/mp4', 0))).toBe('That file is empty.');
   });
 
-  /* The limit is Cloudinary's, and it is stated in the refusal so the agent
-     knows how far over they are rather than only that they are over. */
+  /* Stated in the refusal so the agent knows how far over they are rather than
+     only that they are over — and to a decimal place, because a file barely
+     over the limit used to round down to the limit and read as nonsense. */
   it('says how large the file was and what the limit is', () => {
     const problem = videoProblem(file('video/mp4', MAX_VIDEO_BYTES + 1))!;
-    expect(problem).toContain('100 MB');
+    expect(problem).toContain(`The limit is ${MAX_VIDEO_BYTES / (1024 * 1024)} MB`);
+    expect(problem).toMatch(/That video is 25\.0 MB/);
+  });
+
+  /* 25 MB, not Cloudinary's 100: the limit that matters is the tenant's, on a
+     phone and often on mobile data. */
+  it('takes a minute of phone video and refuses a long recording', () => {
+    expect(MAX_VIDEO_BYTES).toBe(25 * 1024 * 1024);
+    expect(videoProblem(file('video/mp4', 20 * 1024 * 1024))).toBeNull();
+    expect(videoProblem(file('video/mp4', 60 * 1024 * 1024))).not.toBeNull();
   });
 });
 

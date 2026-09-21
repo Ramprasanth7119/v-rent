@@ -82,7 +82,7 @@ export default function SettingsPage() {
                     <label className="flex cursor-pointer items-center gap-2 sm:justify-center">
                       <input
                         type="checkbox"
-                        className="h-5 w-5 cursor-pointer rounded border-p1-border-strong accent-p1-primary"
+                        className="h-5 w-5 shrink-0 cursor-pointer rounded border-p1-border-strong accent-p1-primary"
                         checked={prefs[p.key]?.email ?? false}
                         onChange={(e) => setPref(p.key, 'email', e.target.checked)}
                       />
@@ -93,7 +93,7 @@ export default function SettingsPage() {
                     <label className="flex cursor-pointer items-center gap-2 sm:justify-center">
                       <input
                         type="checkbox"
-                        className="h-5 w-5 cursor-pointer rounded border-p1-border-strong accent-p1-primary"
+                        className="h-5 w-5 shrink-0 cursor-pointer rounded border-p1-border-strong accent-p1-primary"
                         checked={prefs[p.key]?.sms ?? false}
                         onChange={(e) => setPref(p.key, 'sms', e.target.checked)}
                       />

@@ -89,10 +89,12 @@ export interface DemoListing {
    */
   frozen?: 'cea_lapsed';
   /**
-   * The floor plan, when one has been uploaded. The file itself lives in the
-   * floor plan store; this is what every screen needs to know it is there.
+   * The floor plans, when any have been uploaded. The files themselves live in
+   * the floor plan store; this is what every screen needs to know they are
+   * there. A unit can have more than one — two storeys, or a stack plan beside
+   * the unit plan — so this is a list even when it holds one.
    */
-  floorPlan?: { filename: string; contentType: string; bytes: number; at: string };
+  floorPlans?: { id: string; filename: string; contentType: string; bytes: number; at: string }[];
   /**
    * The video tour, when one has been uploaded. The file is held by Cloudinary
    * rather than by us — see `lib/phase1/video.ts` — so what sits here is the
