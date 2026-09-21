@@ -225,7 +225,9 @@ export function FactorList({ items, columns = 1 }: { items: InsightFactor[]; col
     <ul className={columns === 2 ? 'grid grid-cols-1 gap-x-5 gap-y-1 @xl:grid-cols-2' : 'grid gap-1'}>
       {items.map((f, k) => (
         <li key={`${f.topic}-${k}`} className="grid grid-cols-[38px_minmax(0,1fr)] items-baseline gap-2 text-[9.5px] leading-[1.45]">
-          <span className="inline-flex justify-center rounded-[3px] py-[1.5px] text-[7px] font-bold uppercase tracking-[0.08em]"
+          {/* 7.5px is the floor everywhere else in the document, and printed
+              at A4 that is 5.6 pt. This tag was the one thing below it. */}
+          <span className="inline-flex justify-center rounded-[3px] py-[1.5px] text-[7.5px] font-bold uppercase tracking-[0.08em]"
             style={{ color: FACTOR_INK[f.tone], background: f.tone === 'positive' ? C.positiveSoft : f.tone === 'attention' ? C.warnSoft : C.wash }}>
             {FACTOR_WORD[f.tone]}
           </span>
@@ -626,6 +628,32 @@ export function AgentCard({ agent }: { agent: CoverAgent }) {
   );
 }
 
+/**
+ * Who to ring about this property, beside the property itself.
+ *
+ * Every listing in a V-RENT shortlist belongs to the one agent whose workspace
+ * it was exported from, so the card on the cover is not wrong — but a client
+ * reading the fifth property should not have to turn back to the first page to
+ * find out who to call about it. This is the same facts as one line, light
+ * enough to sit under every property without becoming a fifth copy of a card.
+ */
+export function AgentLine({ agent }: { agent: CoverAgent }) {
+  const parts = [agent.agency, agent.mobile, agent.cea ? `CEA ${agent.cea}` : ''].filter(Boolean);
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 py-1 pl-2.5 text-[9px] leading-[1.5]"
+      style={{ borderLeft: `2px solid ${C.accent}`, color: C.muted }}>
+      <span className="font-semibold uppercase tracking-[0.1em]" style={{ color: C.slate }}>Presented by</span>
+      <span className="font-bold" style={{ color: C.ink }}>{agent.fullName}</span>
+      {parts.map((t) => (
+        <span key={t} className={t === agent.mobile ? 'font-semibold tabular-nums' : undefined}
+          style={t === agent.mobile ? { color: C.brand } : undefined}>
+          <span aria-hidden style={{ color: C.faint }}>· </span>{t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** Four steps for reading the report. */
 export function HowToRead({ deal }: { deal: 'rent' | 'sale' | 'mixed' }) {
   const what = deal === 'sale' ? 'price' : deal === 'rent' ? 'rent' : 'price or rent';
@@ -648,8 +676,15 @@ export function HowToRead({ deal }: { deal: 'rent' | 'sale' | 'mixed' }) {
   );
 }
 
-/** Photographs on a cover: one large, or a mosaic of up to four. */
-export function CoverImage({ photos, alt, height, onBroken }: { photos: string[]; alt: string; height: number; onBroken: (src: string) => void }) {
+/**
+ * Photographs on a cover: one large, or a mosaic of up to four.
+ *
+ * The height is the frame's, not each picture's — pass `'100%'` and the frame
+ * takes whatever the cover has left, which is how the cover reaches the foot
+ * of the sheet instead of stopping a fifth of the way up it. Every picture is
+ * cropped to its share of the frame, so none is ever stretched.
+ */
+export function CoverImage({ photos, alt, height, onBroken }: { photos: string[]; alt: string; height: number | string; onBroken: (src: string) => void }) {
   const shown = photos.slice(0, 4);
   if (!shown.length) {
     return (
@@ -659,18 +694,21 @@ export function CoverImage({ photos, alt, height, onBroken }: { photos: string[]
       </div>
     );
   }
-  const img = (src: string, k: number, h: number) => (
+  const img = (src: string, k: number) => (
     // eslint-disable-next-line @next/next/no-img-element -- our own photo route; must be in the page before printing
-    <img key={src} src={src} alt={k === 0 ? alt : ''} onError={() => onBroken(src)} className="block h-full w-full object-cover object-center" style={{ height: h, background: C.wash }} />
+    <img key={src} src={src} alt={k === 0 ? alt : ''} onError={() => onBroken(src)} className="block h-full w-full object-cover object-center" style={{ background: C.wash }} />
   );
-  if (shown.length === 1) return img(shown[0], 0, height);
-  if (shown.length === 2) return <div className="grid grid-cols-2 gap-1">{shown.map((s, k) => img(s, k, height))}</div>;
+  /* Clipped to the frame: a picture cropped to fill it is wider or taller than
+     it, and printing paints the overhang over whatever follows the frame on the
+     page unless it is told not to. */
+  if (shown.length === 1) return <div className="overflow-hidden" style={{ height }}>{img(shown[0], 0)}</div>;
+  if (shown.length === 2) return <div className="grid grid-cols-2 gap-1 overflow-hidden" style={{ height }}>{shown.map((s, k) => img(s, k))}</div>;
   const side = shown.slice(1);
   return (
-    <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-1">
-      {img(shown[0], 0, height)}
+    <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-1 overflow-hidden" style={{ height }}>
+      {img(shown[0], 0)}
       <div className="grid gap-1" style={{ gridTemplateRows: `repeat(${side.length}, minmax(0, 1fr))` }}>
-        {side.map((s, k) => img(s, k + 1, (height - (side.length - 1) * 4) / side.length))}
+        {side.map((s, k) => img(s, k + 1))}
       </div>
     </div>
   );

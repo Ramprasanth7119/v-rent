@@ -10,6 +10,11 @@
  * property name, a missing photograph or a longer analysis moves the next block
  * to the next page instead of being cut off at the bottom of this one.
  *
+ * `packPages` also says how much of each sheet was left over, and the gaps on
+ * that sheet are opened by that much so the page ends at the foot of the paper.
+ * It caps how far, so a sheet with little on it ends short rather than having
+ * its sections drift apart.
+ *
  * After the sheets render, each is checked once more: a sheet whose content is
  * still taller than the page is reported to the caller, which shows it in the
  * toolbar. The check only runs where the sheet on screen is the printed size.
@@ -31,6 +36,12 @@ export interface Block {
   landscape?: boolean;
   breakBefore?: boolean;
   keepWithNext?: boolean;
+  /**
+   * Takes the whole sheet when it is the only block on it, and composes itself
+   * to fit. For a block with something in it that can be any size — a cover
+   * photograph — which is better than leaving the space at the bottom.
+   */
+  fill?: boolean;
 }
 
 export interface FlowLayout {
@@ -79,13 +90,22 @@ export function FlowDocument({ blocks, frame, onLayout }: {
       const pad = parseFloat(getComputedStyle(body).paddingTop) || 0;
       return body.clientHeight - pad;
     };
-    const heights = blocks.map((b) => root.querySelector<HTMLElement>(`[data-measure="${CSS.escape(b.key)}"]`)?.offsetHeight ?? 0);
+    const caps = { portrait: capacity('portrait'), landscape: capacity('landscape') };
+    const heights = blocks.map((b) => {
+      const measured = root.querySelector<HTMLElement>(`[data-measure="${CSS.escape(b.key)}"]`)?.offsetHeight ?? 0;
+      /* What a filling block measures says nothing. It composes itself to the
+         sheet it is given, the measuring frame is a sheet, so its own
+         `height: 100%` is what comes back. It takes one sheet and no more —
+         which is what stops anything else joining it there, and what keeps a
+         cover that fits exactly from being reported as a page too long. */
+      return b.fill ? Math.min(measured, caps[orientationOf(b)]) : measured;
+    });
     const next = packPages(
       blocks.map((b, i) => ({ height: heights[i], orientation: orientationOf(b), breakBefore: b.breakBefore, keepWithNext: b.keepWithNext })),
-      { portrait: capacity('portrait'), landscape: capacity('landscape') },
+      caps,
       FLOW_GAP,
     );
-    const sig = (ps: PackedPage[] | null) => JSON.stringify(ps?.map((p) => [p.orientation, p.items, p.overflow]));
+    const sig = (ps: PackedPage[] | null) => JSON.stringify(ps?.map((p) => [p.orientation, p.items, p.overflow, Math.round(p.lead)]));
     if (sig(next) !== sig(pages)) setPages(next);
   }, [blocks, pages]);
 
@@ -122,11 +142,18 @@ export function FlowDocument({ blocks, frame, onLayout }: {
       {pages?.map((page, k) => (
         <Sheet key={`${k}-${blocks[page.items[0]].key}`} n={k + 1} total={pages.length} section={blocks[page.items[0]].section}
           {...frame} landscape={page.orientation === 'landscape'} overflow={page.overflow}>
-          <div className="grid grid-cols-[minmax(0,1fr)]" style={{ rowGap: FLOW_GAP }}>
-            {page.items.map((i) => (
-              <div key={blocks[i].key} style={{ display: 'flow-root' }}>{blocks[i].node}</div>
-            ))}
-          </div>
+          {page.items.length === 1 && blocks[page.items[0]].fill ? (
+            <div className="h-full" style={{ display: 'flow-root' }}>{blocks[page.items[0]].node}</div>
+          ) : (
+            /* The gaps carry what is left of the sheet, so the page ends where
+               the paper does rather than part-way down it. `paginate.ts` caps
+               how far they may stretch. */
+            <div className="grid grid-cols-[minmax(0,1fr)]" style={{ rowGap: FLOW_GAP + page.lead }}>
+              {page.items.map((i) => (
+                <div key={blocks[i].key} style={{ display: 'flow-root' }}>{blocks[i].node}</div>
+              ))}
+            </div>
+          )}
         </Sheet>
       ))}
       </PageIndex.Provider>

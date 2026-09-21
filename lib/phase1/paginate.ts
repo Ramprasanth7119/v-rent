@@ -16,6 +16,18 @@
  *  - a block taller than a page gets a page of its own and is reported, so the
  *    overflow is visible instead of silently cut.
  *
+ * One more rule decides how a sheet looks rather than where it breaks. Taking
+ * as much as fits and stopping there reads as a web page cut into lengths: the
+ * last block lands where it lands, and the sheet ends with it, often a sixth
+ * of the way up from the foot. So each sheet also reports what was left of it,
+ * and the caller gives that space to the gaps between its blocks — what a page
+ * layout program calls vertical justification.
+ *
+ * The limit on it is the point of it. Past about half as much again, the space
+ * between two sections stops reading as a separation and starts reading as
+ * something missing between them, so a sheet with little on it ends short
+ * rather than being padded out.
+ *
  * Pure: heights in, pages out.
  */
 
@@ -36,7 +48,26 @@ export interface PackedPage {
   used: number;
   /** True when a single block is taller than the page. */
   overflow: boolean;
+  /**
+   * Added to every gap on this sheet to take up what was left of it. Zero on a
+   * sheet holding one block, which has no gap to give the space to.
+   */
+  lead: number;
 }
+
+/**
+ * How far a gap may be stretched, as a multiple of itself. Settled by printing
+ * the report and looking at it: less, and the foot of a page still reads as
+ * cut short; more, and its sections read as drifting apart.
+ */
+export const MAX_LEAD_RATIO = 2.5;
+
+/**
+ * Held back from the space handed to the gaps. Filling a sheet to the last
+ * fraction of a pixel and then rounding the wrong way is the difference
+ * between a full page and one the browser reports as overflowing.
+ */
+const RESERVE = 1;
 
 export function packPages(items: FlowItem[], capacity: Record<Orientation, number>, gap = 20): PackedPage[] {
   const pages: PackedPage[] = [];
@@ -67,9 +98,16 @@ export function packPages(items: FlowItem[], capacity: Record<Orientation, numbe
       page.items.push(...group);
       page.used += gap + h;
     } else {
-      page = { orientation: first.orientation, items: [...group], used: h, overflow: h > cap };
+      page = { orientation: first.orientation, items: [...group], used: h, overflow: h > cap, lead: 0 };
       pages.push(page);
     }
+  }
+
+  /* Only once every block has landed is it known what each sheet has left. */
+  for (const p of pages) {
+    const gaps = p.items.length - 1;
+    const cap = capacity[p.orientation];
+    p.lead = gaps > 0 ? Math.max(0, Math.min((cap - p.used - RESERVE) / gaps, gap * MAX_LEAD_RATIO)) : 0;
   }
   return pages;
 }

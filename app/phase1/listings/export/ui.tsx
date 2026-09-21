@@ -248,7 +248,10 @@ export function KV({ rows, labelWidth = '44%', wrap = false }: { rows: [string, 
     <dl className="text-[10px]">
       {rows.map(([k, v]) => (
         <div key={k} className="grid items-baseline gap-3 py-[5px]" style={{ gridTemplateColumns: `${labelWidth} minmax(0,1fr)`, borderBottom: `1px solid ${C.hair}` }}>
-          <dt className="truncate" style={{ color: C.muted }}>{k}</dt>
+          {/* A value may be clipped and still be read from the rest of the
+              report; a label that is clipped leaves the number beside it
+              meaning nothing. Where the value is allowed to wrap, so is it. */}
+          <dt className={wrap ? 'leading-[1.35]' : 'truncate'} style={{ color: C.muted }}>{k}</dt>
           <dd className={cx('min-w-0 font-medium', wrap ? 'leading-[1.45]' : 'truncate')} style={{ color: C.ink }}>{v}</dd>
         </div>
       ))}

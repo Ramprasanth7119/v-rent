@@ -37,7 +37,7 @@ import type {
 import { chunk } from '../../../../lib/phase1/paginate';
 import { FlowDocument, type Block, type FlowLayout } from './flow';
 import {
-  AgentCard, AnalysisCard, BoardTable, CompetitionChart, Contents, CoverImage, FactorList, HowToRead, InShort,
+  AgentCard, AgentLine, AnalysisCard, BoardTable, CompetitionChart, Contents, CoverImage, FactorList, HowToRead, InShort,
   LadderLegend, LeaseTable, MonthGrid, NearbyBars, PriceLadderChart, RADAR_INK, Radar, RentBandCard, SignalTiles,
   layoutShort, type ContentsEntry, type CoverAgent, type NearbyBarGroup,
 } from './client-visuals';
@@ -226,6 +226,26 @@ function RadarWithKey({ p, size }: { p: ClientProperty; size: number }) {
 }
 
 const BUS_NOTE = 'Straight-line distances from the matched address; walking times at 80 m a minute. Bus stops are not shown: no bus-stop dataset is connected.';
+
+/**
+ * What the agent says the home and its development have, as one line.
+ *
+ * The listing has carried this since it was written and every other screen
+ * shows it; the report was the one place a client could not find out whether
+ * the block has a pool. It reads as a row beside the other facts rather than
+ * as a panel of its own: a row costs the page nothing, and a panel cost it an
+ * entire sheet.
+ *
+ * Empty when the agent listed nothing, so the row is left out rather than
+ * printed blank — a home with no amenities and a listing not filled in are not
+ * the same thing.
+ */
+const amenityText = (l: DemoListing, max: number): string | null => {
+  const all = [...(l.amenities ?? []), ...(l.fittings ?? [])];
+  if (all.length === 0) return null;
+  const shown = all.slice(0, max);
+  return shown.join(' · ') + (all.length > shown.length ? ` · and ${all.length - shown.length} more` : '');
+};
 
 function AgentNote({ meta }: { meta: ClientMeta }) {
   if (!meta.note) return null;
@@ -416,21 +436,32 @@ function coverBlock(meta: ClientMeta, opts: {
   return {
     key: 'cover',
     section: 'Client report',
+    /* The first page a client sees, so it reaches the foot of the sheet. The
+       photograph is the only part that can be any size without saying anything
+       different, so it is the part that takes the difference. */
+    fill: true,
     node: (
-      <div className="grid gap-4">
-        <div className="flex items-baseline justify-between gap-6 pb-2" style={{ borderBottom: `2px solid ${C.brandDeep}` }}>
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex shrink-0 items-baseline justify-between gap-6 pb-2" style={{ borderBottom: `2px solid ${C.brandDeep}` }}>
           <Eyebrow color={C.accent}>{opts.eyebrow}</Eyebrow>
           <span className="shrink-0 text-[9px] tabular-nums" style={{ color: C.muted }}>{meta.preparedOn}</span>
         </div>
-        <div>
+        <div className="shrink-0">
           {meta.forClient && <div className="text-[10px] font-semibold" style={{ color: C.accent }}>Prepared for {meta.forClient}</div>}
           <h1 className="mt-0.5 text-[28px] font-bold leading-[1.1] tracking-[-0.02em]" style={{ fontFamily: DISPLAY, color: C.brandDeep }}>{opts.title}</h1>
           <div className="mt-1.5 text-[10.5px] leading-[1.55]" style={{ color: C.muted }}>{opts.sub}</div>
         </div>
-        <CoverImage photos={opts.photos} alt={opts.alt} height={opts.imageHeight} onBroken={meta.onBroken} />
-        {opts.facts}
-        <Contents entries={opts.contents} />
-        <AgentCard agent={meta.agent} />
+        {/* The size it wants, not the size it must have. As a basis it both
+            grows into a cover with room to spare and gives way on one without
+            — a floor here let a long shortlist run its photographs over the
+            homes listed underneath them. It is also what the frame measures as
+            while the document is being paginated. */}
+        <div className="min-h-0 flex-1" style={{ flexBasis: opts.imageHeight }}>
+          <CoverImage photos={opts.photos} alt={opts.alt} height="100%" onBroken={meta.onBroken} />
+        </div>
+        <div className="shrink-0">{opts.facts}</div>
+        <div className="shrink-0"><Contents entries={opts.contents} /></div>
+        <div className="shrink-0"><AgentCard agent={meta.agent} /></div>
       </div>
     ),
   };
@@ -485,7 +516,10 @@ function singleBlocks(p: ClientProperty, meta: ClientMeta): Block[] {
     keepWithNext: true,
     node: (
       <div>
-        <SheetTitle eyebrow="Key figures" title="How the asking price lines up"
+        {/* A rental report never calls the figure a price: the whole document
+            is built on keeping the two apart, and the heading is the first
+            place a client reads one of them. */}
+        <SheetTitle eyebrow="Key figures" title={`How the asking ${p.deal === 'rent' ? 'rent' : 'price'} lines up`}
           sub={d.ladder ? 'Each bar is a range of real figures for similar homes. The dashed line is this property.' : 'No range of comparable figures is available for this property; the reasons are given below.'} />
         {d.band && p.askingRent !== null && <RentBandCard band={d.band} asking={p.askingRent} sizeSqft={l.sizeSqft} />}
       </div>
@@ -535,6 +569,7 @@ function singleBlocks(p: ClientProperty, meta: ClientMeta): Block[] {
               ['Floor level', p.floorLevel ? `Level ${p.floorLevel}` : 'Not stated'],
               ['Floor area', `${sqftText(l.sizeSqft)} (${Math.round(l.sizeSqft * 0.092903)} m²)`],
               ['To the city centre', p.cityKm !== null ? `${p.cityKm.toFixed(1)} km straight-line to Raffles Place` : 'Location not verified'],
+              ...(amenityText(l, 12) ? [['Amenities', amenityText(l, 12)!]] as [string, string][] : []),
             ]} />
           </Section>
           <Section label="The listing" className="mt-0">
@@ -546,7 +581,7 @@ function singleBlocks(p: ClientProperty, meta: ClientMeta): Block[] {
               ] as [string, string][] : []),
               ['Furnishing', l.furnishing],
               ['Layout', layoutLine(l)],
-              ['Listed by', meta.agent.name],
+              ['Listed by', meta.agent.mobile ? `${meta.agent.name} · ${meta.agent.mobile}` : meta.agent.name],
             ]} />
           </Section>
         </div>
@@ -794,6 +829,7 @@ function snapshotFacts(p: ClientProperty): [string, React.ReactNode][] {
     ['Floor area', sqftText(l.sizeSqft)],
     ['Layout', `${layoutLine(l)} · ${l.furnishing}`],
     ['Type · tenure', `${l.propertyType}${l.tenure ?? p.development?.tenure ? ` · ${l.tenure ?? p.development?.tenure}` : ''}`],
+    ...(amenityText(l, 8) ? [['Amenities', amenityText(l, 8)!] as [string, React.ReactNode]] : []),
     ['Nearest MRT', stationText(p.station) ?? <span key="s" className="italic" style={{ color: C.warn }}>{p.station.fallback}</span>],
     ['Also nearby', nearbyLine(p)],
     ['Comparable median', m ? `${psfText(m.medianPsf)} psf · ${m.sample} contracts` : <span key="c" className="italic" style={{ color: C.warn }}>{p.notCompared}</span>],
@@ -801,8 +837,13 @@ function snapshotFacts(p: ClientProperty): [string, React.ReactNode][] {
   ];
 }
 
-function SnapshotHead({ p }: { p: ClientProperty }) {
+/**
+ * The head of a property's own page: which of the shortlist it is, what it is
+ * called, what it costs — and, under the rule, who to ring about it.
+ */
+function SnapshotHead({ p, meta }: { p: ClientProperty; meta: ClientMeta }) {
   return (
+    <>
     <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-3 pb-2" style={{ borderBottom: `2px solid ${C.brandDeep}` }}>
       <span className="text-[22px] font-bold leading-none tabular-nums" style={{ fontFamily: DISPLAY, color: C.accent }}>{dd(p.n)}</span>
       <div className="min-w-0">
@@ -814,6 +855,8 @@ function SnapshotHead({ p }: { p: ClientProperty }) {
         <div className="mt-0.5 text-[8.5px]" style={{ color: C.muted }}>{priceUnit(p)}</div>
       </div>
     </div>
+    <div className="mt-2"><AgentLine agent={meta.agent} /></div>
+    </>
   );
 }
 
@@ -832,7 +875,7 @@ function fullSnapshot(p: ClientProperty, meta: ClientMeta, total: number): Block
       breakBefore: true,
       node: (
         <div>
-          <SnapshotHead p={p} />
+          <SnapshotHead p={p} meta={meta} />
           <div className="mt-3.5 grid grid-cols-1 gap-4 @xl:grid-cols-[292px_minmax(0,1fr)] @xl:gap-5">
             <div className="min-w-0">
               <PhotoFrame src={p.photo} alt={p.name} height={p.photos.length > 1 ? 150 : 188} onError={p.photo ? () => meta.onBroken(p.photo!) : undefined} />
@@ -917,7 +960,7 @@ function compactSnapshot(p: ClientProperty, meta: ClientMeta, first: boolean, to
     breakBefore: first,
     node: (
       <div>
-        <SnapshotHead p={p} />
+        <SnapshotHead p={p} meta={meta} />
         <div className="mt-2.5 grid grid-cols-1 gap-3 @xl:grid-cols-[150px_118px_minmax(0,1fr)]">
           <div className="min-w-0">
             <PhotoFrame src={p.thumb} alt={p.name} height={p.photos.length > 1 ? 88 : 118} onError={p.thumb ? () => meta.onBroken(p.photo ?? p.thumb!) : undefined} />
@@ -925,8 +968,8 @@ function compactSnapshot(p: ClientProperty, meta: ClientMeta, first: boolean, to
           </div>
           <MapFrame src={p.map} alt={`Map showing ${p.listing.project}`} height={108} />
           <div className="grid grid-cols-1 gap-x-4 @xl:grid-cols-2">
-            <KV wrap labelWidth="44%" rows={snapshotFacts(p).slice(0, 5)} />
-            <KV wrap labelWidth="44%" rows={snapshotFacts(p).slice(5)} />
+            <KV wrap labelWidth="44%" rows={snapshotFacts(p).slice(0, 6)} />
+            <KV wrap labelWidth="44%" rows={snapshotFacts(p).slice(6)} />
           </div>
         </div>
         <div className="mt-2.5 grid grid-cols-1 gap-1.5">

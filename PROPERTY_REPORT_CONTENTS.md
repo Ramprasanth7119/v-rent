@@ -192,6 +192,29 @@ comparable evidence and why, where comparable rents moved most, which have a
 price history, station distance and size. They never pick a winner or rank the
 properties.
 
+### Who to contact, and what the home has
+
+Every listing in a shortlist belongs to the agent whose workspace it was
+exported from, so there is one agent, not one per property. The cover carries
+their full card; each property in a shortlist of two or more then carries one
+line under its name — **Presented by**, the agent, the agency, the mobile
+number and the CEA registration — so a client reading the fifth property does
+not have to turn back to the first page to find out who to ring about it. The
+single-property report puts the same number on the **Listed by** row of the
+property facts instead, having the full card two pages earlier.
+
+**Amenities** are the agent's own list from the listing (`amenities`, then
+`fittings`), printed as one row beside the other property facts: up to twelve
+on a single-property report, eight in a shortlist, then "and N more". The row
+is marked as the agent's, because everything else on the page is measured or
+counted. A listing whose agent listed nothing has no row at all — a home with
+no amenities and a listing not filled in are not the same thing, and an empty
+heading says the wrong one.
+
+Maintenance fee, parking as a separate fact, orientation, developer and land
+area are not held by V-RENT and are not shown. Covered parking appears only
+when the agent listed it as an amenity.
+
 ### Page breaks
 Every sheet is a fixed A4 page, and content that does not fit would be cut
 off. The client edition is therefore laid out as blocks (a heading with its
@@ -202,6 +225,27 @@ follows it, long tables are split into runs that repeat their header, and a
 landscape sheet is used only for the wide comparison tables. From tablet width the
 sheet on screen is the printed page, and the toolbar warns **Page N too long**
 if anything still overflows.
+
+### Page composition
+Packing a page with as much as fits and stopping there leaves the foot of most
+sheets empty — a web page cut into lengths rather than a document. Two rules
+take that space back:
+
+- **The gaps take the difference.** Each sheet reports what was left of it, and
+  that space is shared out between the blocks on it, so the page ends at the
+  foot of the paper. This is vertical justification, and it is capped at one and
+  a half times the gap again: past that, the space between two sections stops
+  reading as a separation and starts reading as a missing section, so a sheet
+  with little on it ends short instead of being padded out. A sheet holding one
+  block has no gap to put it in and is left alone.
+- **The cover fills its sheet.** The photograph is the only thing on it that can
+  be any size without saying something different, so it takes the difference
+  and the cover always reaches the foot of the page.
+
+What is left is structural and deliberate: a section that ends part-way down
+its last sheet, a landscape comparison too tall to share a sheet and too short
+to fill one, and the closing sheet of sources. Measured over the demo
+shortlists, no sheet but those ends more than about an eighth short.
 
 ### Performance
 Each property's figures and analysis are worked out once per render. The client
@@ -401,3 +445,38 @@ A sale report shows none of these, because no sale transaction data is held.
 - Insight sentences only restate printed figures, never recommend, and are
   omitted when their input is missing.
 - No web addresses, internal IDs or debug text appear in the PDF.
+
+## Unit Privacy
+
+The full unit number never appears in a report, in either edition. The listing
+keeps it, and the report prints only what it implies: **Floor level** ("Level
+34"), read through `floorOf`. Nothing else derives from it — not the cover, the
+summary, the facts, the agent block, the map, the comparison, the running
+header or footer, or any sentence the analysis writes, because every sentence
+is built from figures the document already shows.
+
+This is checked rather than assumed: every generated PDF is scanned for
+`#NN-NN`, for `localhost`, `http://` and `/api/` addresses, for listing and
+account ids, for `undefined`, `NaN` and debug text, for raw database field
+names, and for sale wording inside a rental report. The scan runs against the
+text of the finished PDF, not the source.
+
+## Known Limitations
+
+- **Sale reports are untested.** Every demo listing is a rental and the demo
+  account holds no sale listing, so the sale side of the price and history
+  sections has been read in the code but never rendered.
+- **One photograph per demo listing.** The gallery block (`p.photos.length > 1`)
+  and the photograph strip beside a shortlist property therefore never appear
+  in a demo report. A real listing carries up to ten.
+- **No development facility dataset.** What a development offers is whatever
+  the agent typed into the listing. Nothing is verified against a register.
+- **Nearby data always answers in demo mode.** The "Data unavailable" wording
+  for a failed lookup is exercised by `report.test.ts`, not by a rendered PDF.
+- **`Also nearby` clamps to two lines** in a shortlist snapshot. The full list
+  is on the property's own Location page in a report of three or fewer; in a
+  report of four or more there is no such page, so a long place name is cut.
+- **The smallest type is 5.6 pt** (7.5 px at A4): the map credit, the signal
+  tile labels and their captions. Body text is 7.1–8.6 pt.
+- **The detailed edition is laid out as fixed sheets**, so the page composition
+  rules above do not reach it.
