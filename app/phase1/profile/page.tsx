@@ -18,7 +18,7 @@
 import Link from 'next/link';
 import { ArrowUpRight, Check, Mail, Megaphone, Settings } from 'lucide-react';
 import {
-  Card, CardHead, Callout, LinkButton, PageHeader, Spinner, TextArea, TextInput,
+  Card, CardHead, Callout, LinkButton, PageHeader, PhoneNumberInput, Spinner, TextArea, TextInput,
 } from '../../../components/phase1/kit';
 import { DemoBadge } from '../../../components/phase1/DemoDataSwitch';
 import {
@@ -28,7 +28,7 @@ import { useDemo, preferredName } from '../../../lib/phase1/DemoContext';
 import { useSession } from '../../../lib/phase1/SessionContext';
 import { daysUntilDate, termBetween } from '../../../lib/phase1/account';
 import { sgDate } from '../../../lib/phase1/format';
-import { SG_MOBILE_DISPLAY, normaliseSgMobile, sgMobileProblem } from '../../../lib/phase1/mobile';
+import { sgMobileProblem } from '../../../lib/phase1/mobile';
 import { firstIssueMessage } from '../../../lib/phase1/content-policy';
 import { DEMO_NOTICE } from '../../../lib/phase1/report-data';
 
@@ -153,22 +153,14 @@ export default function ProfilePage() {
                 </CardHead>
               </div>
               <div className="grid gap-5 border-t border-p1-border p-5 sm:grid-cols-2 sm:px-6">
-                <TextInput
+                <PhoneNumberInput
                   id="p-mobile"
                   label="Mobile number"
-                  inputMode="tel"
-                  placeholder={SG_MOBILE_DISPLAY}
                   value={p.mobile}
-                  onChange={(e) => setProfile({ mobile: e.target.value })}
-                  onBlur={(e) => {
-                    /* Tidied when the agent leaves the field rather than as
-                       they type, which would fight them mid-number. */
-                    const tidy = normaliseSgMobile(e.target.value);
-                    if (tidy && tidy !== p.mobile) setProfile({ mobile: tidy });
-                  }}
+                  onChange={(mobile) => setProfile({ mobile })}
                   error={p.mobile.trim() ? sgMobileProblem(p.mobile) ?? undefined : undefined}
-                  hint="A Singapore mobile number. Shown to tenants who ask to call."
-                  className="scroll-mt-28"
+                  hint="Shown to tenants who ask to call."
+                  containerClassName="scroll-mt-28"
                 />
                 <div>
                   <div className="mb-1.5 text-[13.5px] font-medium text-p1-text">Email address</div>

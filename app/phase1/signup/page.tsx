@@ -14,7 +14,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthLayout } from '../../../components/phase1/auth/AuthLayout';
-import { Button, Callout, Checkbox, PasswordInput, TextInput, cx } from '../../../components/phase1/kit';
+import { Button, Callout, Checkbox, PasswordInput, PhoneNumberInput, TextInput, cx } from '../../../components/phase1/kit';
 import {
   ArrowRight, ArrowLeft, BadgeCheck, Search, Building2, CalendarClock, Check, IdCard, Loader2, RotateCcw,
 } from 'lucide-react';
@@ -401,16 +401,13 @@ function SignupBody() {
             hint="You will sign in with this address."
           />
 
-          <TextInput
+          <PhoneNumberInput
             label="Mobile number"
-            type="tel"
             required
-            autoComplete="tel"
-            placeholder="+65 9123 4567"
             value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
+            onChange={setMobile}
             error={mobile && mobileProblem ? mobileProblem : undefined}
-            hint="A Singapore mobile number. Used for listing alerts and account recovery."
+            hint="Used for listing alerts and account recovery."
           />
 
           <div>

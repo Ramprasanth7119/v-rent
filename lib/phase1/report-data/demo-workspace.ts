@@ -204,5 +204,6 @@ export function demoWorkspace(identity: DemoIdentity, now: Date): WorkspaceState
     views: [],
     reveals: [],
     revealCredits: STARTING_REVEAL_CREDITS,
+    revealTopUps: [],
   };
 }

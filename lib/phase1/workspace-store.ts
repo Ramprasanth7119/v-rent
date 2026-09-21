@@ -58,6 +58,7 @@ function strip(stored: StoredWorkspace): WorkspaceState {
     views: w.views ?? [],
     reveals: w.reveals ?? [],
     revealCredits: typeof w.revealCredits === 'number' ? w.revealCredits : STARTING_REVEAL_CREDITS,
+    revealTopUps: w.revealTopUps ?? [],
   };
 }
 
@@ -117,6 +118,40 @@ export async function patchWorkspace(user: PublicAccount, patch: Partial<Workspa
     const base = (await workspaces.get(user.id))
       ?? { ...seedWorkspace(user, { autoApprove: true }), id: user.id, updatedAt: '' };
     const next: StoredWorkspace = { ...base, ...patch, id: user.id, updatedAt: new Date().toISOString() };
+    await workspaces.put(next);
+    return strip(next);
+  });
+}
+
+/**
+ * Change an existing workspace, deciding the change from what is stored.
+ *
+ * `patchWorkspace` takes a patch that was worked out before the lock was taken,
+ * which is right for a screen saving what an agent typed and wrong for anything
+ * that has to read the record to know what to write. A payment adding credit
+ * has to see the balance and the references already banked, and two webhooks
+ * for the same account arriving together must not each read the old balance and
+ * write it back. Here the reading and the writing happen inside the one lock.
+ *
+ * Never seeds. An account with no workspace gets null rather than a new one:
+ * this is reached from a webhook, and a payment for an account that does not
+ * exist should be reconciled by hand, not answered by creating it.
+ */
+export async function mutateWorkspace(
+  accountId: string,
+  change: (current: WorkspaceState) => Partial<WorkspaceState> | null,
+): Promise<WorkspaceState | null> {
+  return lock.run(accountId, async () => {
+    const stored = await workspaces.get(accountId);
+    if (!stored) return null;
+
+    const current = strip(stored);
+    const patch = change(current);
+    /* Null means the change had already been made. Writing anyway would only
+       move `updatedAt` and make a repeat look like an event. */
+    if (!patch) return current;
+
+    const next: StoredWorkspace = { ...stored, ...patch, id: accountId, updatedAt: new Date().toISOString() };
     await workspaces.put(next);
     return strip(next);
   });

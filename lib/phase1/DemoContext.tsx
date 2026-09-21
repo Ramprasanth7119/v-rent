@@ -120,6 +120,7 @@ const toWorkspace = (s: DemoState): WorkspaceState => ({
   views: [],
   reveals: [],
   revealCredits: STARTING_REVEAL_CREDITS,
+  revealTopUps: [],
 });
 
 /** A single condition of the publish gate. */

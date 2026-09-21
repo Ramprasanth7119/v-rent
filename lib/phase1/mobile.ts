@@ -29,8 +29,36 @@
 /** The stored and displayed shape. */
 export const SG_MOBILE_DISPLAY = '+65 9123 4567';
 
+/** The only dialling code V-RENT accepts. Singapore agents, Singapore tenants. */
+export const SG_DIAL_CODE = '+65';
+
+/** How many digits a subscriber number has, once the code is off it. */
+export const SG_SUBSCRIBER_DIGITS = 8;
+
 /** Everything that is not a digit, and the country code if it is there. */
 const strip = (raw: string) => raw.replace(/[\s()\-.]/g, '').replace(/^\+?65/, '');
+
+/**
+ * The subscriber digits alone, however the number was written or pasted.
+ *
+ * What the split field binds to: the code is drawn beside the box and is not
+ * the agent's to type, so the box holds `9123 4567` and nothing else. Pasting
+ * `+65 9123 4567` from a name card must not end up as `659123 4567`, which is
+ * exactly what an unfiltered field would do.
+ */
+export const sgSubscriberDigits = (raw: string): string =>
+  strip(raw).replace(/[^0-9]/g, '').slice(0, SG_SUBSCRIBER_DIGITS);
+
+/**
+ * `9123 4567` — the four-four grouping every Singaporean reads a number in.
+ *
+ * Applied while typing rather than on leaving the field, because the grouping
+ * is how a person checks they have typed eight digits and not seven.
+ */
+export function groupSgMobile(digits: string): string {
+  const d = sgSubscriberDigits(digits);
+  return d.length > 4 ? `${d.slice(0, 4)} ${d.slice(4)}` : d;
+}
 
 /** Eight digits beginning 8 or 9. */
 const SUBSCRIBER = /^[89][0-9]{7}$/;

@@ -46,6 +46,25 @@ export interface ListingView {
   count: number;
 }
 
+/**
+ * Credit bought, and the payment that bought it.
+ *
+ * Kept as a list rather than folded straight into the balance, because the
+ * reference is what makes granting safe to repeat. A webhook can be redelivered
+ * and a settled payment can be read back by the browser more than once; both
+ * paths end at the same check — is this reference already here — so credit is
+ * added exactly once however many times the news arrives.
+ */
+export interface CreditTopUp {
+  /** The payment reference. Unique, and the reason this is a list. */
+  ref: string;
+  /** Cents added to the balance. */
+  cents: number;
+  /** What was paid for it, in cents. Less than `cents` on the larger packs. */
+  paidCents: number;
+  at: string;
+}
+
 /** A name the owner has paid for, or been given. */
 export interface Reveal {
   listingId: string;
@@ -133,6 +152,34 @@ export function viewCounts(views: ListingView[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const v of views) out[v.listingId] = (out[v.listingId] ?? 0) + 1;
   return out;
+}
+
+/* ---------------------------------------------------------------- banking */
+
+/** The part of a workspace a top-up touches. */
+export interface Balance {
+  revealCredits: number;
+  revealTopUps: CreditTopUp[];
+}
+
+/**
+ * Bank a payment against a balance, once.
+ *
+ * Null means this reference is already in the ledger and the balance is
+ * already right — which is the answer for a redelivered webhook, for the
+ * browser's status poll settling a payment the webhook already settled, and
+ * for anything else that hears the same news twice. The caller writes nothing
+ * on null rather than writing the same number back.
+ *
+ * Pure, and the whole of the rule: the store around it only holds the lock.
+ */
+export function bankTopUp(balance: Balance, topUp: CreditTopUp): Balance | null {
+  if (topUp.cents <= 0) return null;
+  if (balance.revealTopUps.some((t) => t.ref === topUp.ref)) return null;
+  return {
+    revealCredits: balance.revealCredits + topUp.cents,
+    revealTopUps: [...balance.revealTopUps, topUp],
+  };
 }
 
 /* --------------------------------------------------------------- revealing */

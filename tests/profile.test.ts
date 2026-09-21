@@ -134,6 +134,7 @@ describe('reconciling the workspace against the account', () => {
     views: [],
     reveals: [],
     revealCredits: 0,
+    revealTopUps: [],
     ...over,
   });
 

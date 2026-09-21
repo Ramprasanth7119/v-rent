@@ -17,7 +17,7 @@ import { displayAgency, displayName } from '../auth/cea';
 import { DemoListing, ListingStatus, PLANS, PlanOption, SEED_LISTINGS } from './data';
 import { EMPTY_TOOLS, type ToolsState } from './tools';
 import { cleanEligibility } from './eip';
-import { STARTING_REVEAL_CREDITS, type ListingView, type Reveal } from './views';
+import { STARTING_REVEAL_CREDITS, type CreditTopUp, type ListingView, type Reveal } from './views';
 
 /**
  * Today, in Singapore.
@@ -157,6 +157,8 @@ export interface WorkspaceState {
   reveals: Reveal[];
   /** Cents, spent one name at a time. See `views.ts` for what a name costs. */
   revealCredits: number;
+  /** Every pack bought, newest last. Written only by a verified payment. */
+  revealTopUps: CreditTopUp[];
 }
 
 /**
@@ -356,6 +358,7 @@ export function seedWorkspace(
       views: [],
       reveals: [],
       revealCredits: STARTING_REVEAL_CREDITS,
+      revealTopUps: [],
     };
   }
 
@@ -393,6 +396,7 @@ export function seedWorkspace(
     /* Enough to use the feature and form a view of it before being asked for
        anything. See `views.ts`. */
     revealCredits: STARTING_REVEAL_CREDITS,
+    revealTopUps: [],
   };
 }
 

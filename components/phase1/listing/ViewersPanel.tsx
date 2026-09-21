@@ -16,11 +16,15 @@
  */
 
 import { useEffect, useState } from 'react';
-import { BadgeCheck, Building2, Eye, Lock, Mail, Phone, Sparkles, UserRound } from 'lucide-react';
+import { BadgeCheck, Building2, Eye, Lock, Mail, Phone, Sparkles, UserRound, Wallet } from 'lucide-react';
 import { Button, Callout, EmptyState, LinkButton, Spinner, cx } from '../kit';
 import { useToast } from '../Toast';
 import { sgDate } from '../../../lib/phase1/format';
-import { priceLabel, viewsSentence } from '../../../lib/phase1/views';
+import { REVEAL_PRICE_CENTS, priceLabel, viewsSentence } from '../../../lib/phase1/views';
+import { SUGGESTED_PACK, namesAfforded } from '../../../lib/phase1/credits';
+
+/** Where an agent goes to buy more names. One pack is suggested; the page sells all three. */
+const TOP_UP_HREF = `/phase1/payment?buy=${SUGGESTED_PACK.code}`;
 
 interface ViewerCard {
   id: string;
@@ -163,6 +167,10 @@ export function ViewersPanel({ listingId }: { listingId: string }) {
   }
 
   const free = data.nextCostCents === 0;
+  /** What the balance still buys, in names. The unit everything on screen uses. */
+  const affordable = namesAfforded(data.credits);
+  /** A name is wanted, it costs money, and there is not enough. */
+  const broke = !free && data.credits < data.nextCostCents;
 
   return (
     <>
@@ -182,6 +190,10 @@ export function ViewersPanel({ listingId }: { listingId: string }) {
         <div className="text-right">
           <div className="text-[12px] text-p1-text-3">Balance</div>
           <div className="text-[15px] font-semibold tabular-nums text-p1-text">{priceLabel(data.credits)}</div>
+          {/* The money is what was paid; the names are what it does. */}
+          <div className="text-[12px] text-p1-text-3">
+            {affordable === 1 ? '1 name' : `${affordable} names`}
+          </div>
         </div>
       </div>
 
@@ -205,16 +217,25 @@ export function ViewersPanel({ listingId }: { listingId: string }) {
               </div>
 
               {!v.revealed && (
-                <Button
-                  size="sm"
-                  variant={free ? 'primary' : 'outline'}
-                  loading={busy === v.token}
-                  disabled={busy !== null}
-                  leftIcon={free ? <Sparkles size={14} /> : <Lock size={14} />}
-                  onClick={() => void reveal(v.token)}
-                >
-                  {free ? 'Reveal — free' : `Reveal · ${priceLabel(data.nextCostCents)}`}
-                </Button>
+                /* A button that is going to be refused is worse than no button.
+                   With nothing left to spend, the control becomes the thing
+                   that would actually help. */
+                broke ? (
+                  <LinkButton size="sm" variant="primary" href={TOP_UP_HREF} leftIcon={<Wallet size={14} />}>
+                    Top up to reveal
+                  </LinkButton>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={free ? 'primary' : 'outline'}
+                    loading={busy === v.token}
+                    disabled={busy !== null}
+                    leftIcon={free ? <Sparkles size={14} /> : <Lock size={14} />}
+                    onClick={() => void reveal(v.token)}
+                  >
+                    {free ? 'Reveal — free' : `Reveal · ${priceLabel(data.nextCostCents)}`}
+                  </Button>
+                )
               )}
             </div>
 
@@ -228,14 +249,16 @@ export function ViewersPanel({ listingId }: { listingId: string }) {
         ))}
       </ul>
 
-      {data.credits < 100 && data.remaining > 0 && (
+      {data.remaining > 0 && affordable < data.remaining && (
         <Callout
-          tone="info"
+          tone={broke ? 'warning' : 'info'}
           className="mt-4"
-          title="Balance is low"
-          action={<LinkButton size="sm" variant="outline" href="/phase1/checkout">Top up</LinkButton>}
+          title={broke ? 'No credit left' : 'Balance is running low'}
+          action={<LinkButton size="sm" variant={broke ? 'primary' : 'outline'} href={TOP_UP_HREF}>Top up</LinkButton>}
         >
-          Each further name is {priceLabel(100)}. Your balance is {priceLabel(data.credits)}.
+          {broke
+            ? `${priceLabel(REVEAL_PRICE_CENTS)} a name, and your balance is ${priceLabel(data.credits)}. ${SUGGESTED_PACK.name} for ${priceLabel(SUGGESTED_PACK.priceCents)}.`
+            : `${data.remaining} still to reveal and enough credit for ${affordable}. ${SUGGESTED_PACK.name} for ${priceLabel(SUGGESTED_PACK.priceCents)}.`}
         </Callout>
       )}
 

@@ -7,11 +7,14 @@
  *   - one idempotency key produces exactly one intent, no matter how many
  *     concurrent requests carry it;
  *   - a subscription is activated by a verified webhook and nothing else;
- *   - webhook handling is idempotent and order-independent.
+ *   - webhook handling is idempotent and order-independent;
+ *   - what was bought is handed over only after the money is confirmed, and
+ *     handing it over twice is the same as handing it over once.
  */
 
 import { randomBytes } from 'node:crypto';
-import { PLANS } from '../phase1/data';
+import { grantRevealCredits } from '../phase1/reveal-credits';
+import { purchasable } from './catalogue';
 import { PAYMENTS, PAYNOW, PAYNOW_LIMITS, estimateFeeCents } from './config';
 import { getProvider } from './index';
 import { money, taxLineFor } from './money';
@@ -42,10 +45,6 @@ function newRef(): string {
     `${String(d.getMonth() + 1).padStart(2, '0')}` +
     `${String(d.getDate()).padStart(2, '0')}`;
   return `VR${stamp}${tail}`; // 18 chars, fits the 25-char PayNow reference field.
-}
-
-export function planByCode(code: string) {
-  return PLANS.find((p) => p.code === code) ?? null;
 }
 
 /**
@@ -85,12 +84,12 @@ export async function createIntent(req: CreateIntentRequest): Promise<PaymentInt
   const provider = getProvider(req.provider);
   if (!provider) throw new PaymentError(`Unknown payment provider ${req.provider}`, 400, 'unknown_provider');
 
-  const plan = planByCode(req.planCode);
-  if (!plan) throw new PaymentError(`Unknown plan ${req.planCode}`, 400, 'unknown_plan');
+  const item = purchasable(req.planCode);
+  if (!item) throw new PaymentError(`Nothing is sold under the code ${req.planCode}`, 400, 'unknown_plan');
   if (!req.idempotencyKey) throw new PaymentError('Idempotency-Key header is required', 400, 'missing_idempotency_key');
 
   // Price comes from the catalogue. A client-supplied amount is never trusted.
-  const totalCents = Math.round(plan.priceYearSgd * 100);
+  const totalCents = item.totalCents;
 
   // PayNow caps a customer at S$2,000 a day, so a plan priced above that cannot go
   // through it. Fail here with something an agent can act on, not at the bank app.
@@ -121,7 +120,7 @@ export async function createIntent(req: CreateIntentRequest): Promise<PaymentInt
     ref,
     provider: provider.id,
     status: 'created',
-    planCode: plan.code,
+    planCode: item.code,
     agentId: req.agentId,
     total: money(totalCents),
     subtotal: money(totalCents - tax.cents),
@@ -142,7 +141,7 @@ export async function createIntent(req: CreateIntentRequest): Promise<PaymentInt
 
   const input: CreateIntentInput = {
     provider: provider.id,
-    planCode: plan.code,
+    planCode: item.code,
     agentId: req.agentId,
     agentEmail: req.agentEmail,
     agentName: req.agentName,
@@ -193,6 +192,39 @@ export function readIntent(ref: string): PaymentIntent | null {
   return getIntent(ref);
 }
 
+/**
+ * Hand over what was paid for.
+ *
+ * Deliberately separate from the state machine above. Marking a payment paid is
+ * a fact about money and belongs under the intent's lock; adding credit to an
+ * account is a write to a different record under a different lock, and doing it
+ * inside the first would mean a slow or failing workspace write could roll back
+ * a payment the bank has already taken.
+ *
+ * So it runs after, and is written to be run again. The grant is keyed on the
+ * payment reference, so the webhook, its redeliveries and the browser's own
+ * status poll all reach the same answer and the balance moves once. A crash
+ * between the transition and the grant is repaired by the next read of the
+ * payment, which is a thing that happens seconds later on the screen the agent
+ * is still looking at.
+ *
+ * A plan needs nothing here: an active subscription is read from the intent
+ * rather than copied out of it.
+ */
+export async function fulfil(intent: PaymentIntent): Promise<void> {
+  if (intent.status !== 'paid') return;
+
+  const item = purchasable(intent.planCode);
+  if (!item || item.kind !== 'reveal-credits') return;
+
+  await grantRevealCredits({
+    accountId: intent.agentId,
+    ref: intent.ref,
+    cents: item.creditCents,
+    paidCents: item.totalCents,
+  });
+}
+
 export interface WebhookOutcome {
   applied: boolean;
   reason: 'applied' | 'duplicate' | 'unknown_ref' | 'illegal_transition';
@@ -207,7 +239,7 @@ export async function applyWebhook(event: VerifiedEvent): Promise<WebhookOutcome
   const first = await claimEvent(event.eventId);
   if (!first) return { applied: false, reason: 'duplicate' };
 
-  return withIntent<WebhookOutcome>(event.ref, async (current) => {
+  const outcome = await withIntent<WebhookOutcome>(event.ref, async (current) => {
     if (!current) return { result: { applied: false, reason: 'unknown_ref' as const } };
     if (!canTransition(current.status, event.status)) {
       // Already terminal, or a late failure chasing a success. Keep the first answer.
@@ -223,6 +255,16 @@ export async function applyWebhook(event: VerifiedEvent): Promise<WebhookOutcome
     };
     return { next, result: { applied: true, reason: 'applied' as const, status: next.status } };
   });
+
+  /* Outside the lock, and only on the transition that took the money. A
+     failure here leaves the payment paid and the credit owed, which the next
+     read of the payment settles — see `fulfil`. */
+  if (outcome.applied && outcome.status === 'paid') {
+    const paid = getIntent(event.ref);
+    if (paid) await fulfil(paid);
+  }
+
+  return outcome;
 }
 
 /** Trimmed shape sent to the browser. */

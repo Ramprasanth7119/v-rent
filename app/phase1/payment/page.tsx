@@ -1,7 +1,15 @@
 "use client";
 
 /**
- * Agent subscription payment.
+ * Agent payment.
+ *
+ * Two things are sold here, on the same rails and through the same states: a
+ * year of the product, and a pack of reveal credit. One screen rather than two,
+ * because the hard parts — a QR that expires, a hosted page that redirects back,
+ * a poll that has to survive the agent switching to their banking app — are the
+ * same either way, and a second copy of them would be a second set of bugs.
+ * Which one is being bought comes from `?buy=`, and changes only the wording
+ * and the amount.
  *
  * Three rails behind one screen:
  *   PayNow    a dynamic QR against V-RENT's own UEN — cheapest, instant, no chargebacks
@@ -13,18 +21,19 @@
  * the server moves the payment to paid.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowUpRight, Building2, CheckCircle2, CreditCard, Globe2, Lock, QrCode,
-  RefreshCw, ShieldCheck, Smartphone, XCircle } from 'lucide-react';
+  RefreshCw, ShieldCheck, Smartphone, Sparkles, XCircle } from 'lucide-react';
 import {
   Button, LinkButton, Card, SectionCard, PageHeader, Callout, ChoiceCard,
   KeyValue, Spinner, EmptyState, cx } from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
 import { useToast } from '../../../components/phase1/Toast';
-import { useDemo, preferredName } from '../../../lib/phase1/DemoContext';
+import { useDemo } from '../../../lib/phase1/DemoContext';
 import { PLANS } from '../../../lib/phase1/data';
+import { creditPackByCode, namesIn } from '../../../lib/phase1/credits';
 import { formatSgd, isSettled, usePayment, usePaymentStatus, type PublicIntent } from '../../../lib/payments/client';
 import type { ProviderId } from '../../../lib/payments/types';
 
@@ -78,17 +87,33 @@ function Countdown({ expiresAt }: { expiresAt: number }) {
   );
 }
 
-export default function PaymentPage() {
+function PaymentScreen() {
   const router = useRouter();
+  const params = useSearchParams();
   const { state, set, demo } = useDemo();
   const { push } = useToast();
 
   const plan = state.plan ?? PLANS[1];
 
+  /**
+   * What is being bought.
+   *
+   * A pack code in the address means credit; anything else means the plan the
+   * account is on. Only the code travels — the price is looked up again on the
+   * server, from the same catalogue, and the number shown here is checked
+   * against the one the intent comes back with.
+   */
+  const buying = params.get('buy') ?? '';
+  /* Memoised so the callbacks below depend on one stable object rather than on
+     three values derived from it, which is also what lets the compiler keep
+     their memoisation. */
+  const pack = useMemo(() => creditPackByCode(buying), [buying]);
+  const buyingCredit = pack !== null;
+  const priceCents = pack ? pack.priceCents : Math.round(plan.priceYearSgd * 100);
+
   // Razorpay caps PayNow at S$2,000 per customer per day. Hide the option on a
   // plan above that rather than let the agent hit the ceiling at the bank.
-  const planCents = Math.round(plan.priceYearSgd * 100);
-  const paynowAllowed = planCents <= 200_000;
+  const paynowAllowed = priceCents <= 200_000;
 
   const [method, setMethod] = useState<ProviderId>(paynowAllowed ? 'paynow' : 'razorpay');
   const { intent, setIntent, start, reset, starting, error } = usePayment();
@@ -115,37 +140,53 @@ export default function PaymentPage() {
     (settledIntent: PublicIntent) => {
       setIntent(settledIntent);
       if (settledIntent.status === 'paid') {
-        set({ subscription: 'active', paymentMethod: settledIntent.provider === 'paynow' ? 'PayNow' : 'Card' });
-        push({ tone: 'success', title: 'Payment confirmed', body: `${plan.name} plan is active.` });
+        /* Credit is added by the server on the verified webhook, so there is
+           nothing to switch on here — the balance is already higher than this
+           page knows. A plan is the one that changes the account on screen. */
+        if (!pack) {
+          set({ subscription: 'active', paymentMethod: settledIntent.provider === 'paynow' ? 'PayNow' : 'Card' });
+        }
+        push({
+          tone: 'success',
+          title: 'Payment confirmed',
+          body: pack ? `${pack.name} added to your balance.` : `${plan.name} plan is active.`,
+        });
       } else if (settledIntent.status === 'expired') {
         push({ tone: 'warn', title: 'The QR expired', body: 'Start a new payment to get a fresh code.' });
       } else if (settledIntent.status === 'failed') {
         push({ tone: 'error', title: 'Payment failed', body: settledIntent.failureReason ?? 'The provider declined it.' });
       }
     },
-    [plan.name, push, set, setIntent],
+    [pack, plan.name, push, set, setIntent],
   );
 
   const pollRef = intent && !isSettled(intent.status) ? intent.ref : null;
   const { polling } = usePaymentStatus(pollRef, onSettled);
 
   const begin = useCallback(async () => {
-    // The demo account has nothing to pay for: no payment is created, the plan is shown as active on screen only.
+    /* Demo data is somebody else's portfolio shown on this account's screen.
+       Nothing is charged and no provider is called: the result is drawn so the
+       flow can be walked through, and said to be drawn. */
     if (demo) {
-      set({ subscription: 'active', paymentMethod: method === 'paynow' ? 'PayNow' : 'Card' });
-      push({ tone: 'info', title: 'Shown with demo data', body: 'No payment was taken. Turn Demo data off to pay for your own plan.' });
+      if (pack) {
+        /* The balance is the account's own and is not part of the demo
+           portfolio, so there is nothing here to move. Saying so is better
+           than showing a number that would be gone on the next screen. */
+        push({
+          tone: 'info',
+          title: 'Demo payment — nothing was charged',
+          body: 'Reveal credit is bought on your own account. Turn Demo data off to buy it.',
+        });
+      } else {
+        set({ subscription: 'active', paymentMethod: method === 'paynow' ? 'PayNow' : 'Card' });
+        push({ tone: 'info', title: 'Demo payment — nothing was charged', body: 'Turn Demo data off to pay for your own plan.' });
+      }
       return;
     }
-    const created = await start({
-      provider: method,
-      planCode: plan.code,
-      agentId: state.profile.ceaNumber || 'demo-agent',
-      agentEmail: state.profile.email,
-      agentName: preferredName(state.profile.fullName),
-    });
+    const created = await start({ provider: method, planCode: pack ? pack.code : plan.code });
     // A hosted provider hands back a URL. PayNow hands back a QR and stays here.
     if (created?.redirectUrl) window.location.href = created.redirectUrl;
-  }, [demo, method, plan.code, push, set, start, state.profile]);
+  }, [demo, method, pack, plan.code, push, set, start]);
 
   const feeLine = useMemo(() => METHODS.find((m) => m.id === method)?.costLine ?? '', [method]);
 
@@ -156,9 +197,13 @@ export default function PaymentPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Subscription"
-        title="Pay for your plan"
-        description="Choose how you would like to pay. Your price is the same on every method — the difference is what it costs V-RENT to collect."
+        eyebrow={buyingCredit ? 'Reveal credit' : 'Subscription'}
+        title={pack ? `Buy ${pack.name}` : 'Pay for your plan'}
+        description={
+          pack
+            ? `${formatSgd(pack.priceCents)} for ${namesIn(pack)} names behind the agents who have opened your listings. Credit does not expire, and a name you have already revealed is never charged again.`
+            : 'Choose how you would like to pay. Your price is the same on every method — the difference is what it costs V-RENT to collect.'
+        }
       />
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -183,7 +228,7 @@ export default function PaymentPage() {
                       description={
                         <>
                           {blocked
-                            ? 'PayNow allows S$2,000 per person per day, less than this plan costs.'
+                            ? 'PayNow allows S$2,000 per person per day, less than this costs.'
                             : m.description}
                           <span className="mt-1 block text-p1-text-3">{m.costLine}</span>
                         </>
@@ -208,7 +253,7 @@ export default function PaymentPage() {
                 leftIcon={starting ? <Spinner size={16} /> : <Lock size={16} />}
                 onClick={begin}
               >
-                {starting ? 'Opening secure checkout…' : `Pay ${formatSgd(Math.round(plan.priceYearSgd * 100))}`}
+                {starting ? 'Opening secure checkout…' : `Pay ${formatSgd(priceCents)}`}
               </Button>
               <p className="mt-3 text-center text-[13px] text-p1-text-3">
                 Processing cost to V-RENT on this method: {feeLine}.
@@ -244,8 +289,8 @@ export default function PaymentPage() {
                     {polling ? 'Waiting for your bank to confirm the transfer…' : 'Checking…'}
                   </div>
                   <p className="mt-3 text-[13px] leading-5 text-p1-text-3">
-                    Keep this page open. Your subscription switches on by itself the moment the credit
-                    reaches V-RENT&apos;s account — usually within a few seconds.
+                    Keep this page open. {buyingCredit ? 'Your balance goes up' : 'Your subscription switches on'} by
+                    itself the moment the transfer reaches V-RENT&apos;s account — usually within a few seconds.
                   </p>
                   <Button className="mt-4" variant="outline" size="sm" onClick={reset}>
                     Cancel and choose another method
@@ -295,19 +340,36 @@ export default function PaymentPage() {
                 >
                   <CheckCircle2 size={32} />
                 </span>
-                <h2 className="text-[22px] font-semibold text-p1-text">Your subscription is active</h2>
+                <h2 className="text-[22px] font-semibold text-p1-text">
+                  {pack ? 'Credit added' : 'Your subscription is active'}
+                </h2>
                 <p className="mx-auto mt-2 max-w-md text-[14px] leading-6 text-p1-text-2">
-                  {plan.name} plan, {formatSgd(intent.totalCents)} paid by {intent.provider === 'paynow' ? 'PayNow' : 'card'}.
-                  A receipt is on its way to {state.profile.email}.
+                  {pack
+                    ? `${namesIn(pack)} names, ${formatSgd(intent.totalCents)} paid by ${intent.provider === 'paynow' ? 'PayNow' : 'card'}.`
+                    : `${plan.name} plan, ${formatSgd(intent.totalCents)} paid by ${intent.provider === 'paynow' ? 'PayNow' : 'card'}.`}
+                  {' '}A receipt is on its way to {state.profile.email}.
                 </p>
                 <p className="mt-2 text-[13px] text-p1-text-3">Reference {intent.ref}</p>
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
-                  <Button variant="primary" size="lg" onClick={() => router.push('/phase1/dashboard')}>
-                    Go to dashboard
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={() => router.push('/phase1/listings/new')}>
-                    Create a listing
-                  </Button>
+                  {pack ? (
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      leftIcon={<Sparkles size={16} />}
+                      onClick={() => { router.push('/phase1/listings'); router.refresh(); }}
+                    >
+                      Reveal who has been looking
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="primary" size="lg" onClick={() => router.push('/phase1/dashboard')}>
+                        Go to dashboard
+                      </Button>
+                      <Button variant="outline" size="lg" onClick={() => router.push('/phase1/listings/new')}>
+                        Create a listing
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </Card>
@@ -337,10 +399,12 @@ export default function PaymentPage() {
           <SectionCard title="Order summary">
             <KeyValue
               rows={[
-                { k: `${plan.name} plan`, v: '12 months' },
+                pack
+                  ? { k: 'Reveal credit', v: `${namesIn(pack)} names` }
+                  : { k: `${plan.name} plan`, v: '12 months' },
                 {
-                  k: intent ? 'Before GST' : 'Plan price',
-                  v: formatSgd(intent ? intent.subtotalCents : Math.round(plan.priceYearSgd * 100)),
+                  k: intent ? 'Before GST' : 'Price',
+                  v: formatSgd(intent ? intent.subtotalCents : priceCents),
                 },
                 {
                   k: intent?.tax.label ?? 'GST',
@@ -351,7 +415,7 @@ export default function PaymentPage() {
             <div className="mt-3 flex items-baseline justify-between border-t border-p1-border pt-3">
               <span className="text-[15px] font-semibold text-p1-text">Total</span>
               <span className="text-[22px] font-semibold tabular-nums text-p1-text">
-                {formatSgd(intent ? intent.totalCents : Math.round(plan.priceYearSgd * 100))}
+                {formatSgd(intent ? intent.totalCents : priceCents)}
               </span>
             </div>
             <p className="mt-3 flex items-start gap-2 text-[13px] text-p1-text-3">
@@ -366,9 +430,16 @@ export default function PaymentPage() {
             </Callout>
           )}
 
-          <Callout tone="info" title="Renews in 12 months" icon={<Building2 size={18} />}>
-            You will be reminded by email 30 days before renewal and can cancel at any time.
-          </Callout>
+          {buyingCredit ? (
+            <Callout tone="info" title="Bought once, not a subscription" icon={<Sparkles size={18} />}>
+              Credit sits on your account until it is spent. Nothing renews, and a name you have already revealed is
+              never charged for twice.
+            </Callout>
+          ) : (
+            <Callout tone="info" title="Renews in 12 months" icon={<Building2 size={18} />}>
+              You will be reminded by email 30 days before renewal and can cancel at any time.
+            </Callout>
+          )}
 
           <div
             className={cx(
@@ -382,5 +453,18 @@ export default function PaymentPage() {
       </div>
 
     </>
+  );
+}
+
+/**
+ * `useSearchParams` needs a boundary to suspend against while the address is
+ * read, which is also the right place to say nothing rather than flash a
+ * half-built form.
+ */
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-24"><Spinner size={20} /></div>}>
+      <PaymentScreen />
+    </Suspense>
   );
 }

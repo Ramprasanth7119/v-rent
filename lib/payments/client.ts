@@ -45,12 +45,16 @@ function newIdempotencyKey() {
   return `k_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * What the browser gets to decide: the rail, and which item.
+ *
+ * No identity. Who is paying is read from the session cookie on the server —
+ * see the intents route — so there is nothing here for a tampered request to
+ * name.
+ */
 export interface StartPaymentArgs {
   provider: ProviderId;
   planCode: string;
-  agentId: string;
-  agentEmail: string;
-  agentName: string;
 }
 
 export function usePayment() {

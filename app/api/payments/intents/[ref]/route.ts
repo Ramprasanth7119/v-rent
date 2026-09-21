@@ -8,10 +8,17 @@
  *
  * The response carries a Retry-After hint; the client backs off on it rather
  * than polling at a fixed rate.
+ *
+ * It is also where a paid-but-not-yet-handed-over purchase is settled. The
+ * webhook grants what was bought, but a process that dies between accepting the
+ * event and writing the balance would otherwise leave the agent paid up and
+ * empty-handed. `fulfil` is keyed on the payment reference, so calling it here
+ * costs one read when there is nothing to do and repairs that gap when there
+ * is — on the screen the agent is still watching.
  */
 
 import { NextResponse } from 'next/server';
-import { readIntent, toPublicIntent } from '../../../../../lib/payments/service';
+import { fulfil, readIntent, toPublicIntent } from '../../../../../lib/payments/service';
 import { TERMINAL } from '../../../../../lib/payments/types';
 import { logged } from '../../../../../lib/phase1/reqlog';
 
@@ -28,6 +35,8 @@ async function GET_handler(_req: Request, ctx: { params: Promise<{ ref: string }
       { status: 404, headers: { 'cache-control': 'no-store' } },
     );
   }
+
+  if (intent.status === 'paid') await fulfil(intent);
 
   const settled = TERMINAL.includes(intent.status);
   return NextResponse.json(

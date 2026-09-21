@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import {
   Button, Card, SectionCard, PageHeader, Callout, MetricStrip, Metric,
-  EmptyState, TextInput, SelectInput, LinkButton, IconButton, cx,
+  EmptyState, TextInput, SelectInput, LinkButton, IconButton, PhoneNumberInput, cx,
 } from '../../../components/phase1/kit';
 import { Pill } from '../../../components/phase1/status';
 import { ConfirmDialog, Dialog } from '../../../components/phase1/overlays';
@@ -26,7 +26,7 @@ import { useDemo, TODAY, TODAY_ISO } from '../../../lib/phase1/DemoContext';
 import { districtName } from '../../../lib/phase1/performance';
 import { toolsId, type ViewingSlot } from '../../../lib/phase1/tools';
 import { sgWeekday } from '../../../lib/phase1/format';
-import { SG_MOBILE_DISPLAY, normaliseSgMobile, sgMobileProblem } from '../../../lib/phase1/mobile';
+import { sgMobileProblem } from '../../../lib/phase1/mobile';
 
 const START_TIMES = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 
@@ -302,16 +302,11 @@ export default function ViewingsPage() {
             save this.
           </p>
           <TextInput label="Tenant name" value={name} onChange={(e) => setName(e.target.value)} data-autofocus placeholder="Who is coming" />
-          <TextInput
+          <PhoneNumberInput
             label="Mobile"
             value={mobile}
-            onChange={(e) => setMobile(e.target.value)}
-            /* Tidied on leaving the field rather than as it is typed, which
-               would fight the agent mid-number. */
-            onBlur={(e) => { const tidy = normaliseSgMobile(e.target.value); if (tidy) setMobile(tidy); }}
+            onChange={setMobile}
             error={mobile.trim() ? sgMobileProblem(mobile) ?? undefined : undefined}
-            placeholder={SG_MOBILE_DISPLAY}
-            inputMode="tel"
           />
         </div>
       </Dialog>
