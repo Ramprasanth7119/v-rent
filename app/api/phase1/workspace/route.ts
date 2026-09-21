@@ -39,6 +39,24 @@ function forBrowser(w: WorkspaceState): WorkspaceState {
   return { ...w, views: [], reveals: [] };
 }
 
+/**
+ * The fields an agent's own browser may not set.
+ *
+ * `approval` is the verification officer's decision and `ceaValid` is what the
+ * CEA register says; between them they decide whether this account may publish
+ * at all. Both are written by the operations console
+ * (`/api/phase1/admin/verification`) into the same workspace record this route
+ * patches — so while this route accepted them, `PATCH {"approval":"approved"}`
+ * with nothing but a valid agent session took an account straight past the
+ * queue, and nothing on a later read put it back: the one correction that
+ * exists only fires on a workspace still sitting at `not_submitted`.
+ *
+ * Refused here rather than filtered out of `sanitisePatch`, because this route
+ * is where an agent's own authority ends; the console writes the same shape
+ * through its own route and must keep being allowed to.
+ */
+const OFFICER_OWNED = ['approval', 'ceaValid', 'ceaValidUntil'] as const;
+
 async function GET_handler() {
   const user = await currentUser();
   if (!user) return unauthorised();
@@ -65,6 +83,14 @@ async function PATCH_handler(req: Request) {
   }
 
   const patch = sanitisePatch(body);
+  const refused = OFFICER_OWNED.filter((k) => k in patch);
+  for (const key of refused) delete patch[key];
+  if (refused.length > 0 && Object.keys(patch).length === 0) {
+    return NextResponse.json(
+      { error: 'Verification is decided by a verification officer, not from this account.', code: 'forbidden_field' },
+      { status: 403 },
+    );
+  }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Nothing to change.', code: 'empty_patch' }, { status: 400 });
   }

@@ -8,9 +8,47 @@
  */
 
 import { createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { sanitisePatch } from '../lib/phase1/workspace';
 import { decide } from '../lib/phase1/verification-policy';
+
+/**
+ * Who may write the verification fields.
+ *
+ * `sanitisePatch` is shared: the operations console writes `approval` through
+ * it too, so it has to keep accepting the field. The line is drawn at the
+ * route instead — an agent's own session may not set the officer's decision,
+ * nor what the CEA register says about their registration. It used to be able
+ * to, and `PATCH {"approval":"approved"}` with nothing but a valid agent
+ * cookie walked an account past the queue for good: the one reconciliation
+ * that could have put it back only fires on a workspace still at
+ * `not_submitted`.
+ */
+describe('the agent workspace route', () => {
+  const route = readFileSync(join(__dirname, '../app/api/phase1/workspace/route.ts'), 'utf8');
+
+  it('names the fields an agent may not set', () => {
+    const list = route.match(/const OFFICER_OWNED = \[([^\]]*)\]/);
+    expect(list, 'OFFICER_OWNED is gone from the route').not.toBeNull();
+    for (const field of ['approval', 'ceaValid', 'ceaValidUntil']) {
+      expect(list![1], field).toContain(`'${field}'`);
+    }
+  });
+
+  it('strips them from the patch rather than only refusing the request', () => {
+    // A patch carrying one allowed field and one refused field still applies
+    // the allowed one, so the refusal cannot be dodged by bundling.
+    expect(route).toMatch(/for \(const key of refused\) delete patch\[key\]/);
+    expect(route).toMatch(/status: 403/);
+  });
+
+  it('leaves the operations console able to record the decision', () => {
+    const console_ = readFileSync(join(__dirname, '../app/api/phase1/admin/verification/route.ts'), 'utf8');
+    expect(console_).toMatch(/approval:/);
+  });
+});
 
 describe('workspace sanitising', () => {
   it('keeps only the fields a workspace has', () => {

@@ -7,10 +7,18 @@
  * done and when, what is happening now and what to expect, and — if something
  * failed — why. Times are the ones the platform recorded; a step with no
  * recorded time says what to expect instead of showing a date nobody wrote.
+ *
+ * This page reports the officer's decision; it does not offer to make it. It
+ * used to carry a "Prototype controls" panel whose buttons wrote `approval`
+ * and `ceaValid` straight into the account's own workspace — the same two
+ * fields the operations console writes — so an account could approve itself
+ * and clear its own lapsed registration. The workspace route now refuses both
+ * from an agent session, and the approval itself is walked through in the
+ * console at /phase1/admin/verification, which is where it belongs.
  */
 
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ChevronDown, FlaskConical } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button, Card, Timeline, type TimelineItem, type TimelineState } from '../../../components/phase1/kit';
 import { StatusBadge } from '../../../components/phase1/status';
 import { useDemo } from '../../../lib/phase1/DemoContext';
@@ -19,7 +27,7 @@ import { sgDate, sgDateTime } from '../../../lib/phase1/format';
 
 export default function StatusPage() {
   const router = useRouter();
-  const { state, set } = useDemo();
+  const { state } = useDemo();
   const { user } = useSession();
   const a = state.approval;
 
@@ -126,22 +134,6 @@ export default function StatusPage() {
         <Timeline items={items} />
       </Card>
 
-      {(a === 'under_review' || a === 'approved') && (
-        <details className="group mt-8 border-t border-dashed border-p1-border pt-3">
-          <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md py-1 text-[12.5px] font-medium text-p1-text-3 hover:text-p1-text">
-            <FlaskConical size={13} aria-hidden /> Prototype controls
-            <ChevronDown size={13} className="transition-transform duration-200 group-open:rotate-180" aria-hidden />
-          </summary>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {a === 'under_review' && (
-              <Button size="sm" variant="outline" onClick={() => set({ approval: 'approved' })}>Simulate officer approval</Button>
-            )}
-            <Button size="sm" variant="outline" onClick={() => set({ ceaValid: !state.ceaValid })}>
-              {state.ceaValid ? 'Simulate registration lapsing' : 'Restore valid registration'}
-            </Button>
-          </div>
-        </details>
-      )}
     </div>
   );
 }
