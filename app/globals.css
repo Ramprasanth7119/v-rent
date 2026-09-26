@@ -207,6 +207,86 @@ body {
 }
 
 /* ============================================================
+   V-RENT — sign-in and account screens (`.p1-auth`)
+   Entrance, step changes, a drawn check on success, one short
+   shake on a refused submit. Nothing here loops.
+   ============================================================ */
+
+@keyframes p1-auth-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes p1-auth-fwd {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes p1-auth-back {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes p1-auth-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+@keyframes p1-auth-draw {
+  from { stroke-dashoffset: 24; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes p1-auth-swap {
+  from { opacity: 0; transform: scale(.6) rotate(-25deg); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes p1-auth-pop {
+  0%   { opacity: 0; transform: scale(.5); }
+  70%  { transform: scale(1.12); }
+  100% { opacity: 1; transform: none; }
+}
+
+.p1-auth .p1-auth-in { animation: p1-auth-in .5s var(--p1-ease) backwards; }
+.p1-auth .p1-auth-stagger > * { animation: p1-auth-in .46s var(--p1-ease) backwards; }
+.p1-auth .p1-auth-stagger > *:nth-child(1) { animation-delay: .04s; }
+.p1-auth .p1-auth-stagger > *:nth-child(2) { animation-delay: .09s; }
+.p1-auth .p1-auth-stagger > *:nth-child(3) { animation-delay: .14s; }
+.p1-auth .p1-auth-stagger > *:nth-child(4) { animation-delay: .19s; }
+.p1-auth .p1-auth-stagger > *:nth-child(n+5) { animation-delay: .24s; }
+.p1-auth .p1-auth-step[data-dir='fwd']  { animation: p1-auth-fwd .3s var(--p1-ease) backwards; }
+.p1-auth .p1-auth-step[data-dir='back'] { animation: p1-auth-back .3s var(--p1-ease) backwards; }
+.p1-auth .p1-auth-shake { animation: p1-auth-shake .36s var(--p1-ease-in-out); }
+.p1-auth .p1-auth-pop   { animation: p1-auth-pop .34s var(--p1-ease) backwards; }
+.p1-auth .p1-auth-check { stroke-dasharray: 24; animation: p1-auth-draw .38s .06s var(--p1-ease) backwards; }
+
+/* The label follows the field it names, so focus reads from the top of the field. */
+.p1-auth .p1-auth-field label { transition: color var(--p1-fast) ease; }
+.p1-auth .p1-auth-field:focus-within label { color: var(--p1-primary); }
+
+/* The reveal icon turns over rather than blinking between two glyphs. */
+.p1-auth button[aria-pressed] > svg { animation: p1-auth-swap .22s var(--p1-ease); }
+
+/* The arrow on a primary action leans toward where it goes. */
+.p1-auth .p1-auth-cta svg { transition: transform var(--p1-fast) var(--p1-ease); }
+.p1-auth .p1-auth-cta:not(:disabled):hover > span:last-child svg { transform: translateX(3px); }
+
+/* 16px below `sm` so iOS does not zoom the page into a field on focus, and a
+   margin so a field brought into view clears the keyboard's accessory bar. */
+.p1-auth .p1-field { font-size: 16px; scroll-margin-block: 96px; }
+@media (min-width: 640px) { .p1-auth .p1-field { font-size: 14.5px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .p1-auth .p1-auth-in, .p1-auth .p1-auth-stagger > *, .p1-auth .p1-auth-step,
+  .p1-auth .p1-auth-shake, .p1-auth .p1-auth-pop, .p1-auth .p1-auth-check,
+  .p1-auth button[aria-pressed] > svg {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .p1-auth .p1-auth-cta svg { transition: none; }
+}
+
+/* ============================================================
    V-RENT — design tokens
    Scoped to the `.p1` root so nothing here leaks into the older
    consumer application in this repository. Light values first;
